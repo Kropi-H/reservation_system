@@ -3,16 +3,17 @@ from PySide6.QtCore import QDate
 from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
+from controllers.data import ordinace, doktori
 
-ORDINACE = ["Ordinace 1", "Ordinace 2", "Ordinace 3"]
+# ORDINACE = ["Ordinace 1", "Ordinace 2", "Ordinace 3"]
 
 class HlavniOkno(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Veterinární rezervační systém")
         layout = QVBoxLayout()
-        self.setMinimumWidth(800)
-        self.setMinimumHeight(600)
+        self.setMinimumWidth(1300)
+        self.setMinimumHeight(900)
 
         # Výběr dne
         radek = QHBoxLayout()
@@ -40,13 +41,13 @@ class HlavniOkno(QWidget):
         self.tab_widget = QTabWidget()
         self.tabulky = {}  # mistnost -> QTableWidget
 
-        for mistnost in ORDINACE:
+        for mistnost in ordinace:
             tabulka = QTableWidget()
-            tabulka.setColumnCount(2)
-            tabulka.setHorizontalHeaderLabels(["Čas", "Rezervace"])
-            tabulka.setColumnWidth(1, 500)
-            self.tab_widget.addTab(tabulka, mistnost)
-            self.tabulky[mistnost] = tabulka
+            tabulka.setColumnCount(5)
+            tabulka.setHorizontalHeaderLabels(["Čas", "Doktor", "Pacient", "Majitel", "Poznámka"])
+            # tabulka.setColumnWidth(1, 500)
+            self.tab_widget.addTab(tabulka, mistnost['nazev'])
+            self.tabulky[mistnost["nazev"]] = tabulka
 
         layout.addWidget(self.tab_widget)
         self.setLayout(layout)
@@ -71,7 +72,7 @@ class HlavniOkno(QWidget):
             tabulka.setRowCount(0)
 
         # Zmapuj rezervace podle ordinace a času
-        mapovane = {mistnost: {} for mistnost in ORDINACE}
+        mapovane = {i["nazev"]: {} for i in ordinace}
         for r in rezervace:
             cas_dt = datetime.strptime(r[3], "%Y-%m-%d %H:%M")
             cas_str = cas_dt.strftime("%H:%M")
@@ -80,7 +81,7 @@ class HlavniOkno(QWidget):
                 mapovane[mistnost][cas_str] = f"{r[1]} / {r[2]}"
 
         start = datetime.combine(datum, datetime.strptime("08:00", "%H:%M").time())
-        end = datetime.combine(datum, datetime.strptime("18:00", "%H:%M").time())
+        end = datetime.combine(datum, datetime.strptime("20:00", "%H:%M").time())
         slot = timedelta(minutes=30)
 
         for mistnost, tabulka in self.tabulky.items():
