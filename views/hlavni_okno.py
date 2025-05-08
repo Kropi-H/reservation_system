@@ -11,6 +11,8 @@ class HlavniOkno(QWidget):
         super().__init__()
         self.setWindowTitle("Veterinární rezervační systém")
         layout = QVBoxLayout()
+        self.setMinimumWidth(800)
+        self.setMinimumHeight(600)
 
         # Výběr dne
         radek = QHBoxLayout()
@@ -42,6 +44,7 @@ class HlavniOkno(QWidget):
             tabulka = QTableWidget()
             tabulka.setColumnCount(2)
             tabulka.setHorizontalHeaderLabels(["Čas", "Rezervace"])
+            tabulka.setColumnWidth(1, 500)
             self.tab_widget.addTab(tabulka, mistnost)
             self.tabulky[mistnost] = tabulka
 
