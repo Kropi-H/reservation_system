@@ -18,6 +18,7 @@ def inicializuj_databazi():
             doktor_id     INTEGER PRIMARY KEY AUTOINCREMENT,
             jmeno         TEXT    NOT NULL,
             prijmeni      TEXT    NOT NULL,
+            isActive      INTEGER,
             specializace  TEXT
         );
         ''')
@@ -64,11 +65,11 @@ def inicializuj_databazi():
 
 # --- Pomocné CRUD funkce ---
 
-def pridej_doktora(jmeno: str, prijmeni: str, specializace: str = None):
+def pridej_doktora(jmeno: str, prijmeni: str, specializace: str = None, isActive: int = 1):
     with get_connection() as conn:
         conn.execute(
-            "INSERT INTO Doktori (jmeno, prijmeni, specializace) VALUES (?, ?, ?)",
-            (jmeno, prijmeni, specializace)
+            "INSERT INTO Doktori (jmeno, prijmeni, specializace, isActive) VALUES (?, ?, ?, ?)",
+            (jmeno, prijmeni, specializace, isActive)
         )
         conn.commit()
 
@@ -91,7 +92,7 @@ def pridej_pacienta(jmeno_zvirete: str, druh: str,
         conn.commit()
 
 def pridej_rezervaci(pacient_id: int, doktor_id: int, ordinace_id: int,
-                     termin: str, poznamka: str = None):
+  termin: str, poznamka: str = None):
     """
     termin: řetězec ve formátu 'YYYY-MM-DD HH:MM:SS'
     """
@@ -122,9 +123,10 @@ def seznam_rezervaci():
         ORDER BY r.termin;
         ''')
         return cur.fetchall()
+  
 
 # --- Příklad použití ---
-
+"""
 if __name__ == "__main__":
     inicializuj_databazi()
 
@@ -143,3 +145,4 @@ if __name__ == "__main__":
     # Vypsání všech rezervací
     for rez in seznam_rezervaci():
         print(rez)
+"""
