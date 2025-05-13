@@ -13,7 +13,8 @@ def inicializuj_databazi():
             jmeno         TEXT    NOT NULL,
             prijmeni      TEXT    NOT NULL,
             specializace  TEXT,
-            isActive      INTEGER
+            isActive      INTEGER,
+            color         TEXT
         );
         ''')
 
@@ -34,7 +35,8 @@ def inicializuj_databazi():
             jmeno_zvirete   TEXT    NOT NULL,
             druh            TEXT    NOT NULL,
             majitel_jmeno   TEXT,
-            majitel_telefon TEXT
+            majitel_telefon TEXT,
+            poznamka       TEXT
         );
         ''')
 
@@ -46,7 +48,6 @@ def inicializuj_databazi():
             doktor_id      INTEGER    NOT NULL,
             ordinace_id    INTEGER    NOT NULL,
             termin         DATETIME   NOT NULL,
-            poznamka       TEXT,
             FOREIGN KEY(pacient_id) REFERENCES Pacienti(pacient_id)
                 ON DELETE CASCADE,
             FOREIGN KEY(doktor_id)  REFERENCES Doktori(doktor_id)

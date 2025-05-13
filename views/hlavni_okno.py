@@ -1,10 +1,13 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QTextEdit, QDateEdit, QHBoxLayout, QTabWidget, QTableWidget, QTableWidgetItem
 from PySide6.QtCore import QDate
+from PySide6.QtGui import QColor
 from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
 from models.databaze import get_ordinace
 from views.formular_rezervace import FormularRezervace
+from controllers.data import table_grey_strip
+
 
 def get_ordinace_list():
         ordinace = get_ordinace()
@@ -49,11 +52,51 @@ class HlavniOkno(QWidget):
         for mistnost in ordinace:
             tabulka = QTableWidget()
             tabulka.setColumnCount(6)
-            tabulka.setHorizontalHeaderLabels(["Čas", "Objednán na:", "Doktor", "Pacient", "Majitel", "Poznámka"])
-            # tabulka.setColumnWidth(1, 500)
-            self.tab_widget.addTab(tabulka, mistnost)
+            tabulka.setHorizontalHeaderLabels(["ČAS", "ČAS OBJ.:", "DOKTOR", "PACIENT", "POZNÁMKA", "MAJITEL"])
+            tabulka.setColumnWidth(0, 50) # Čas
+            tabulka.setColumnWidth(1, 70) # Objednán na
+            tabulka.setColumnWidth(2, 200) # Doktor
+            tabulka.setColumnWidth(3, 200) # Pacient
+            tabulka.setColumnWidth(4, 300) # Poznámka
+            tabulka.setColumnWidth(5, 200) # Majitel 
+
+            # Skrytí sloupce s čísly řádků
+            tabulka.verticalHeader().setVisible(False)
+            
+            # Nastavení stylu pro záhlaví
+            tabulka.horizontalHeader().setStyleSheet("""
+              QHeaderView::section {
+                  background-color: #9ee0fc;
+                  color: #d8d8d8;
+                  font-style: uppercase;
+                  font-weight: bold;
+                  font-size: 14px;
+                  color: black;
+              }
+            """)
+
+            self.tab_widget.addTab(tabulka, mistnost.upper())
             self.tabulky[mistnost] = tabulka
 
+
+        # Nastavení stylu pro celý QTabBar
+        self.tab_widget.tabBar().setStyleSheet("""
+            QTabBar::tab {
+                font-weight: bold;
+                font-size: 14px;
+                padding: 2px 5px;
+                border: 1px solid  #d8d8d8;
+                color: white;
+            }
+            QTabBar::tab:selected {
+                background-color: #054e90;  /* Barva vybrané záložky */
+            }
+            QTabBar::tab:!selected {
+                color: black;
+                background-color: white;  /* Barva nevybraných záložek */
+            }
+        """)    
+    
         layout.addWidget(self.tab_widget)
         self.setLayout(layout)
         self.nacti_rezervace()
@@ -82,13 +125,16 @@ class HlavniOkno(QWidget):
           cas = datetime.strptime(r[0], "%Y-%m-%d %H:%M")
           #print("Načtený čas:", cas)
           doktor = r[1]
-          pacient = r[2]
-          majitel = r[3]
-          mistnost = r[4]
-          poznamka = r[5]
+          doktor_color = r[2]
+          pacient = r[3]
+          majitel = r[4]
+          kontakt = r[5]
+          druh = r[6]
+          mistnost = r[7]
+          poznamka = r[8]
 
           if mistnost in mapovane:
-              mapovane[mistnost].append((cas, doktor, pacient, majitel, poznamka))
+              mapovane[mistnost].append((cas, doktor, doktor_color, pacient, majitel, kontakt, druh, poznamka))
           #print("Mapované rezervace:", mapovane)
 
       # Vlož data do tabulek
@@ -108,28 +154,52 @@ class HlavniOkno(QWidget):
                   print(f"Porovnávám: {rez[0].strftime('%H:%M')} == {cas_str}")
               '''
               # Najdi odpovídající rezervaci pro aktuální čas
-              rezervace_pro_cas = next(
-                (rez for rez in mapovane[mistnost] if rez[0] >= cas and rez[0] < cas + slot),
-                None,
-              )
+              rezervace_pro_cas = [
+                rez for rez in mapovane[mistnost] if rez[0] >= cas and rez[0] < cas + slot
+              ]
 
               #print(f"Vkládám do tabulky {mistnost}: {rezervace_pro_cas}")
               # Vlož data do jednotlivých sloupců
-              tabulka.setItem(index, 0, QTableWidgetItem(cas_str))  # Čas
-              if rezervace_pro_cas:
-                  tabulka.setItem(index, 1, QTableWidgetItem(rezervace_pro_cas[0].strftime('%H:%M')))  # cas
-                  tabulka.setItem(index, 2, QTableWidgetItem(rezervace_pro_cas[1]))  # Doktor
-                  tabulka.setItem(index, 3, QTableWidgetItem(rezervace_pro_cas[2]))  # Pacient
-                  tabulka.setItem(index, 4, QTableWidgetItem(rezervace_pro_cas[3]))  # Majitel
-                  tabulka.setItem(index, 5, QTableWidgetItem(rezervace_pro_cas[4]))  # Poznámka
+              if rezervace_pro_cas:  # Čas
+                for rez in rezervace_pro_cas:
+                  tabulka.insertRow(index)
+                  tabulka.setItem(index, 0, QTableWidgetItem(cas_str))  # Čas
+                  tabulka.setItem(index, 1, QTableWidgetItem(rez[0].strftime("%H:%M")))  # Rezervační čas
+                  doktor_item = QTableWidgetItem(rez[1])  # Doktor
+                  tabulka.setItem(index, 2, doktor_item)
+                  #doktor_item.setBackground(QColor("#9ee0fc"))
+                  tabulka.setItem(index, 3, QTableWidgetItem(f"{rez[6]}: {rez[3]}"))  # Pacient
+                  tabulka.setItem(index, 4, QTableWidgetItem(rez[7]))  # Poznámka
+                  tabulka.setItem(index, 5, QTableWidgetItem(f"{rez[4]} {'kontakt: ' + rez[5] if rez[5] else ''}"))  # Majitel
+                  
+                  # Nastavení světle šedého pozadí pro celý řádek
+                  if index % 2 == 0:  # Sudý řádek
+                      for col in range(6):  # Pro všechny sloupce
+                          item = tabulka.item(index, col)
+                          if item:  # Pokud buňka existuje
+                              item.setBackground(QColor(table_grey_strip))  # Světle šedé pozadí
+
+                  # Nastavení světle modrého pozadí pro buňku "DOKTOR", pokud obsahuje jméno
+                  if rez[1]:  # Pokud je jméno doktora vyplněné
+                      doktor_item.setBackground(QColor(rez[2].strip()))  # Pozadí doktora  
+                  
+                  index += 1
 
               else:
                   # Pokud není rezervace, ponech prázdné buňky
+                  tabulka.setItem(index, 0, QTableWidgetItem(cas_str))
                   tabulka.setItem(index, 1, QTableWidgetItem(""))
                   tabulka.setItem(index, 2, QTableWidgetItem(""))
                   tabulka.setItem(index, 3, QTableWidgetItem(""))
                   tabulka.setItem(index, 4, QTableWidgetItem(""))
+                  tabulka.setItem(index, 5, QTableWidgetItem(""))
 
+                  # Nastavení světle šedého pozadí pro každý druhý řádek
+                  if index % 2 == 0:  # Sudý řádek
+                    for col in range(6):  # Pro všechny sloupce
+                        tabulka.item(index, col).setBackground(QColor(table_grey_strip))
+                                                              
+                  index += 1
               cas += slot
-              index += 1
+              
       #print("Rezervace načtené z databáze:", rezervace)

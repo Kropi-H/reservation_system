@@ -35,14 +35,15 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
         pac_id = get_or_create(
             cur,
             table="Pacienti",
-            unique_cols=("jmeno_zvirete","druh","majitel_jmeno","majitel_telefon"),
+            unique_cols=("jmeno_zvirete","druh","majitel_jmeno","majitel_telefon", "poznamka"),
             data_cols={
                 "jmeno_zvirete": pacient_jmeno,
                 "druh":          pacient_druh,
                 "majitel_jmeno": majitel_pacienta,
                 # pokud máte příjmení majitele jako samostatné pole:
                 # "majitel_prijmeni": form_data["majitel_prijmeni"],
-                "majitel_telefon": majitel_kontakt
+                "majitel_telefon": majitel_kontakt,
+                "poznamka": note
             }
         )
 
@@ -58,10 +59,10 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
         cur.execute(
             """
             INSERT INTO Rezervace
-            (pacient_id, doktor_id, ordinace_id, termin, poznamka)
-            VALUES (?, ?, ?, ?, ?)
+            (pacient_id, doktor_id, ordinace_id, termin)
+            VALUES (?, ?, ?, ?)
             """,
-            (pac_id, doc_id, ord_id, cas, note)  # Předpokládáme, že `cas` a `note` jsou řetězce
+            (pac_id, doc_id, ord_id, cas)  # Předpokládáme, že `cas` je řetězce
         )
 
         # commit se provede automaticky at end of with-bloku
@@ -79,10 +80,13 @@ def ziskej_rezervace_dne(datum_str):
         SELECT 
             Rezervace.termin AS Cas,
             Doktori.jmeno || ' ' || Doktori.prijmeni AS Doktor,
+            Doktori.color AS Barva,
             Pacienti.jmeno_zvirete AS Pacient,
             Pacienti.majitel_jmeno AS Majitel,
+            Pacienti.majitel_telefon AS Kontakt,
+            Pacienti.druh AS Druh,
             Ordinace.nazev AS Ordinace,
-            Rezervace.poznamka AS Poznamka
+            Pacienti.poznamka AS Poznamka
         FROM Rezervace
         INNER JOIN Doktori ON Rezervace.doktor_id = Doktori.doktor_id
         INNER JOIN Pacienti ON Rezervace.pacient_id = Pacienti.pacient_id
