@@ -6,7 +6,7 @@ from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
 from models.databaze import get_ordinace
 from views.formular_rezervace import FormularRezervace
-from controllers.data import table_grey_strip
+from controllers.data import table_grey_strip, vaccination_color, pause_color
 
 
 def get_ordinace_list():
@@ -46,19 +46,19 @@ class HlavniOkno(QWidget):
         layout.addWidget(self.btn_nova)
 
         # Záložky pro jednotlivé ordinace
-        self.tab_widget = QTabWidget()
-        self.tabulky = {}  # mistnost -> QTableWidget
-
+        self.tabulky = {} # mistnost -> QTableWidget
+        self.ordinace_layout = QHBoxLayout()  
+        
         for mistnost in ordinace:
             tabulka = QTableWidget()
-            tabulka.setColumnCount(6)
-            tabulka.setHorizontalHeaderLabels(["ČAS", "ČAS OBJ.:", "DOKTOR", "PACIENT", "POZNÁMKA", "MAJITEL"])
+            tabulka.setColumnCount(2)
+            # tabulka.setHorizontalHeaderLabels(["ČAS", "MAJITELl"])
             tabulka.setColumnWidth(0, 50) # Čas
-            tabulka.setColumnWidth(1, 70) # Objednán na
-            tabulka.setColumnWidth(2, 200) # Doktor
-            tabulka.setColumnWidth(3, 200) # Pacient
-            tabulka.setColumnWidth(4, 300) # Poznámka
-            tabulka.setColumnWidth(5, 200) # Majitel 
+            # tabulka.setColumnWidth(1, 70) # Objednán na
+            # tabulka.setColumnWidth(2, 200) # Doktor
+            # tabulka.setColumnWidth(3, 200) # Pacient
+            # tabulka.setColumnWidth(4, 300) # Poznámka
+            tabulka.setColumnWidth(1, 200) # Majitel 
 
             # Skrytí sloupce s čísly řádků
             tabulka.verticalHeader().setVisible(False)
@@ -75,29 +75,10 @@ class HlavniOkno(QWidget):
               }
             """)
 
-            self.tab_widget.addTab(tabulka, mistnost.upper())
+            self.ordinace_layout.addWidget(tabulka)
             self.tabulky[mistnost] = tabulka
 
-
-        # Nastavení stylu pro celý QTabBar
-        self.tab_widget.tabBar().setStyleSheet("""
-            QTabBar::tab {
-                font-weight: bold;
-                font-size: 14px;
-                padding: 2px 5px;
-                border: 1px solid  #d8d8d8;
-                color: white;
-            }
-            QTabBar::tab:selected {
-                background-color: #054e90;  /* Barva vybrané záložky */
-            }
-            QTabBar::tab:!selected {
-                color: black;
-                background-color: white;  /* Barva nevybraných záložek */
-            }
-        """)    
-    
-        layout.addWidget(self.tab_widget)
+        layout.addLayout(self.ordinace_layout)
         self.setLayout(layout)
         self.nacti_rezervace()
 
@@ -123,7 +104,6 @@ class HlavniOkno(QWidget):
       mapovane = {i: [] for i in ordinace}
       for r in rezervace:
           cas = datetime.strptime(r[0], "%Y-%m-%d %H:%M")
-          #print("Načtený čas:", cas)
           doktor = r[1]
           doktor_color = r[2]
           pacient = r[3]
@@ -139,12 +119,46 @@ class HlavniOkno(QWidget):
 
       # Vlož data do tabulek
       for mistnost, tabulka in self.tabulky.items():
+          tabulka.setHorizontalHeaderLabels(["ČAS", f"{mistnost}"]) # Set the name of the columne (ordinace)
           index = 0
           cas = datetime.combine(datum, datetime.strptime("08:00", "%H:%M").time())
           end = datetime.combine(datum, datetime.strptime("20:00", "%H:%M").time())
-          slot = timedelta(minutes=20)
 
-          while cas < end:
+          while cas <= end:
+            # Nastav slot podle času
+              pause_time = False
+              #slot = timedelta(minutes=20)
+              if cas.time() >= datetime.strptime("09:00", "%H:%M").time() and cas.time() <= datetime.strptime("09:45", "%H:%M").time():
+                  slot = timedelta(minutes=15)
+                  vaccination_time = True
+              elif cas.time() >= datetime.strptime("12:00", "%H:%M").time() and cas.time() < datetime.strptime("12:30", "%H:%M").time():
+                slot = timedelta(minutes=30)
+                pause_time = True
+              elif cas.time() >= datetime.strptime("12:30", "%H:%M").time() and cas.time() < datetime.strptime("12:40", "%H:%M").time():
+                slot = timedelta(minutes=10)
+                
+              elif cas.time() == datetime.strptime("12:40", "%H:%M").time():
+                slot = timedelta(minutes=20)
+                cas = datetime.combine(datum, datetime.strptime("12:40", "%H:%M").time())
+                
+              elif cas.time() >= datetime.strptime("16:00", "%H:%M").time() and cas.time() <= datetime.strptime("16:30", "%H:%M").time():
+                  slot = timedelta(minutes=15)
+                  vaccination_time = True
+                  
+                  
+              elif cas.time() == datetime.strptime("16:45", "%H:%M").time():
+                slot = timedelta(minutes=35)
+                vaccination_time = False
+                pause_time = True
+                
+              elif cas.time() >= datetime.strptime("17:20", "%H:%M").time():
+                  slot = timedelta(minutes=20)
+                  vaccination_time = False  
+                
+              else:
+                  slot = timedelta(minutes=20)
+                  vaccination_time = False
+                  
               cas_str = cas.strftime("%H:%M")
               tabulka.insertRow(index)
 
@@ -162,26 +176,24 @@ class HlavniOkno(QWidget):
               # Vlož data do jednotlivých sloupců
               if rezervace_pro_cas:  # Čas
                 for rez in rezervace_pro_cas:
-                  tabulka.insertRow(index)
+                  # tabulka.insertRow(index)
                   tabulka.setItem(index, 0, QTableWidgetItem(cas_str))  # Čas
-                  tabulka.setItem(index, 1, QTableWidgetItem(rez[0].strftime("%H:%M")))  # Rezervační čas
-                  doktor_item = QTableWidgetItem(rez[1])  # Doktor
-                  tabulka.setItem(index, 2, doktor_item)
-                  #doktor_item.setBackground(QColor("#9ee0fc"))
-                  tabulka.setItem(index, 3, QTableWidgetItem(f"{rez[6]}: {rez[3]}"))  # Pacient
-                  tabulka.setItem(index, 4, QTableWidgetItem(rez[7]))  # Poznámka
-                  tabulka.setItem(index, 5, QTableWidgetItem(f"{rez[4]} {'kontakt: ' + rez[5] if rez[5] else ''}"))  # Majitel
+                  doktor_item = QTableWidgetItem(f"{rez[4]} {'kontakt: ' + rez[5] if rez[5] else ''}")  # Doktor
+                  tabulka.setItem(index, 1, doktor_item)
                   
                   # Nastavení světle šedého pozadí pro celý řádek
                   if index % 2 == 0:  # Sudý řádek
-                      for col in range(6):  # Pro všechny sloupce
+                      for col in range(2):  # Pro všechny sloupce
                           item = tabulka.item(index, col)
-                          if item:  # Pokud buňka existuje
+                          if item and vaccination_time == True:  # Pokud buňka existuje
+                              item.setBackground(QColor(vaccination_color))  # Vakcinační pozadí
+                          else:  # Lichý řádek
                               item.setBackground(QColor(table_grey_strip))  # Světle šedé pozadí
 
                   # Nastavení světle modrého pozadí pro buňku "DOKTOR", pokud obsahuje jméno
                   if rez[1]:  # Pokud je jméno doktora vyplněné
                       doktor_item.setBackground(QColor(rez[2].strip()))  # Pozadí doktora  
+                  
                   
                   index += 1
 
@@ -189,17 +201,25 @@ class HlavniOkno(QWidget):
                   # Pokud není rezervace, ponech prázdné buňky
                   tabulka.setItem(index, 0, QTableWidgetItem(cas_str))
                   tabulka.setItem(index, 1, QTableWidgetItem(""))
-                  tabulka.setItem(index, 2, QTableWidgetItem(""))
-                  tabulka.setItem(index, 3, QTableWidgetItem(""))
-                  tabulka.setItem(index, 4, QTableWidgetItem(""))
-                  tabulka.setItem(index, 5, QTableWidgetItem(""))
 
-                  # Nastavení světle šedého pozadí pro každý druhý řádek
-                  if index % 2 == 0:  # Sudý řádek
-                    for col in range(6):  # Pro všechny sloupce
+                  # Nastavení světle šedého pozadí pro každý druhý řádek vaccination_color
+                  # Sudý řádek
+                  for col in range(2):  # Pro všechny sloupce
+                    if index % 2 == 0:  # Pokud je vakcinační čas
+                      if vaccination_time == True:
+                       tabulka.item(index, 0).setBackground(QColor(vaccination_color))
+                       tabulka.item(index, 1).setBackground(QColor(table_grey_strip))
+                      elif pause_time == True:
+                        tabulka.item(index, col).setBackground(QColor(pause_color))
+                      else:
                         tabulka.item(index, col).setBackground(QColor(table_grey_strip))
-                                                              
+                    elif pause_time == True:
+                      tabulka.item(index, col).setBackground(QColor(pause_color)) # Pokud je pauza
+                    elif vaccination_time == True:
+                      tabulka.item(index, 0).setBackground(QColor(vaccination_color))
+                                                            
                   index += 1
+                  
               cas += slot
               
       #print("Rezervace načtené z databáze:", rezervace)
