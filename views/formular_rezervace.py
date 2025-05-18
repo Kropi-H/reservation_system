@@ -4,11 +4,11 @@ from PySide6.QtCore import QSize, QDateTime
 from controllers.rezervace_controller import uloz_rezervaci
 from models.databaze import get_doktori, get_ordinace
 class FormularRezervace(QWidget):
-    def __init__(self, hlavni_okno=None):
+    def __init__(self, hlavni_okno=None, rezervace_data=None, predvyplneny_cas=None, predvyplnena_ordinace=None):
         super().__init__()
-        self.setWindowTitle("Nová rezervace")
-        self.hlavni_okno = hlavni_okno  # <- uložíme odkaz
-        
+        self.setWindowTitle("Nová rezervace" if rezervace_data is None else "Úprava rezervace")
+        self.hlavni_okno = hlavni_okno
+
         self.layout = QFormLayout()
 
         self.pacient_jmeno_input = QLineEdit()
@@ -17,9 +17,46 @@ class FormularRezervace(QWidget):
         self.kontakt_majitel_input = QLineEdit()
         self.doktor_input = QComboBox()
         self.doktor_input.addItem("!---Vyberte doktora---!")
-        self.doktor_input.addItems(self.get_doctors())  
-        
-        
+        self.doktor_input.addItems(self.get_doctors())
+
+        self.cas_input = QDateTimeEdit()
+        self.cas_input.setCalendarPopup(True)
+        self.cas_input.setDisplayFormat("dd-MM-yyyy HH:mm")
+        self.cas_input.setDateTime(QDateTime.currentDateTime())
+
+        self.note_input = QTextEdit()
+        self.mistnost_input = QComboBox()
+        self.mistnost_input.addItem("!---Vyberte ordinaci---!")
+        self.mistnost_input.addItems(self.get_ordinace_list())
+
+        # Předvyplnění dat pokud jsou k dispozici
+        if rezervace_data:
+            # Předpoklad: rezervace_data = (cas, doktor, doktor_color, pacient, majitel, kontakt, druh, mistnost, poznamka)
+            self.pacient_jmeno_input.setText(rezervace_data[3])
+            self.pacient_druh_input.setText(rezervace_data[6])
+            self.majitel_input.setText(rezervace_data[4])
+            self.kontakt_majitel_input.setText(rezervace_data[5])
+            idx = self.doktor_input.findText(rezervace_data[1])
+            if idx != -1:
+                self.doktor_input.setCurrentIndex(idx)
+            self.note_input.setPlainText(rezervace_data[8])
+            dt = QDateTime.fromString(rezervace_data[0], "yyyy-MM-dd HH:mm")
+            if dt.isValid():
+                self.cas_input.setDateTime(dt)
+            idx2 = self.mistnost_input.findText(rezervace_data[7])
+            if idx2 != -1:
+                self.mistnost_input.setCurrentIndex(idx2)
+        else:
+            # Předvyplnění z dvojkliku na prázdný řádek
+            if predvyplneny_cas:
+                dt = QDateTime.fromString(predvyplneny_cas, "yyyy-MM-dd HH:mm")
+                if dt.isValid():
+                    self.cas_input.setDateTime(dt)
+            if predvyplnena_ordinace:
+                idx = self.mistnost_input.findText(predvyplnena_ordinace)
+                if idx != -1:
+                    self.mistnost_input.setCurrentIndex(idx)
+        '''
         # Použití QDateTimeEdit místo QLineEdit
         self.cas_input = QDateTimeEdit()
         self.cas_input.setCalendarPopup(True)  # Zobrazí kalendář při kliknutí
@@ -28,10 +65,27 @@ class FormularRezervace(QWidget):
         
         
         self.note_input = QTextEdit()
-        self.note_input.setTextColor("red")
         self.mistnost_input = QComboBox()
         self.mistnost_input.addItem("!---Vyberte ordinaci---!")
         self.mistnost_input.addItems(self.get_ordinace_list())
+        '''
+        # Předvyplnění dat pokud jsou k dispozici
+        if rezervace_data:
+            # Předpoklad: rezervace_data = (cas, doktor, doktor_color, pacient, majitel, kontakt, druh, mistnost, poznamka)
+            self.pacient_jmeno_input.setText(rezervace_data[3])
+            self.pacient_druh_input.setText(rezervace_data[6])
+            self.majitel_input.setText(rezervace_data[4])
+            self.kontakt_majitel_input.setText(rezervace_data[5])
+            idx = self.doktor_input.findText(rezervace_data[1])
+            if idx != -1:
+                self.doktor_input.setCurrentIndex(idx)
+            self.note_input.setPlainText(rezervace_data[8])
+            dt = QDateTime.fromString(rezervace_data[0], "yyyy-MM-dd HH:mm")
+            if dt.isValid():
+                self.cas_input.setDateTime(dt)
+            idx2 = self.mistnost_input.findText(rezervace_data[7])
+            if idx2 != -1:
+                self.mistnost_input.setCurrentIndex(idx2)
 
         self.layout.addRow("Jméno pacienta:", self.pacient_jmeno_input)
         self.layout.addRow("Druh:", self.pacient_druh_input)

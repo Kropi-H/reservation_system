@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QTextEdit, QDateEdit, QHBoxLayout, QTabWidget, QTableWidget, QTableWidgetItem
-from PySide6.QtCore import QDate
+from PySide6.QtCore import QDate, QLocale
 from PySide6.QtGui import QColor
 from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
@@ -20,8 +20,34 @@ class HlavniOkno(QWidget):
         super().__init__()
         self.setWindowTitle("Veterinární rezervační systém")
         layout = QVBoxLayout()
-        self.setMinimumWidth(1300)
-        self.setMinimumHeight(900)
+        self.showMaximized()  # Přidat tento řádek pro maximalizaci okna při startu     
+        
+        # Styl pro všechny tabulky v tomto okně
+        self.setStyleSheet("""
+            QTableWidget {
+                background-color: #fafdff;
+                font-size: 15px;
+                color: #222;
+                gridline-color: #b2d7ef;
+                selection-background-color: #cceeff;
+                selection-color: #000;
+            }
+            QTableWidget::item {
+                padding: 6px;
+            }
+            QHeaderView::section {
+                background-color: #9ee0fc;
+                color: black;
+                font-weight: bold;
+                font-size: 14px;
+            }
+            QToolTip{ 
+            background-color: #e6f7ff; 
+            color: #222; border: 
+            1px solid #009688; 
+            font-size: 14px; }
+        """)   
+        
 
         # Výběr dne
         radek = QHBoxLayout()
@@ -34,6 +60,10 @@ class HlavniOkno(QWidget):
         self.kalendar.setDate(QDate.currentDate())
         self.kalendar.setCalendarPopup(True)
         self.kalendar.dateChanged.connect(self.nacti_rezervace)
+        self.kalendar.dateChanged.connect(self.aktualizuj_format_kalendare)
+        
+        # Nastav formát při startu
+        self.aktualizuj_format_kalendare(self.kalendar.date())
 
         radek.addWidget(self.btn_predchozi)
         radek.addWidget(self.kalendar)
@@ -49,31 +79,19 @@ class HlavniOkno(QWidget):
         self.tabulky = {} # mistnost -> QTableWidget
         self.ordinace_layout = QHBoxLayout()  
         
+        
         for mistnost in ordinace:
             tabulka = QTableWidget()
-            tabulka.setColumnCount(2)
-            # tabulka.setHorizontalHeaderLabels(["ČAS", "MAJITELl"])
+            tabulka.setColumnCount(2) # Počet sloupců
             tabulka.setColumnWidth(0, 50) # Čas
-            # tabulka.setColumnWidth(1, 70) # Objednán na
-            # tabulka.setColumnWidth(2, 200) # Doktor
-            # tabulka.setColumnWidth(3, 200) # Pacient
-            # tabulka.setColumnWidth(4, 300) # Poznámka
-            tabulka.setColumnWidth(1, 200) # Majitel 
+            tabulka.horizontalHeader().setStretchLastSection(True)  # Řádek rezervace v maximální šířce
 
             # Skrytí sloupce s čísly řádků
             tabulka.verticalHeader().setVisible(False)
             
-            # Nastavení stylu pro záhlaví
-            tabulka.horizontalHeader().setStyleSheet("""
-              QHeaderView::section {
-                  background-color: #9ee0fc;
-                  color: #d8d8d8;
-                  font-style: uppercase;
-                  font-weight: bold;
-                  font-size: 14px;
-                  color: black;
-              }
-            """)
+            # Připojení signálu pro dvojklik
+            tabulka.cellDoubleClicked.connect(lambda row, col, m=mistnost: self.zpracuj_dvojklik(m, row, col))
+
 
             self.ordinace_layout.addWidget(tabulka)
             self.tabulky[mistnost] = tabulka
@@ -81,6 +99,37 @@ class HlavniOkno(QWidget):
         layout.addLayout(self.ordinace_layout)
         self.setLayout(layout)
         self.nacti_rezervace()
+    
+    def zpracuj_dvojklik(self, mistnost, row, col):
+      tabulka = self.tabulky[mistnost]
+      cas_item = tabulka.item(row, 0)
+      data_item = tabulka.item(row, 1)
+      cas_str = cas_item.text() if cas_item else ""
+      data_str = data_item.text() if data_item else ""
+
+      if not data_str.strip():
+          # Předvyplň čas a ordinaci
+          datum = self.kalendar.date().toPython()
+          if cas_str:
+              dt_str = f"{datum.strftime('%Y-%m-%d')} {cas_str}"
+          else:
+              dt_str = None
+          self.formular = FormularRezervace(self, predvyplneny_cas=dt_str, predvyplnena_ordinace=mistnost)
+          self.formular.show()
+      else:
+          datum = self.kalendar.date().toPython()
+          rezervace = ziskej_rezervace_dne(datum.strftime("%Y-%m-%d"))
+          for r in rezervace:
+              if r[7] == mistnost and r[0].endswith(cas_str):
+                  self.formular = FormularRezervace(self, rezervace_data=r)
+                  self.formular.show()
+                  break    
+
+    def aktualizuj_format_kalendare(self, datum):
+        locale = QLocale(QLocale.Czech)
+        den = locale.dayName(datum.dayOfWeek(), QLocale.LongFormat)
+        datum_str = datum.toString("d.M.yyyy")
+        self.kalendar.setDisplayFormat(f"'{den} 'd.M.yyyy")
 
     def otevri_formular(self):
         self.formular = FormularRezervace(self)
@@ -179,20 +228,32 @@ class HlavniOkno(QWidget):
                   # tabulka.insertRow(index)
                   tabulka.setItem(index, 0, QTableWidgetItem(cas_str))  # Čas
                   doktor_item = QTableWidgetItem(f"{rez[4]} {'kontakt: ' + rez[5] if rez[5] else ''}")  # Doktor
+                  # Přidejte tooltip s detaily rezervace
+                  tooltip_text = (
+                      f"<b>Čas:</b> {cas_str}<br>"
+                      f"<b>Pacient:</b> {rez[3]}<br>"
+                      f"<b>Majitel:</b> {rez[4]}<br>"
+                      f"<b>Kontakt:</b> {rez[5]}<br>"
+                      f"<b>Druh:</b> {rez[6]}<br>"
+                      f"<b>Doktor:</b> {rez[1]}<br>"
+                      f"<b>Poznámka:</b> {rez[7]}"
+                  )
+                  doktor_item.setToolTip(tooltip_text)
                   tabulka.setItem(index, 1, doktor_item)
                   
                   # Nastavení světle šedého pozadí pro celý řádek
                   if index % 2 == 0:  # Sudý řádek
                       for col in range(2):  # Pro všechny sloupce
-                          item = tabulka.item(index, col)
-                          if item and vaccination_time == True:  # Pokud buňka existuje
-                              item.setBackground(QColor(vaccination_color))  # Vakcinační pozadí
+                          if vaccination_time == True:  # Pokud buňka existuje
+                              tabulka.item(index, 0).setBackground(QColor(vaccination_color))  # Vakcinační pozadí
                           else:  # Lichý řádek
-                              item.setBackground(QColor(table_grey_strip))  # Světle šedé pozadí
+                              tabulka.item(index, 0).setBackground(QColor(table_grey_strip))  # Světle šedé pozadí
 
                   # Nastavení světle modrého pozadí pro buňku "DOKTOR", pokud obsahuje jméno
                   if rez[1]:  # Pokud je jméno doktora vyplněné
-                      doktor_item.setBackground(QColor(rez[2].strip()))  # Pozadí doktora  
+                      doktor_item.setBackground(QColor(rez[2].strip()))  # Pozadí doktora
+                      if vaccination_time == True:
+                          tabulka.item(index, 0).setBackground(QColor(vaccination_color)) 
                   
                   
                   index += 1
