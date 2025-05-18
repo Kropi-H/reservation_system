@@ -106,21 +106,43 @@ class HlavniOkno(QWidget):
       data_item = tabulka.item(row, 1)
       cas_str = cas_item.text() if cas_item else ""
       data_str = data_item.text() if data_item else ""
-
+  
+      if not cas_str:
+          return
+  
+      datum = self.kalendar.date().toPython()
+      slot_start = datetime.combine(datum, datetime.strptime(cas_str, "%H:%M").time())
+  
+      # Zjisti délku slotu stejně jako v nacti_rezervace
+      if slot_start.time() >= datetime.strptime("09:00", "%H:%M").time() and slot_start.time() <= datetime.strptime("09:45", "%H:%M").time():
+          slot = timedelta(minutes=15)
+      elif slot_start.time() >= datetime.strptime("12:00", "%H:%M").time() and slot_start.time() < datetime.strptime("12:30", "%H:%M").time():
+          slot = timedelta(minutes=30)
+      elif slot_start.time() >= datetime.strptime("12:30", "%H:%M").time() and slot_start.time() < datetime.strptime("12:40", "%H:%M").time():
+          slot = timedelta(minutes=10)
+      elif slot_start.time() == datetime.strptime("12:40", "%H:%M").time():
+          slot = timedelta(minutes=20)
+      elif slot_start.time() >= datetime.strptime("16:00", "%H:%M").time() and slot_start.time() <= datetime.strptime("16:30", "%H:%M").time():
+          slot = timedelta(minutes=15)
+      elif slot_start.time() == datetime.strptime("16:45", "%H:%M").time():
+          slot = timedelta(minutes=35)
+      elif slot_start.time() >= datetime.strptime("17:20", "%H:%M").time():
+          slot = timedelta(minutes=20)
+      else:
+          slot = timedelta(minutes=20)
+  
+      slot_end = slot_start + slot
+  
       if not data_str.strip():
           # Předvyplň čas a ordinaci
-          datum = self.kalendar.date().toPython()
-          if cas_str:
-              dt_str = f"{datum.strftime('%Y-%m-%d')} {cas_str}"
-          else:
-              dt_str = None
-          self.formular = FormularRezervace(self, predvyplneny_cas=dt_str, predvyplnena_ordinace=mistnost)
+          self.formular = FormularRezervace(self, predvyplneny_cas=f"{datum.strftime('%Y-%m-%d')} {cas_str}", predvyplnena_ordinace=mistnost)
           self.formular.show()
       else:
-          datum = self.kalendar.date().toPython()
           rezervace = ziskej_rezervace_dne(datum.strftime("%Y-%m-%d"))
           for r in rezervace:
-              if r[7] == mistnost and r[0].endswith(cas_str):
+              # r[8] = mistnost, r[0] = čas rezervace (string)
+              rez_cas = datetime.strptime(r[0], "%Y-%m-%d %H:%M")
+              if r[8] == mistnost and slot_start <= rez_cas < slot_end:
                   self.formular = FormularRezervace(self, rezervace_data=r)
                   self.formular.show()
                   break    
@@ -153,17 +175,18 @@ class HlavniOkno(QWidget):
       mapovane = {i: [] for i in ordinace}
       for r in rezervace:
           cas = datetime.strptime(r[0], "%Y-%m-%d %H:%M")
-          doktor = r[1]
-          doktor_color = r[2]
-          pacient = r[3]
-          majitel = r[4]
-          kontakt = r[5]
-          druh = r[6]
-          mistnost = r[7]
-          poznamka = r[8]
+          id = r[1] # ID rezervace
+          doktor = r[2]
+          doktor_color = r[3]
+          pacient = r[4]
+          majitel = r[5]
+          kontakt = r[6]
+          druh = r[7]
+          mistnost = r[8]
+          poznamka = r[9]
 
           if mistnost in mapovane:
-              mapovane[mistnost].append((cas, doktor, doktor_color, pacient, majitel, kontakt, druh, poznamka))
+              mapovane[mistnost].append((cas, id, doktor, doktor_color, pacient, majitel, kontakt, druh, poznamka))
           #print("Mapované rezervace:", mapovane)
 
       # Vlož data do tabulek
@@ -227,16 +250,19 @@ class HlavniOkno(QWidget):
                 for rez in rezervace_pro_cas:
                   # tabulka.insertRow(index)
                   tabulka.setItem(index, 0, QTableWidgetItem(cas_str))  # Čas
-                  doktor_item = QTableWidgetItem(f"{rez[4]} {'kontakt: ' + rez[5] if rez[5] else ''}")  # Doktor
+                  doktor_item = QTableWidgetItem(f"{rez[5]}")  # Majitel
+                  font = doktor_item.font()
+                  font.setBold(True)
+                  doktor_item.setFont(font)
                   # Přidejte tooltip s detaily rezervace
                   tooltip_text = (
-                      f"<b>Čas:</b> {cas_str}<br>"
-                      f"<b>Pacient:</b> {rez[3]}<br>"
-                      f"<b>Majitel:</b> {rez[4]}<br>"
-                      f"<b>Kontakt:</b> {rez[5]}<br>"
-                      f"<b>Druh:</b> {rez[6]}<br>"
-                      f"<b>Doktor:</b> {rez[1]}<br>"
-                      f"<b>Poznámka:</b> {rez[7]}"
+                      f"Čas: <b>{cas_str}</b><br>"
+                      f"Pacient: <b>{rez[4]}</b><br>"
+                      f"Majitel: <b>{rez[5]}</b><br>"
+                      f"Kontakt: <b>{rez[6]}</b><br>"
+                      f"Druh: <b>{rez[7]}</b><br>"
+                      f"Doktor: <b>{rez[2]}</b><br>"
+                      f"Poznámka: <b>{rez[8]}</b>"
                   )
                   doktor_item.setToolTip(tooltip_text)
                   tabulka.setItem(index, 1, doktor_item)
@@ -250,8 +276,8 @@ class HlavniOkno(QWidget):
                               tabulka.item(index, 0).setBackground(QColor(table_grey_strip))  # Světle šedé pozadí
 
                   # Nastavení světle modrého pozadí pro buňku "DOKTOR", pokud obsahuje jméno
-                  if rez[1]:  # Pokud je jméno doktora vyplněné
-                      doktor_item.setBackground(QColor(rez[2].strip()))  # Pozadí doktora
+                  if rez[2]:  # Pokud je jméno doktora vyplněné
+                      doktor_item.setBackground(QColor(rez[3].strip()))  # Pozadí doktora
                       if vaccination_time == True:
                           tabulka.item(index, 0).setBackground(QColor(vaccination_color)) 
                   

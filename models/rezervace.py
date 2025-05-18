@@ -1,20 +1,8 @@
 from models.databaze import get_connection, get_or_create
 
-"""
-def pridej_rezervaci(pacient, doktor, cas, mistnost):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO rezervace (pacient, doktor, cas, mistnost) VALUES (?, ?, ?, ?)",
-                  (pacient, doktor, cas, mistnost))
-    conn.commit()
-    conn.close()
-"""
-# pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, cas, mistnost
 def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, cas, mistnost):
     """
-    1) Otevře transakci
-    2) Pro každý entitu (doktor, pacient, ordinace) volá get_or_create
-    3) Vloží rezervaci s cizími klíči
+    Přidá novou rezervaci.
     """
     with get_connection() as conn:
         cur = conn.cursor()
@@ -27,7 +15,6 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
             data_cols={
                 "jmeno": doktor.split()[0],
                 "prijmeni": doktor.split(maxsplit=1)[1] if len(doktor.split()) > 1 else "",
-                # "specializace": … pokud máte
             }
         )
 
@@ -40,8 +27,6 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
                 "jmeno_zvirete": pacient_jmeno,
                 "druh":          pacient_druh,
                 "majitel_jmeno": majitel_pacienta,
-                # pokud máte příjmení majitele jako samostatné pole:
-                # "majitel_prijmeni": form_data["majitel_prijmeni"],
                 "majitel_telefon": majitel_kontakt,
                 "poznamka": note
             }
@@ -62,23 +47,74 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
             (pacient_id, doktor_id, ordinace_id, termin)
             VALUES (?, ?, ?, ?)
             """,
-            (pac_id, doc_id, ord_id, cas)  # Předpokládáme, že `cas` je řetězce
+            (pac_id, doc_id, ord_id, cas)
         )
 
-        # commit se provede automaticky at end of with-bloku
-
         return cur.lastrowid  # id nově vzniklé rezervace
+
+def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, cas, mistnost):
+    """
+    Aktualizuje existující rezervaci podle rezervace_id.
+    """
+    with get_connection() as conn:
+        cur = conn.cursor()
+
+        # 1) Doktor
+        doc_id = get_or_create(
+            cur,
+            table="Doktori",
+            unique_cols=("jmeno","prijmeni"),
+            data_cols={
+                "jmeno": doktor.split()[0],
+                "prijmeni": doktor.split(maxsplit=1)[1] if len(doktor.split()) > 1 else "",
+            }
+        )
+
+        # 2) Pacient (zvíře + majitel)
+        pac_id = get_or_create(
+            cur,
+            table="Pacienti",
+            unique_cols=("jmeno_zvirete","druh","majitel_jmeno","majitel_telefon", "poznamka"),
+            data_cols={
+                "jmeno_zvirete": pacient_jmeno,
+                "druh":          pacient_druh,
+                "majitel_jmeno": majitel_pacienta,
+                "majitel_telefon": majitel_kontakt,
+                "poznamka": note
+            }
+        )
+
+        # 3) Ordinace
+        ord_id = get_or_create(
+            cur,
+            table="Ordinace",
+            unique_cols=("nazev",),
+            data_cols={"nazev": mistnost}
+        )
+
+        # 4) Aktualizace rezervace
+        cur.execute(
+            """
+            UPDATE Rezervace
+            SET pacient_id = ?, doktor_id = ?, ordinace_id = ?, termin = ?
+            WHERE rezervace_id = ?
+            """,
+            (pac_id, doc_id, ord_id, cas, rezervace_id)
+        )
+
+        return cur.rowcount > 0  # True pokud byl záznam upraven
 
 def ziskej_rezervace_dne(datum_str):
     """
     Vrátí seznam rezervací pro daný den (datum ve formátu 'YYYY-MM-DD') s detaily:
-    "Čas", "Doktor", "Pacient", "Majitel", "Poznámka".
+    "Čas", "Rezervace ID", "Doktor", "Barva", "Pacient", "Majitel", "Kontakt", "Druh", "Ordinace", "Poznámka".
     """
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute('''
         SELECT 
             Rezervace.termin AS Cas,
+            Rezervace.rezervace_id AS id,
             Doktori.jmeno || ' ' || Doktori.prijmeni AS Doktor,
             Doktori.color AS Barva,
             Pacienti.jmeno_zvirete AS Pacient,
@@ -95,4 +131,3 @@ def ziskej_rezervace_dne(datum_str):
         ORDER BY Rezervace.termin
         ''', (datum_str,))
         return cur.fetchall()
-    

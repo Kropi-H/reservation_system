@@ -7,6 +7,7 @@ class FormularRezervace(QWidget):
     def __init__(self, hlavni_okno=None, rezervace_data=None, predvyplneny_cas=None, predvyplnena_ordinace=None):
         super().__init__()
         self.setWindowTitle("Nová rezervace" if rezervace_data is None else "Úprava rezervace")
+        self.rezervace_id = rezervace_data[1] if rezervace_data else None
         self.hlavni_okno = hlavni_okno
 
         self.layout = QFormLayout()
@@ -31,21 +32,23 @@ class FormularRezervace(QWidget):
 
         # Předvyplnění dat pokud jsou k dispozici
         if rezervace_data:
-            # Předpoklad: rezervace_data = (cas, doktor, doktor_color, pacient, majitel, kontakt, druh, mistnost, poznamka)
-            self.pacient_jmeno_input.setText(rezervace_data[3])
-            self.pacient_druh_input.setText(rezervace_data[6])
-            self.majitel_input.setText(rezervace_data[4])
-            self.kontakt_majitel_input.setText(rezervace_data[5])
-            idx = self.doktor_input.findText(rezervace_data[1])
-            if idx != -1:
-                self.doktor_input.setCurrentIndex(idx)
-            self.note_input.setPlainText(rezervace_data[8])
-            dt = QDateTime.fromString(rezervace_data[0], "yyyy-MM-dd HH:mm")
-            if dt.isValid():
-                self.cas_input.setDateTime(dt)
-            idx2 = self.mistnost_input.findText(rezervace_data[7])
-            if idx2 != -1:
-                self.mistnost_input.setCurrentIndex(idx2)
+          # Předpoklad: rezervace_data = (cas, id, doktor, doktor_color, pacient, majitel, kontakt, druh, mistnost, poznamka)
+          self.pacient_jmeno_input.setText(rezervace_data[4])
+          self.pacient_druh_input.setText(rezervace_data[7])
+          self.majitel_input.setText(rezervace_data[5])
+          self.kontakt_majitel_input.setText(rezervace_data[6])
+          idx = self.doktor_input.findText(rezervace_data[2])  # index 2 je doktor (jméno)
+          if idx != -1:
+              self.doktor_input.setCurrentIndex(idx)
+          self.note_input.setPlainText(rezervace_data[9])
+          dt = QDateTime.fromString(rezervace_data[0], "yyyy-MM-dd HH:mm")
+          if dt.isValid():
+              self.cas_input.setDateTime(dt)
+          idx2 = self.mistnost_input.findText(rezervace_data[8])
+          if idx2 != -1:
+              self.mistnost_input.setCurrentIndex(idx2)
+                
+                
         else:
             # Předvyplnění z dvojkliku na prázdný řádek
             if predvyplneny_cas:
@@ -71,21 +74,21 @@ class FormularRezervace(QWidget):
         '''
         # Předvyplnění dat pokud jsou k dispozici
         if rezervace_data:
-            # Předpoklad: rezervace_data = (cas, doktor, doktor_color, pacient, majitel, kontakt, druh, mistnost, poznamka)
-            self.pacient_jmeno_input.setText(rezervace_data[3])
-            self.pacient_druh_input.setText(rezervace_data[6])
-            self.majitel_input.setText(rezervace_data[4])
-            self.kontakt_majitel_input.setText(rezervace_data[5])
-            idx = self.doktor_input.findText(rezervace_data[1])
-            if idx != -1:
-                self.doktor_input.setCurrentIndex(idx)
-            self.note_input.setPlainText(rezervace_data[8])
-            dt = QDateTime.fromString(rezervace_data[0], "yyyy-MM-dd HH:mm")
-            if dt.isValid():
-                self.cas_input.setDateTime(dt)
-            idx2 = self.mistnost_input.findText(rezervace_data[7])
-            if idx2 != -1:
-                self.mistnost_input.setCurrentIndex(idx2)
+          # Předpoklad: rezervace_data = (cas, id, doktor, doktor_color, pacient, majitel, kontakt, druh, mistnost, poznamka)
+          self.pacient_jmeno_input.setText(rezervace_data[4])
+          self.pacient_druh_input.setText(rezervace_data[7])
+          self.majitel_input.setText(rezervace_data[5])
+          self.kontakt_majitel_input.setText(rezervace_data[6])
+          idx = self.doktor_input.findText(rezervace_data[2])  # OPRAVENO: index 2 je doktor
+          if idx != -1:
+              self.doktor_input.setCurrentIndex(idx)
+          self.note_input.setPlainText(rezervace_data[9])
+          dt = QDateTime.fromString(rezervace_data[0], "yyyy-MM-dd HH:mm")
+          if dt.isValid():
+              self.cas_input.setDateTime(dt)
+          idx2 = self.mistnost_input.findText(rezervace_data[8])
+          if idx2 != -1:
+              self.mistnost_input.setCurrentIndex(idx2)
 
         self.layout.addRow("Jméno pacienta:", self.pacient_jmeno_input)
         self.layout.addRow("Druh:", self.pacient_druh_input)
@@ -134,17 +137,32 @@ class FormularRezervace(QWidget):
         mistnost = self.mistnost_input.currentText()
 
         if not pacient_jmeno or not pacient_druh or not majitel_pacienta or not cas:
-          self.status.setText("Vyplňte pole.")
+            self.status.setText("Vyplňte pole.")
         elif doktor == "!---Vyberte doktora---!":
-          self.status.setText("Vybrat doktora.")
+            self.status.setText("Vybrat doktora.")
         elif mistnost == "!---Vyberte ordinaci---!":
-          self.status.setText("Vybrat ordinaci.")
+            self.status.setText("Vybrat ordinaci.")
         else:
-          # Uložení rezervace
-          if uloz_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, cas, mistnost):
-            self.status.setText("Rezervace byla uložena.")
-            if self.hlavni_okno:
-                self.hlavni_okno.nacti_rezervace()  # <- aktualizujeme hlavní okno
-            self.close()
-          else:
-            self.status.setText("Chyba při ukládání.")
+            if self.rezervace_id:
+                # Úprava existující rezervace
+                from controllers.rezervace_controller import aktualizuj_rezervaci
+                ok = aktualizuj_rezervaci(
+                    self.rezervace_id, pacient_jmeno, pacient_druh, majitel_pacienta,
+                    majitel_kontakt, doktor, note, cas, mistnost
+                )
+                if ok:
+                    self.status.setText("Rezervace byla upravena.")
+                    if self.hlavni_okno:
+                        self.hlavni_okno.nacti_rezervace()
+                    self.close()
+                else:
+                    self.status.setText("Chyba při úpravě rezervace.")
+            else:
+                # Nová rezervace
+                if uloz_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, cas, mistnost):
+                    self.status.setText("Rezervace byla uložena.")
+                    if self.hlavni_okno:
+                        self.hlavni_okno.nacti_rezervace()
+                    self.close()
+                else:
+                    self.status.setText("Chyba při ukládání.")
