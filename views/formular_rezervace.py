@@ -103,7 +103,7 @@ class FormularRezervace(QWidget):
 
         self.btn_uloz = QPushButton("Uložit rezervaci")
         self.btn_uloz.setMaximumSize(200, 100)
-        self.btn_uloz.setStyleSheet("background-color: lightblue; font-weight: bold;")
+        self.btn_uloz.setStyleSheet("background-color: lightblue; font-weight: bold;color: black;")
         self.btn_uloz.clicked.connect(self.uloz)
         #self.btn_uloz.clicked.connect(self.print_data)
 

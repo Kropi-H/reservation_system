@@ -1,12 +1,13 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QTextEdit, QDateEdit, QHBoxLayout, QTabWidget, QTableWidget, QTableWidgetItem
-from PySide6.QtCore import QDate, QLocale
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QDate, QLocale, QTimer, Qt
+from PySide6.QtGui import QColor, QPixmap
 from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
 from models.databaze import get_ordinace
 from views.formular_rezervace import FormularRezervace
 from controllers.data import table_grey_strip, vaccination_color, pause_color
+import os
 
 
 def get_ordinace_list():
@@ -49,26 +50,72 @@ class HlavniOkno(QWidget):
         """)   
         
 
-        # Výběr dne
-        radek = QHBoxLayout()
+        # --- NOVÝ HORIZONTÁLNÍ LAYOUT PRO LOGO, DATUM, HODINY ---
+        horni_radek = QHBoxLayout()
+
+        # Logo vlevo
+        self.logo_label = QLabel()
+        logo_path = os.path.join(os.path.dirname(__file__), "../pictures/karakal_logo_grey.png")
+        pixmap = QPixmap(logo_path)
+        if not pixmap.isNull():
+            self.logo_label.setPixmap(pixmap.scaledToHeight(48))
+        else:
+            self.logo_label.setText("Logo nenalezeno")
+        horni_radek.addWidget(self.logo_label)
+
+        # --- Střední část: tlačítka a kalendář ---
+        stredni_widget = QWidget()
+        stredni_layout = QHBoxLayout()
+        stredni_layout.setContentsMargins(0, 0, 0, 0)
+        stredni_layout.setSpacing(10)
+
         self.btn_predchozi = QPushButton("<")
+        self.btn_predchozi.setFixedWidth(40)
+        self.btn_predchozi.setStyleSheet("font-size: 18px;")
         self.btn_predchozi.clicked.connect(self.predchozi_den)
-        self.btn_nasledujici = QPushButton(">")
-        self.btn_nasledujici.clicked.connect(self.nasledujici_den)
 
         self.kalendar = QDateEdit()
         self.kalendar.setDate(QDate.currentDate())
         self.kalendar.setCalendarPopup(True)
+        self.kalendar.setStyleSheet("""
+            QDateEdit {
+                font-size: 22px;
+                min-width: 160px;
+                qproperty-alignment: AlignCenter;
+                padding: 4px 10px;
+            }
+        """)
         self.kalendar.dateChanged.connect(self.nacti_rezervace)
         self.kalendar.dateChanged.connect(self.aktualizuj_format_kalendare)
-        
-        # Nastav formát při startu
         self.aktualizuj_format_kalendare(self.kalendar.date())
 
-        radek.addWidget(self.btn_predchozi)
-        radek.addWidget(self.kalendar)
-        radek.addWidget(self.btn_nasledujici)
-        layout.addLayout(radek)
+        self.btn_nasledujici = QPushButton(">")
+        self.btn_nasledujici.setFixedWidth(40)
+        self.btn_nasledujici.setStyleSheet("font-size: 18px;")
+        self.btn_nasledujici.clicked.connect(self.nasledujici_den)
+
+        stredni_layout.addWidget(self.btn_predchozi)
+        stredni_layout.addWidget(self.kalendar)
+        stredni_layout.addWidget(self.btn_nasledujici)
+        stredni_widget.setLayout(stredni_layout)
+
+        # Přidat stretch mezi logo a střed, a mezi střed a hodiny
+        horni_radek.addStretch()
+        horni_radek.addWidget(stredni_widget, alignment=Qt.AlignHCenter)
+        horni_radek.addStretch()
+
+        # Hodiny vpravo
+        self.clock_label = QLabel()
+        self.clock_label.setStyleSheet("font-size: 22px; font-weight: bold; min-width: 80px;")
+        horni_radek.addWidget(self.clock_label, alignment=Qt.AlignRight)
+
+        layout.addLayout(horni_radek)
+
+        # Spusť timer pro hodiny
+        timer = QTimer(self)
+        timer.timeout.connect(self.update_clock)
+        timer.start(1000)
+        self.update_clock()
 
         # Tlačítko pro novou rezervaci
         self.btn_nova = QPushButton("Nová rezervace")
@@ -83,7 +130,7 @@ class HlavniOkno(QWidget):
         for mistnost in ordinace:
             tabulka = QTableWidget()
             tabulka.setColumnCount(2) # Počet sloupců
-            tabulka.setColumnWidth(0, 50) # Čas
+            tabulka.setColumnWidth(0, 70) # Čas
             tabulka.horizontalHeader().setStretchLastSection(True)  # Řádek rezervace v maximální šířce
 
             # Skrytí sloupce s čísly řádků
@@ -99,6 +146,10 @@ class HlavniOkno(QWidget):
         layout.addLayout(self.ordinace_layout)
         self.setLayout(layout)
         self.nacti_rezervace()
+        
+    def update_clock(self):
+        from datetime import datetime
+        self.clock_label.setText(datetime.now().strftime("%H:%M:%S"))    
     
     def zpracuj_dvojklik(self, mistnost, row, col):
       tabulka = self.tabulky[mistnost]
