@@ -131,3 +131,28 @@ def ziskej_rezervace_dne(datum_str):
         ORDER BY Rezervace.termin
         ''', (datum_str,))
         return cur.fetchall()
+      
+def ziskej_rozvrh_doktoru_dne(den_v_tydnu):
+    """
+    Vrátí seznam doktorů a jejich barvy pro daný den v týdnu.
+    Datum ve formátu 2025-05-19 08:00
+    Výstup: [(doktor_id, 'Jméno Příjmení', 'Barva', datum, prace_od, prace_do, nazev_ordinace), ...]
+    """
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+        SELECT 
+            Doktori.doktor_id,
+            Doktori.jmeno || ' ' || Doktori.prijmeni AS Doktor,
+            Doktori.color AS Barva,
+            Doktori_Ordinacni_Cas.datum,
+            Doktori_Ordinacni_Cas.prace_od,
+            Doktori_Ordinacni_Cas.prace_do,
+            Ordinace.nazev AS Ordinace
+        FROM Doktori_Ordinacni_Cas
+        INNER JOIN Doktori ON Doktori_Ordinacni_Cas.doktor_id = Doktori.doktor_id
+        INNER JOIN Ordinace ON Doktori_Ordinacni_Cas.ordinace_id = Ordinace.ordinace_id
+        WHERE Doktori_Ordinacni_Cas.datum = ?
+        ORDER BY Doktori_Ordinacni_Cas.prace_od
+        ''', (den_v_tydnu,))
+        return cur.fetchall()

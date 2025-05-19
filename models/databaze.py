@@ -56,8 +56,26 @@ def inicializuj_databazi():
                 ON DELETE RESTRICT
         );
         ''')
-        conn.commit()
+        
+        # 5) Ordinacni cas doktora
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS Doktori_Ordinacni_Cas (
+            work_id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            doktor_id      INTEGER    NOT NULL,
+            datum          TEXT       NOT NULL,  -- nesmí chybět
+            prace_od       TEXT       NOT NULL,  -- formát HH:MM (např. '08:00')
+            prace_do       TEXT       NOT NULL,  -- formát HH:MM (např. '12:00')
+            ordinace_id    INTEGER    NOT NULL,
+            FOREIGN KEY(doktor_id) REFERENCES Doktori(doktor_id)
+                ON DELETE CASCADE,
+            FOREIGN KEY(ordinace_id) REFERENCES Ordinace(ordinace_id)
+                ON DELETE RESTRICT
+        );
+        ''')
 
+        conn.commit()
+        
+        
 def get_connection():
     conn = sqlite3.connect(DB)
     conn.execute("PRAGMA foreign_keys = ON;")
