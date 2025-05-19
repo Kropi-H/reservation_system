@@ -1,11 +1,10 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QTextEdit, QDateEdit, QHBoxLayout, QTabWidget, QTableWidget, QTableWidgetItem
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QDateEdit, QHBoxLayout, QTableWidget, QTableWidgetItem
 from PySide6.QtCore import QDate, QLocale, QTimer, Qt
 from PySide6.QtGui import QColor, QPixmap
 from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
 from models.databaze import get_ordinace
-from views.formular_rezervace import FormularRezervace
 from controllers.data import table_grey_strip, vaccination_color, pause_color
 import os
 
@@ -117,11 +116,6 @@ class HlavniOkno(QWidget):
         timer.start(1000)
         self.update_clock()
 
-        # Tlačítko pro novou rezervaci
-        self.btn_nova = QPushButton("Nová rezervace")
-        self.btn_nova.clicked.connect(self.otevri_formular)
-        layout.addWidget(self.btn_nova)
-
         # Záložky pro jednotlivé ordinace
         self.tabulky = {} # mistnost -> QTableWidget
         self.ordinace_layout = QHBoxLayout()  
@@ -201,12 +195,7 @@ class HlavniOkno(QWidget):
     def aktualizuj_format_kalendare(self, datum):
         locale = QLocale(QLocale.Czech)
         den = locale.dayName(datum.dayOfWeek(), QLocale.LongFormat)
-        datum_str = datum.toString("d.M.yyyy")
         self.kalendar.setDisplayFormat(f"'{den} 'd.M.yyyy")
-
-    def otevri_formular(self):
-        self.formular = FormularRezervace(self)
-        self.formular.show()
 
     def predchozi_den(self):
         self.kalendar.setDate(self.kalendar.date().addDays(-1))
@@ -330,7 +319,9 @@ class HlavniOkno(QWidget):
                   if rez[2]:  # Pokud je jméno doktora vyplněné
                       doktor_item.setBackground(QColor(rez[3].strip()))  # Pozadí doktora
                       if vaccination_time == True:
-                          tabulka.item(index, 0).setBackground(QColor(vaccination_color)) 
+                          tabulka.item(index, 0).setBackground(QColor(vaccination_color))
+                      if pause_time == True:
+                          tabulka.item(index, 0).setBackground(QColor(pause_color)) 
                   
                   
                   index += 1
