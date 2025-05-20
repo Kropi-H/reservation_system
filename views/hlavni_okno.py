@@ -1,10 +1,13 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QDateEdit, QHBoxLayout, QTableWidget, QTableWidgetItem
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QLabel, 
+                               QDateEdit, QHBoxLayout, QTableWidget, 
+                               QTableWidgetItem, QMenuBar, QMenu, QMainWindow)
 from PySide6.QtCore import QDate, QLocale, QTimer, Qt
-from PySide6.QtGui import QColor, QPixmap
+from PySide6.QtGui import QColor, QPixmap, QAction
 from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
 from models.databaze import get_ordinace
+from views.login_dialog import LoginDialog
 from controllers.data import table_grey_strip, vaccination_color, pause_color
 import os
 
@@ -15,12 +18,25 @@ def get_ordinace_list():
 
 ordinace = get_ordinace_list()
 
-class HlavniOkno(QWidget):
+class HlavniOkno(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Veterinární rezervační systém")
         layout = QVBoxLayout()
         self.showMaximized()  # Přidat tento řádek pro maximalizaci okna při startu     
+        
+        # --- MENU BAR ---
+        self.menu_bar = QMenuBar(self)
+        menu = QMenu("Menu", self)
+        self.login_action = QAction("Přihlášení", self)
+        self.login_action.triggered.connect(self.show_login_dialog)
+        menu.addAction(self.login_action)
+        self.menu_bar.addMenu(menu)
+        self.setMenuBar(self.menu_bar)  # Přidání menu bar do layoutu
+        
+        # --- CENTRÁLNÍ WIDGET A LAYOUT ---
+        central_widget = QWidget()
+        layout = QVBoxLayout(central_widget)
         
         # Styl pro všechny tabulky v tomto okně
         self.setStyleSheet("""
@@ -140,6 +156,14 @@ class HlavniOkno(QWidget):
         layout.addLayout(self.ordinace_layout)
         self.setLayout(layout)
         self.nacti_rezervace()
+        
+        self.setCentralWidget(central_widget)
+    
+    def show_login_dialog(self):
+        dialog = LoginDialog(self)
+        if dialog.exec():
+            username, password = dialog.get_credentials()
+            print(f"Přihlášený uživatel: {username}")
         
     def update_clock(self):
         from datetime import datetime

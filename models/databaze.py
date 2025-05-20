@@ -129,19 +129,11 @@ def get_ordinace():
         ''')
         return cur.fetchall()
 
-
-"""
-def inicializuj_databazi():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS rezervace (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        pacient TEXT NOT NULL,
-        doktor TEXT NOT NULL,
-        cas TEXT NOT NULL,
-        mistnost TEXT NOT NULL
-    )''')
-    conn.commit()
-    conn.close()
-    """
+def get_user_by_username(username):
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT username, password FROM Users WHERE username = ?", (username,))
+        row = c.fetchone()
+        if row:
+            return {'username': row[0], 'password_hash': row[1]}
+        return None
