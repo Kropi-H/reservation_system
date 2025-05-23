@@ -24,6 +24,8 @@ class HlavniOkno(QMainWindow):
         self.setWindowTitle("Veterinární rezervační systém")
         layout = QVBoxLayout()
         self.showMaximized()  # Přidat tento řádek pro maximalizaci okna při startu     
+        self.logged_in_user = None
+        self.logged_in_user_role = None
         
         # --- MENU BAR ---
         self.menu_bar = QMenuBar(self)
@@ -32,7 +34,16 @@ class HlavniOkno(QMainWindow):
         self.login_action.triggered.connect(self.show_login_dialog)
         menu.addAction(self.login_action)
         self.menu_bar.addMenu(menu)
+        
+        # self.logged_in_user_trigger.triggered.connect(self.show_user_menu)
+        
+        
+            
         self.setMenuBar(self.menu_bar)  # Přidání menu bar do layoutu
+        
+        # --- STATUS BAR ---
+        self.status_bar = self.statusBar()
+        self.status_bar.showMessage("Nepřihlášen")
         
         # --- CENTRÁLNÍ WIDGET A LAYOUT ---
         central_widget = QWidget()
@@ -159,12 +170,32 @@ class HlavniOkno(QMainWindow):
         
         self.setCentralWidget(central_widget)
     
+    def show_user_menu(self):
+          if self.logged_in_user_role == "admin":
+              add_user = QMenu("Nový uživatel", self)
+              self.add_user_action = QAction("Přidat uživatele", self)
+              add_user.addAction(self.add_user_action)
+              self.menu_bar.addMenu(add_user)
+              self.logged_in_user_trigger.triggered.connect(self.show_user_menu)
+    
     def show_login_dialog(self):
         dialog = LoginDialog(self)
         if dialog.exec():
-            username, password = dialog.get_credentials()
-            print(f"Přihlášený uživatel: {username}")
-        
+            username, role = dialog.get_name_and_role()
+            self.logged_in_user = username
+            self.logged_in_user_role = role
+            self.status_bar.showMessage(f"Přihlášený uživatel: {username}")
+            self.login_action.setText("Odhlásit")
+            self.login_action.triggered.disconnect()
+            self.login_action.triggered.connect(self.logout_user)
+
+    def logout_user(self):
+        self.logged_in_user = None
+        self.status_bar.showMessage("Nepřihlášen")
+        self.login_action.setText("Přihlášení")
+        self.login_action.triggered.disconnect()
+        self.login_action.triggered.connect(self.show_login_dialog)
+  
     def update_clock(self):
         from datetime import datetime
         self.clock_label.setText(datetime.now().strftime("%H:%M:%S"))    

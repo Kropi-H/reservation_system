@@ -18,6 +18,7 @@ class LoginDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         self.login_success = False
+        self.role = ""
 
     def try_login(self):
         username = self.username.text()
@@ -26,6 +27,7 @@ class LoginDialog(QDialog):
         if user and bcrypt.checkpw(password.encode(), user['password_hash'].encode()):
             self.login_success = True
             self.accept()
+            self.role = user['role']
         else:
             self.username.setText("")
             self.password.setText("")
@@ -34,3 +36,6 @@ class LoginDialog(QDialog):
 
     def get_credentials(self):
         return self.username.text(), self.password.text()
+    
+    def get_name_and_role(self):
+        return self.username.text(), self.role

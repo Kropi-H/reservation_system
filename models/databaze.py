@@ -132,8 +132,8 @@ def get_ordinace():
 def get_user_by_username(username):
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute("SELECT username, password FROM Users WHERE username = ?", (username,))
+        c.execute("SELECT username, password, user_role FROM Users WHERE username = ?", (username,))
         row = c.fetchone()
         if row:
-            return {'username': row[0], 'password_hash': row[1]}
+            return {'username': row[0], 'password_hash': row[1], 'role': row[2]}
         return None
