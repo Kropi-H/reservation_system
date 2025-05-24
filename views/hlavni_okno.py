@@ -35,8 +35,9 @@ class HlavniOkno(QMainWindow):
         menu.addAction(self.login_action)
         self.menu_bar.addMenu(menu)
         
-        # self.logged_in_user_trigger.triggered.connect(self.show_user_menu)
-        
+        self.logged_in_user_trigger = QAction("Uživatel", self)
+        self.logged_in_user_trigger.triggered.connect(self.show_user_menu)
+        menu.addAction(self.logged_in_user_trigger)
         
             
         self.setMenuBar(self.menu_bar)  # Přidání menu bar do layoutu

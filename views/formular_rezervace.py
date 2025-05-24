@@ -1,6 +1,6 @@
 # views/formular_rezervace.py
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QLabel, QFormLayout, QComboBox, QTextEdit, QDateTimeEdit
-from PySide6.QtCore import QSize, QDateTime
+from PySide6.QtCore import QSize, QDateTime, QTime
 from controllers.rezervace_controller import uloz_rezervaci
 from models.databaze import get_doktori, get_ordinace
 class FormularRezervace(QWidget):
@@ -114,6 +114,7 @@ class FormularRezervace(QWidget):
         self.layout.addRow(v_box)
 
         self.status = QLabel()
+        self.status.setStyleSheet("color: red; font-weight: bold;")
         self.layout.addRow(self.status)
 
         self.setLayout(self.layout)
@@ -133,15 +134,24 @@ class FormularRezervace(QWidget):
         majitel_kontakt = self.kontakt_majitel_input.text()
         doktor = self.doktor_input.currentText()
         note = self.note_input.toPlainText()
-        cas = self.cas_input.dateTime().toString("yyyy-MM-dd HH:mm")
+        dt = self.cas_input.dateTime()
+        cas = dt.toString("yyyy-MM-dd HH:mm")
         mistnost = self.mistnost_input.currentText()
+        max_cas = QTime(19, 40)
+        min_cas = QTime(8, 0)
 
-        if not pacient_jmeno or not pacient_druh or not majitel_pacienta or not cas:
-            self.status.setText("Vyplňte pole.")
+        if not pacient_jmeno:
+            self.status.setText("Vyplňte jmeno pacienta.")
+        elif not pacient_druh:
+            self.status.setText("Vyplňte druh pacienta.")
+        elif not majitel_pacienta:
+            self.status.setText("Vyplňte příjmení majitele pacienta.")
         elif doktor == "!---Vyberte doktora---!":
             self.status.setText("Vybrat doktora.")
         elif mistnost == "!---Vyberte ordinaci---!":
             self.status.setText("Vybrat ordinaci.")
+        elif dt.time() > max_cas or dt.time() < min_cas:
+            self.status.setText(f"Zadán špatný čas rezervace ({dt.time().hour():02d}:{dt.time().minute():02d}).")
         else:
             if self.rezervace_id:
                 # Úprava existující rezervace
