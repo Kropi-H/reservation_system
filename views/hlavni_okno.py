@@ -29,15 +29,12 @@ class HlavniOkno(QMainWindow):
         
         # --- MENU BAR ---
         self.menu_bar = QMenuBar(self)
-        menu = QMenu("Menu", self)
         self.login_action = QAction("Přihlášení", self)
         self.login_action.triggered.connect(self.show_login_dialog)
-        menu.addAction(self.login_action)
-        self.menu_bar.addMenu(menu)
+        self.menu_bar.addAction(self.login_action)
         
-        self.logged_in_user_trigger = QAction("Uživatel", self)
-        self.logged_in_user_trigger.triggered.connect(self.show_user_menu)
-        menu.addAction(self.logged_in_user_trigger)
+        # Uživatel menu bude přidáváno/odebíráno dynamicky
+        self.user_menu = None
         
             
         self.setMenuBar(self.menu_bar)  # Přidání menu bar do layoutu
@@ -171,13 +168,6 @@ class HlavniOkno(QMainWindow):
         
         self.setCentralWidget(central_widget)
     
-    def show_user_menu(self):
-          if self.logged_in_user_role == "admin":
-              add_user = QMenu("Nový uživatel", self)
-              self.add_user_action = QAction("Přidat uživatele", self)
-              add_user.addAction(self.add_user_action)
-              self.menu_bar.addMenu(add_user)
-              self.logged_in_user_trigger.triggered.connect(self.show_user_menu)
     
     def show_login_dialog(self):
         dialog = LoginDialog(self)
@@ -189,13 +179,51 @@ class HlavniOkno(QMainWindow):
             self.login_action.setText("Odhlásit")
             self.login_action.triggered.disconnect()
             self.login_action.triggered.connect(self.logout_user)
+            self.update_user_menu()  # <-- Přidat/aktualizovat podmenu
 
     def logout_user(self):
         self.logged_in_user = None
+        self.logged_in_user_role = None
         self.status_bar.showMessage("Nepřihlášen")
         self.login_action.setText("Přihlášení")
         self.login_action.triggered.disconnect()
         self.login_action.triggered.connect(self.show_login_dialog)
+        self.update_user_menu()  # <-- Odebrat podmenu
+        
+    def update_user_menu(self):
+        # Odeber staré user_menu, pokud existuje
+        if self.user_menu:
+            self.menu_bar.removeAction(self.user_menu.menuAction())
+            self.user_menu = None
+
+        # Přidej nové podle role
+        if self.logged_in_user_role == "admin":
+            self.user_menu = QMenu("Nastavení", self)
+            self.database_section = QAction("Databáze", self)
+            self.plan_surgery_section = QAction("Plánování ordinací", self)
+            self.users_section = QAction("Sekce uživatelů", self)
+            self.doctors_section = QAction("Sekce doktoři", self)
+            self.surgery_section = QAction("Sekce ordinace", self)
+            # Přidejte další akce podle potřeby
+            self.menu_bar.addMenu(self.user_menu)
+            self.user_menu.addAction(self.database_section)
+            self.user_menu.addAction(self.plan_surgery_section)
+            self.user_menu.addAction(self.users_section)
+            self.user_menu.addAction(self.doctors_section)
+            self.user_menu.addAction(self.surgery_section)
+        elif self.logged_in_user_role == "supervisor":
+            self.user_menu = QMenu("Nastavení", self)
+            self.plan_surgery_section = QAction("Plánování ordinací", self)
+            self.users_section = QAction("Sekce uživatelů", self)
+            self.doctors_section = QAction("Sekce doktoři", self)
+            self.surgery_section = QAction("Sekce ordinace", self)
+            # Přidejte další akce podle potřeby
+            self.menu_bar.addMenu(self.user_menu)
+            self.user_menu.addAction(self.plan_surgery_section)
+            self.user_menu.addAction(self.users_section)
+            self.user_menu.addAction(self.doctors_section)
+            self.user_menu.addAction(self.surgery_section)
+        # Pokud není přihlášen, menu se nezobrazí
   
     def update_clock(self):
         from datetime import datetime

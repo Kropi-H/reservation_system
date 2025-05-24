@@ -39,3 +39,13 @@ class LoginDialog(QDialog):
     
     def get_name_and_role(self):
         return self.username.text(), self.role
+
+'''
+def hash_password(password):
+    """
+    Hashes the password using bcrypt.
+    """
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+  
+print(hash_password("magdamagda"))  # Example usage, remove in production
+'''
