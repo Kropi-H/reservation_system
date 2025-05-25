@@ -137,3 +137,14 @@ def get_user_by_username(username):
         if row:
             return {'username': row[0], 'password_hash': row[1], 'role': row[2]}
         return None
+      
+def get_doctor_work_times(doktor_id):
+    """Vrátí pracovní časy doktora."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+        SELECT datum, prace_od, prace_do, ordinace_id
+        FROM Doktori_Ordinacni_Cas
+        WHERE doktor_id = ?
+        ''', (doktor_id,))
+        return cur.fetchall()

@@ -7,10 +7,16 @@ from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
 from models.databaze import get_ordinace
+from models.doktori import vloz_ordinacni_cas
 from views.login_dialog import LoginDialog
 from controllers.data import table_grey_strip, vaccination_color, pause_color
+from controllers.rezervace_controller import uloz_rezervaci
+from models.databaze import get_doktori
+from views.vyber_doktora_dialog import VyberDoktoraDialog
+from views.planovani_ordinaci_dialog import PlanovaniOrdinaciDialog
 import os
 
+doktori = [f"{d[1]} {d[2]}" for d in get_doktori()]
 
 def get_ordinace_list():
         ordinace = get_ordinace()
@@ -201,6 +207,7 @@ class HlavniOkno(QMainWindow):
             self.user_menu = QMenu("Nastavení", self)
             self.database_section = QAction("Databáze", self)
             self.plan_surgery_section = QAction("Plánování ordinací", self)
+            self.plan_surgery_section.triggered.connect(self.zahaj_planovani_ordinaci)
             self.users_section = QAction("Sekce uživatelů", self)
             self.doctors_section = QAction("Sekce doktoři", self)
             self.surgery_section = QAction("Sekce ordinace", self)
@@ -214,6 +221,7 @@ class HlavniOkno(QMainWindow):
         elif self.logged_in_user_role == "supervisor":
             self.user_menu = QMenu("Nastavení", self)
             self.plan_surgery_section = QAction("Plánování ordinací", self)
+            self.plan_surgery_section.triggered.connect(self.zahaj_planovani_ordinaci)
             self.users_section = QAction("Sekce uživatelů", self)
             self.doctors_section = QAction("Sekce doktoři", self)
             self.surgery_section = QAction("Sekce ordinace", self)
@@ -225,9 +233,48 @@ class HlavniOkno(QMainWindow):
             self.user_menu.addAction(self.surgery_section)
         # Pokud není přihlášen, menu se nezobrazí
   
+    def zahaj_planovani_ordinaci(self):
+        dialog = PlanovaniOrdinaciDialog(self)
+        if dialog.exec():
+          self.povol_vyber_casu()
+  
     def update_clock(self):
         from datetime import datetime
-        self.clock_label.setText(datetime.now().strftime("%H:%M:%S"))    
+        self.clock_label.setText(datetime.now().strftime("%H:%M:%S"))
+        
+    def povol_vyber_casu(self):
+        for tabulka in self.tabulky.values():
+            tabulka.setSelectionMode(QTableWidget.MultiSelection)
+            tabulka.setSelectionBehavior(QTableWidget.SelectRows)
+        self.status_bar.showMessage("Vyberte časy ve sloupcích a potvrďte výběr (např. tlačítkem Dokončit plánování).")
+        # Přidejte tlačítko pro dokončení výběru
+        self.dokoncit_planovani_btn = QPushButton("Dokončit plánování")
+        self.dokoncit_planovani_btn.clicked.connect(self.dokoncit_vyber_casu)
+        self.centralWidget().layout().addWidget(self.dokoncit_planovani_btn)
+  
+    def dokoncit_vyber_casu(self):
+        # Získání vybraných časů a ordinace a uložení do databáze        
+        vybrane_casy = []
+        mistnost = None
+        for m, tabulka in self.tabulky.items():
+            for item in tabulka.selectedItems():
+                #print(item.text(), item.row(), item.column())
+                if item.column() == 0:
+                  vybrane_casy.append(item.text())
+                  mistnost = m  # Uložení ordinace, pokud je vybrán čas
+                    #vybrane_casy.append((m, item.text()))
+        dialog = VyberDoktoraDialog(doktori, self)
+        if dialog.exec():
+            doktor = dialog.get_selected()
+            # Uložení do databáze
+            datum = self.kalendar.date().toPython()
+            vloz_ordinacni_cas(doktor, datum, vybrane_casy[0],vybrane_casy[-1], mistnost)
+            self.status_bar.showMessage("Plánování uloženo.")
+        # Vypnutí výběru a odstranění tlačítka
+        for tabulka in self.tabulky.values():
+            tabulka.setSelectionMode(QTableWidget.NoSelection)
+            tabulka.clearSelection()  # Odznačí všechny vybrané řádky/buňky
+        self.dokoncit_planovani_btn.deleteLater()    
     
     def zpracuj_dvojklik(self, mistnost, row, col):
       tabulka = self.tabulky[mistnost]
