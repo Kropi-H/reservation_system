@@ -243,16 +243,42 @@ class HlavniOkno(QMainWindow):
         self.clock_label.setText(datetime.now().strftime("%H:%M:%S"))
         
     def povol_vyber_casu(self):
-        for tabulka in self.tabulky.values():
-            tabulka.setSelectionMode(QTableWidget.MultiSelection)
-            tabulka.setSelectionBehavior(QTableWidget.SelectRows)
-        self.status_bar.showMessage("Vyberte časy ve sloupcích a potvrďte výběr (např. tlačítkem Dokončit plánování).")
-        # Přidejte tlačítko pro dokončení výběru
-        self.dokoncit_planovani_btn = QPushButton("Dokončit plánování")
-        self.dokoncit_planovani_btn.clicked.connect(self.dokoncit_vyber_casu)
-        self.centralWidget().layout().addWidget(self.dokoncit_planovani_btn)
+      def only_first_column_selection():
+          for tabulka in self.tabulky.values():
+              selected = tabulka.selectedItems()
+              for item in selected:
+                  if item.column() != 0:
+                      item.setSelected(False)
   
-    def dokoncit_vyber_casu(self):
+      for tabulka in self.tabulky.values():
+          tabulka.setSelectionMode(QTableWidget.MultiSelection)
+          tabulka.setSelectionBehavior(QTableWidget.SelectRows)
+          tabulka.itemSelectionChanged.connect(only_first_column_selection)
+          # Nastav žlutou barvu výběru
+          tabulka.setStyleSheet("""
+              QTableWidget {
+                  selection-background-color: yellow;
+                  selection-color: black;
+              }
+          """)
+      self.status_bar.showMessage("Vyber časy pouze ve sloupci ČAS a pokračuj tlačítkem Vyber doktora.")
+      self.vyber_doktora_btn = QPushButton("Vyber doktora")
+      self.dokoncit_planovani_btn = QPushButton("Ukončit plánování")
+      self.vyber_doktora_btn.clicked.connect(self.uloz_vybrany_cas_doktora)
+      self.dokoncit_planovani_btn.clicked.connect(self.zrus_planovani)
+      self.centralWidget().layout().addWidget(self.vyber_doktora_btn)
+      self.centralWidget().layout().addWidget(self.dokoncit_planovani_btn)
+        
+    def zrus_planovani(self):
+        # Zrušení plánování a odstranění tlačítka
+        self.status_bar.showMessage("Ukončeno plánování ordinací.")
+        for tabulka in self.tabulky.values():
+            tabulka.setSelectionMode(QTableWidget.NoSelection)
+            tabulka.clearSelection()
+            self.dokoncit_planovani_btn.deleteLater()
+            self.vyber_doktora_btn.deleteLater()    
+    
+    def uloz_vybrany_cas_doktora(self):
         # Získání vybraných časů a ordinace a uložení do databáze        
         vybrane_casy = []
         mistnost = None
@@ -269,12 +295,12 @@ class HlavniOkno(QMainWindow):
             # Uložení do databáze
             datum = self.kalendar.date().toPython()
             vloz_ordinacni_cas(doktor, datum, vybrane_casy[0],vybrane_casy[-1], mistnost)
-            self.status_bar.showMessage("Plánování uloženo.")
+            self.status_bar.showMessage("Plánování uloženo. Pokračuj v plánování ordinací, nebo jej ukonči.")
         # Vypnutí výběru a odstranění tlačítka
         for tabulka in self.tabulky.values():
-            tabulka.setSelectionMode(QTableWidget.NoSelection)
+            #tabulka.setSelectionMode(QTableWidget.NoSelection)
             tabulka.clearSelection()  # Odznačí všechny vybrané řádky/buňky
-        self.dokoncit_planovani_btn.deleteLater()    
+        #self.dokoncit_planovani_btn.deleteLater()    
     
     def zpracuj_dvojklik(self, mistnost, row, col):
       tabulka = self.tabulky[mistnost]

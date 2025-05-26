@@ -12,6 +12,9 @@ class VyberDoktoraDialog(QDialog):
         btn_ok = QPushButton("Potvrdit")
         btn_ok.clicked.connect(self.accept)
         layout.addWidget(btn_ok)
+        btn_cancel = QPushButton("Zrušit")
+        btn_cancel.clicked.connect(self.reject)
+        layout.addWidget(btn_cancel)
 
     def get_selected(self):
         return self.combo.currentText()
