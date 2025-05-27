@@ -234,9 +234,12 @@ class HlavniOkno(QMainWindow):
         # Pokud není přihlášen, menu se nezobrazí
   
     def zahaj_planovani_ordinaci(self):
+        self.plan_menu = QMenu("Plánování ordinací", self)
         dialog = PlanovaniOrdinaciDialog(self)
         if dialog.exec():
           self.povol_vyber_casu()
+          self.menu_bar.addMenu(self.plan_menu)
+          self.menu_bar.removeAction(self.user_menu.menuAction())  # Odstranění Plánování z menu
   
     def update_clock(self):
         from datetime import datetime
@@ -262,16 +265,19 @@ class HlavniOkno(QMainWindow):
               }
           """)
       self.status_bar.showMessage("Vyber časy pouze ve sloupci ČAS a pokračuj tlačítkem Vyber doktora.")
-      self.vyber_doktora_btn = QPushButton("Vyber doktora")
-      self.dokoncit_planovani_btn = QPushButton("Ukončit plánování")
-      self.vyber_doktora_btn.clicked.connect(self.uloz_vybrany_cas_doktora)
-      self.dokoncit_planovani_btn.clicked.connect(self.zrus_planovani)
-      self.centralWidget().layout().addWidget(self.vyber_doktora_btn)
-      self.centralWidget().layout().addWidget(self.dokoncit_planovani_btn)
+      self.naplanovat_doktora = QAction("Vyber doktora", self) # Tlačítko pro výběr doktora
+      self.ukoncit_planovani_doktora = QAction("Ukončit plánování", self) # Tlačítko pro ukončení plánování
+      self.naplanovat_doktora.triggered.connect(self.uloz_vybrany_cas_doktora) # Přidání akce pro uložení vybraných časů a ordinace
+      self.ukoncit_planovani_doktora.triggered.connect(self.zrus_planovani) # Zrušení plánování ordinací a odstranění tlačítka
+      self.plan_menu.addAction(self.naplanovat_doktora) # Přidání tlačítka pro výběr doktora
+      self.plan_menu.addAction(self.ukoncit_planovani_doktora) # Přidání tlačítka pro ukončení plánování ordinací
+
         
     def zrus_planovani(self):
         # Zrušení plánování a odstranění tlačítka
         self.status_bar.showMessage("Ukončeno plánování ordinací.")
+        self.menu_bar.removeAction(self.plan_menu.menuAction())  # Odstranění Plánování z menu
+        self.update_user_menu() # Přidat user menu zpět
         for tabulka in self.tabulky.values():
             tabulka.setSelectionMode(QTableWidget.NoSelection)
             tabulka.clearSelection()
@@ -298,9 +304,7 @@ class HlavniOkno(QMainWindow):
             self.status_bar.showMessage("Plánování uloženo. Pokračuj v plánování ordinací, nebo jej ukonči.")
         # Vypnutí výběru a odstranění tlačítka
         for tabulka in self.tabulky.values():
-            #tabulka.setSelectionMode(QTableWidget.NoSelection)
-            tabulka.clearSelection()  # Odznačí všechny vybrané řádky/buňky
-        #self.dokoncit_planovani_btn.deleteLater()    
+            tabulka.clearSelection()  # Odznačí všechny vybrané řádky/buňky   
     
     def zpracuj_dvojklik(self, mistnost, row, col):
       tabulka = self.tabulky[mistnost]
