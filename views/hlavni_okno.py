@@ -7,10 +7,10 @@ from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
 from models.databaze import get_ordinace
-from models.doktori import vloz_ordinacni_cas
+from models.doktori import vloz_ordinacni_cas, ziskej_rozvrh_doktoru_dne
 from views.login_dialog import LoginDialog
 from controllers.data import table_grey_strip, vaccination_color, pause_color
-from controllers.rezervace_controller import uloz_rezervaci
+# from controllers.rezervace_controller import uloz_rezervaci
 from models.databaze import get_doktori
 from views.vyber_doktora_dialog import VyberDoktoraDialog
 from views.planovani_ordinaci_dialog import PlanovaniOrdinaciDialog
@@ -310,6 +310,7 @@ class HlavniOkno(QMainWindow):
       tabulka = self.tabulky[mistnost]
       cas_item = tabulka.item(row, 0)
       data_item = tabulka.item(row, 1)
+      print(data_item.text())
       cas_str = cas_item.text() if cas_item else ""
       data_str = data_item.text() if data_item else ""
   
@@ -367,6 +368,11 @@ class HlavniOkno(QMainWindow):
     def nacti_rezervace(self):
       datum = self.kalendar.date().toPython()
       rezervace = ziskej_rezervace_dne(datum.strftime("%Y-%m-%d"))
+      rezervace_doktoru = ziskej_rozvrh_doktoru_dne(datum.strftime("%Y-%m-%d"))
+      # print(rezervace_doktoru)
+      
+      # Debug: Výpis rezervací
+      #print(rezervace_doktoru)
 
       # Vymaž všechny tabulky
       for tabulka in self.tabulky.values():
@@ -389,17 +395,26 @@ class HlavniOkno(QMainWindow):
           if mistnost in mapovane:
               mapovane[mistnost].append((cas, id, doktor, doktor_color, pacient, majitel, kontakt, druh, poznamka))
           #print("Mapované rezervace:", mapovane)
-
+          
       # Vlož data do tabulek
       for mistnost, tabulka in self.tabulky.items():
           tabulka.setHorizontalHeaderLabels(["ČAS", f"{mistnost}"]) # Set the name of the columne (ordinace)
           index = 0
           cas = datetime.combine(datum, datetime.strptime("08:00", "%H:%M").time())
           end = datetime.combine(datum, datetime.strptime("20:00", "%H:%M").time())
-
+          
+          rozvrh_doktoru_map = {}
+          for r in rezervace_doktoru:
+              # r = (id, jmeno, barva, datum, od, do, ordinace)
+              ordinace_nazev = r[6]
+              if ordinace_nazev not in rozvrh_doktoru_map:
+                  rozvrh_doktoru_map[ordinace_nazev] = []
+              rozvrh_doktoru_map[ordinace_nazev].append(r)    
+          
           while cas <= end:
             # Nastav slot podle času
               pause_time = False
+              vaccination_time = False  # inicializace na začátku každého cyklu
               #slot = timedelta(minutes=20)
               if cas.time() >= datetime.strptime("09:00", "%H:%M").time() and cas.time() <= datetime.strptime("09:45", "%H:%M").time():
                   slot = timedelta(minutes=15)
@@ -434,18 +449,35 @@ class HlavniOkno(QMainWindow):
                   
               cas_str = cas.strftime("%H:%M")
               tabulka.insertRow(index)
-
-              # Debug: Výpis všech porovnání
-              '''
-              for rez in mapovane[mistnost]:
-                  print(f"Porovnávám: {rez[0].strftime('%H:%M')} == {cas_str}")
-              '''
+              
+              
+              # --- ZDE PŘIDAT KONTROLU ROZVRHU DOKTORA ---
+              doktor_bg_color = "#ffffff"  # Výchozí barva pozadí
+              doktor_jmeno = ""
+              if mistnost in rozvrh_doktoru_map:
+                  for r in rozvrh_doktoru_map[mistnost]:
+                      # r = (id, jmeno, barva, datum, od, do, ordinace)
+                      od = datetime.strptime(r[4], "%H:%M").time()
+                      do = datetime.strptime(r[5], "%H:%M").time()
+                      if od <= cas.time() <= do:
+                          doktor_bg_color = r[2].strip()
+                          doktor_jmeno = r[1]
+                          break
+                        
+              # Pokud není rezervace, ponech prázdné buňky
+              tabulka.setItem(index, 0, QTableWidgetItem(cas_str))
+              doktor_item = QTableWidgetItem("")
+              
               # Najdi odpovídající rezervaci pro aktuální čas
               rezervace_pro_cas = [
                 rez for rez in mapovane[mistnost] if rez[0] >= cas and rez[0] < cas + slot
               ]
+        
+          
+              if doktor_jmeno:
+                  doktor_item.setBackground(QColor(doktor_bg_color))
+              tabulka.setItem(index, 1, doktor_item)
 
-              #print(f"Vkládám do tabulky {mistnost}: {rezervace_pro_cas}")
               # Vlož data do jednotlivých sloupců
               if rezervace_pro_cas:  # Čas
                 for rez in rezervace_pro_cas:
@@ -455,6 +487,8 @@ class HlavniOkno(QMainWindow):
                   font = doktor_item.font()
                   font.setBold(True)
                   doktor_item.setFont(font)
+                  doktor_item.setBackground(QColor(doktor_bg_color))
+                  tabulka.setItem(index, 1, doktor_item)
                   # Přidejte tooltip s detaily rezervace
                   tooltip_text = (
                       f"Čas: <b>{cas_str}</b><br>"
@@ -465,51 +499,44 @@ class HlavniOkno(QMainWindow):
                       f"Doktor: <b>{rez[2]}</b><br>"
                       f"Poznámka: <b>{rez[8]}</b>"
                   )
-                  doktor_item.setToolTip(tooltip_text)
-                  tabulka.setItem(index, 1, doktor_item)
                   
+                  doktor_item.setToolTip(tooltip_text)
+
                   # Nastavení světle šedého pozadí pro celý řádek
                   if index % 2 == 0:  # Sudý řádek
                       for col in range(2):  # Pro všechny sloupce
                           if vaccination_time == True:  # Pokud buňka existuje
                               tabulka.item(index, 0).setBackground(QColor(vaccination_color))  # Vakcinační pozadí
-                          else:  # Lichý řádek
-                              tabulka.item(index, 0).setBackground(QColor(table_grey_strip))  # Světle šedé pozadí
-
-                  # Nastavení světle modrého pozadí pro buňku "DOKTOR", pokud obsahuje jméno
-                  if rez[2]:  # Pokud je jméno doktora vyplněné
-                      doktor_item.setBackground(QColor(rez[3].strip()))  # Pozadí doktora
-                      if vaccination_time == True:
-                          tabulka.item(index, 0).setBackground(QColor(vaccination_color))
-                      if pause_time == True:
-                          tabulka.item(index, 0).setBackground(QColor(pause_color)) 
-                  
-                  
+                          else:  
+                              tabulka.item(index, 0).setBackground(QColor(table_grey_strip))
+                 
                   index += 1
-
               else:
                   # Pokud není rezervace, ponech prázdné buňky
                   tabulka.setItem(index, 0, QTableWidgetItem(cas_str))
-                  tabulka.setItem(index, 1, QTableWidgetItem(""))
 
                   # Nastavení světle šedého pozadí pro každý druhý řádek vaccination_color
                   # Sudý řádek
-                  for col in range(2):  # Pro všechny sloupce
-                    if index % 2 == 0:  # Pokud je vakcinační čas
+                  for col in range(2):  # Pro druhé sloupce
+                    if index % 2 == 0:  # Pro každý sudý řádek
                       if vaccination_time == True:
                        tabulka.item(index, 0).setBackground(QColor(vaccination_color))
                        tabulka.item(index, 1).setBackground(QColor(table_grey_strip))
+                       if doktor_bg_color:
+                          tabulka.item(index, 1).setBackground(QColor(doktor_bg_color))
                       elif pause_time == True:
                         tabulka.item(index, col).setBackground(QColor(pause_color))
                       else:
                         tabulka.item(index, col).setBackground(QColor(table_grey_strip))
+                        if doktor_bg_color:
+                          tabulka.item(index, 1).setBackground(QColor(doktor_bg_color))
                     elif pause_time == True:
                       tabulka.item(index, col).setBackground(QColor(pause_color)) # Pokud je pauza
                     elif vaccination_time == True:
                       tabulka.item(index, 0).setBackground(QColor(vaccination_color))
-                                                            
+                                            
                   index += 1
                   
               cas += slot
-              
+            
       #print("Rezervace načtené z databáze:", rezervace)
