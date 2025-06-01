@@ -4,11 +4,12 @@ from PySide6.QtCore import QSize, QDateTime, QTime
 from controllers.rezervace_controller import uloz_rezervaci
 from models.databaze import get_doktori, get_ordinace
 class FormularRezervace(QWidget):
-    def __init__(self, hlavni_okno=None, rezervace_data=None, predvyplneny_cas=None, predvyplnena_ordinace=None):
+    def __init__(self, hlavni_okno=None, rezervace_data=None, predvyplneny_cas=None, predvyplnena_ordinace=None, predvyplneny_doktor=None):
         super().__init__()
         self.setWindowTitle("Nová rezervace" if rezervace_data is None else "Úprava rezervace")
         self.rezervace_id = rezervace_data[1] if rezervace_data else None
         self.hlavni_okno = hlavni_okno
+        self.predvyplenenty_doktor = predvyplneny_doktor
 
         self.layout = QFormLayout()
 
@@ -37,7 +38,7 @@ class FormularRezervace(QWidget):
           self.pacient_druh_input.setText(rezervace_data[7])
           self.majitel_input.setText(rezervace_data[5])
           self.kontakt_majitel_input.setText(rezervace_data[6])
-          idx = self.doktor_input.findText(rezervace_data[2])  # index 2 je doktor (jméno)
+          idx = self.doktor_input.findText(rezervace_data[2]) # index 2 je doktor (jméno)
           if idx != -1:
               self.doktor_input.setCurrentIndex(idx)
           self.note_input.setPlainText(rezervace_data[9])
@@ -59,6 +60,10 @@ class FormularRezervace(QWidget):
                 idx = self.mistnost_input.findText(predvyplnena_ordinace)
                 if idx != -1:
                     self.mistnost_input.setCurrentIndex(idx)
+            if predvyplneny_doktor:
+                idx = self.doktor_input.findText(predvyplneny_doktor)
+                if idx != -1:
+                    self.doktor_input.setCurrentIndex(idx)
         '''
         # Použití QDateTimeEdit místo QLineEdit
         self.cas_input = QDateTimeEdit()

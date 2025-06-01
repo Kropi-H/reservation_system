@@ -7,7 +7,7 @@ from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
 from models.databaze import get_ordinace
-from models.doktori import vloz_ordinacni_cas, ziskej_rozvrh_doktoru_dne
+from models.doktori import uloz_nebo_uprav_ordinacni_cas, ziskej_rozvrh_doktoru_dne, get_all_doctors_colors 
 from views.login_dialog import LoginDialog
 from controllers.data import table_grey_strip, vaccination_color, pause_color
 # from controllers.rezervace_controller import uloz_rezervaci
@@ -240,6 +240,8 @@ class HlavniOkno(QMainWindow):
           self.povol_vyber_casu()
           self.menu_bar.addMenu(self.plan_menu)
           self.menu_bar.removeAction(self.user_menu.menuAction())  # Odstranění Plánování z menu
+          for tabulka in self.tabulky.values():  # Odznačí všechny vybrané řádky/buňky
+              tabulka.clearSelection()
   
     def update_clock(self):
         from datetime import datetime
@@ -266,12 +268,18 @@ class HlavniOkno(QMainWindow):
           """)
       self.status_bar.showMessage("Vyber časy pouze ve sloupci ČAS a pokračuj tlačítkem Vyber doktora.")
       self.naplanovat_doktora = QAction("Vyber doktora", self) # Tlačítko pro výběr doktora
+      self.srusit_vybrane = QAction("Zrušit výběr", self) # Tlačítko pro zrušení výběru doktora
       self.ukoncit_planovani_doktora = QAction("Ukončit plánování", self) # Tlačítko pro ukončení plánování
       self.naplanovat_doktora.triggered.connect(self.uloz_vybrany_cas_doktora) # Přidání akce pro uložení vybraných časů a ordinace
+      self.srusit_vybrane.triggered.connect(self.zrus_vybrany_cas_doktora) # Přidání akce pro uložení vybraných časů a ordinace
       self.ukoncit_planovani_doktora.triggered.connect(self.zrus_planovani) # Zrušení plánování ordinací a odstranění tlačítka
       self.plan_menu.addAction(self.naplanovat_doktora) # Přidání tlačítka pro výběr doktora
+      self.plan_menu.addAction(self.srusit_vybrane) # Přidání tlačítka pro výběr doktora
       self.plan_menu.addAction(self.ukoncit_planovani_doktora) # Přidání tlačítka pro ukončení plánování ordinací
 
+    def zrus_vybrany_cas_doktora(self):
+        # Zrušení výběru a odstranění tlačítka
+      pass
         
     def zrus_planovani(self):
         # Zrušení plánování a odstranění tlačítka
@@ -281,36 +289,49 @@ class HlavniOkno(QMainWindow):
         for tabulka in self.tabulky.values():
             tabulka.setSelectionMode(QTableWidget.NoSelection)
             tabulka.clearSelection()
-            self.dokoncit_planovani_btn.deleteLater()
-            self.vyber_doktora_btn.deleteLater()    
+            #self.dokoncit_planovani_btn.deleteLater()
+            #self.vyber_doktora_btn.deleteLater() 
+            self.nacti_rezervace()  # Načtení rezervací pro obnovení původního stavu tabulek   
     
     def uloz_vybrany_cas_doktora(self):
-        # Získání vybraných časů a ordinace a uložení do databáze        
+        # Získání vybraných časů a ordinace a uložení do databáze
+        all_doctors_colors = [ color[0] for color in get_all_doctors_colors()]
+        match_doctor_colors = []        
         vybrane_casy = []
         mistnost = None
+        barva = None
         for m, tabulka in self.tabulky.items():
             for item in tabulka.selectedItems():
                 #print(item.text(), item.row(), item.column())
                 if item.column() == 0:
                   vybrane_casy.append(item.text())
                   mistnost = m  # Uložení ordinace, pokud je vybrán čas
-                    #vybrane_casy.append((m, item.text()))
+                  # vybrane_casy.append((m, item.text()))
+                  doktor_item = tabulka.item(item.row(), 1)
+                  # Získání barvy doktora z buňky    
+                  if doktor_item:
+                    barva = doktor_item.background().color().name()
+                    if barva in all_doctors_colors:
+                      if not barva in match_doctor_colors:
+                        match_doctor_colors.append(barva)
         dialog = VyberDoktoraDialog(doktori, self)
         if dialog.exec():
-            doktor = dialog.get_selected()
+            new_reservace_doktor = dialog.get_selected()
             # Uložení do databáze
             datum = self.kalendar.date().toPython()
-            vloz_ordinacni_cas(doktor, datum, vybrane_casy[0],vybrane_casy[-1], mistnost)
+            # print(f"Nový dokotr:{new_reservace_doktor}, Starý doktor/doktoři: {match_doctor_colors}, {datum}, {vybrane_casy[0]}, {vybrane_casy[-1]}, {mistnost}")
+            print(vybrane_casy)
+            uloz_nebo_uprav_ordinacni_cas(new_reservace_doktor, match_doctor_colors ,datum, vybrane_casy[0],vybrane_casy[-1], mistnost)
             self.status_bar.showMessage("Plánování uloženo. Pokračuj v plánování ordinací, nebo jej ukonči.")
         # Vypnutí výběru a odstranění tlačítka
         for tabulka in self.tabulky.values():
-            tabulka.clearSelection()  # Odznačí všechny vybrané řádky/buňky   
+            tabulka.clearSelection()  # Odznačí všechny vybrané řádky/buňky
+            self.nacti_rezervace()  # Načtení rezervací pro obnovení původního stavu tabulek
     
     def zpracuj_dvojklik(self, mistnost, row, col):
       tabulka = self.tabulky[mistnost]
       cas_item = tabulka.item(row, 0)
       data_item = tabulka.item(row, 1)
-      print(data_item.text())
       cas_str = cas_item.text() if cas_item else ""
       data_str = data_item.text() if data_item else ""
   
@@ -319,6 +340,18 @@ class HlavniOkno(QMainWindow):
   
       datum = self.kalendar.date().toPython()
       slot_start = datetime.combine(datum, datetime.strptime(cas_str, "%H:%M").time())
+      
+      # --- Zjisti jméno a barvu doktora podle rozvrhu ---
+      rezervace_doktoru = ziskej_rozvrh_doktoru_dne(datum.strftime("%Y-%m-%d"))
+      doktor_jmeno = ""
+      for r in rezervace_doktoru:
+          # r = (id, jmeno, barva, datum, od, do, ordinace)
+          if r[6] == mistnost:
+              od = datetime.strptime(r[4], "%H:%M").time()
+              do = datetime.strptime(r[5], "%H:%M").time()
+              if od <= slot_start.time() <= do:
+                  doktor_jmeno = r[1]
+                  break
   
       # Zjisti délku slotu stejně jako v nacti_rezervace
       if slot_start.time() >= datetime.strptime("09:00", "%H:%M").time() and slot_start.time() <= datetime.strptime("09:45", "%H:%M").time():
@@ -341,15 +374,20 @@ class HlavniOkno(QMainWindow):
       slot_end = slot_start + slot
   
       if not data_str.strip():
-          # Předvyplň čas a ordinaci
-          self.formular = FormularRezervace(self, predvyplneny_cas=f"{datum.strftime('%Y-%m-%d')} {cas_str}", predvyplnena_ordinace=mistnost)
-          self.formular.show()
+        # Předvyplň čas, ordinaci a doktora
+        self.formular = FormularRezervace(
+            self,
+            predvyplneny_cas=f"{datum.strftime('%Y-%m-%d')} {cas_str}",
+            predvyplnena_ordinace=mistnost,
+            predvyplneny_doktor=doktor_jmeno  # <-- přidej tento parametr
+        )
+        self.formular.show()
       else:
+          # ...původní logika pro otevření existující rezervace...
           rezervace = ziskej_rezervace_dne(datum.strftime("%Y-%m-%d"))
           for r in rezervace:
-              # r[8] = mistnost, r[0] = čas rezervace (string)
               rez_cas = datetime.strptime(r[0], "%Y-%m-%d %H:%M")
-              if r[8] == mistnost and slot_start <= rez_cas < slot_end:
+              if r[8] == mistnost and slot_start <= rez_cas < slot_start + slot:
                   self.formular = FormularRezervace(self, rezervace_data=r)
                   self.formular.show()
                   break    
