@@ -320,7 +320,7 @@ class HlavniOkno(QMainWindow):
             # Uložení do databáze
             datum = self.kalendar.date().toPython()
             # print(f"Nový dokotr:{new_reservace_doktor}, Starý doktor/doktoři: {match_doctor_colors}, {datum}, {vybrane_casy[0]}, {vybrane_casy[-1]}, {mistnost}")
-            print(vybrane_casy)
+            # print(vybrane_casy)
             uloz_nebo_uprav_ordinacni_cas(new_reservace_doktor, match_doctor_colors ,datum, vybrane_casy[0],vybrane_casy[-1], mistnost)
             self.status_bar.showMessage("Plánování uloženo. Pokračuj v plánování ordinací, nebo jej ukonči.")
         # Vypnutí výběru a odstranění tlačítka

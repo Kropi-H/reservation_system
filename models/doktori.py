@@ -99,15 +99,13 @@ def uloz_nebo_uprav_ordinacni_cas(novy_doktor, barvy_puvodnich, datum, prace_od,
     from datetime import datetime
 
     novy_doktor_id = get_doktor_id(novy_doktor)
-    novy_doktor_color = get_doktor_color(novy_doktor)[0]
     ordinace_id = get_ordinace_id(nazev_ordinace)
-    # print(f"Nový doktor color: {novy_doktor_color}, staří doktoři: {barvy_puvodnich}")
     if novy_doktor_id is None or ordinace_id is None:
         raise ValueError("Doktor nebo ordinace nenalezena.")
 
     prace_od_dt = datetime.strptime(prace_od, "%H:%M")
     prace_do_dt = datetime.strptime(prace_do, "%H:%M")
-    print(f"Nový záznam: {novy_doktor}, [{prace_od}, {prace_do}]")
+    # print(f"Nový záznam: {novy_doktor}, [{prace_od}, {prace_do}]")
     
     with get_connection() as conn:
         cur = conn.cursor()
@@ -122,7 +120,7 @@ def uloz_nebo_uprav_ordinacni_cas(novy_doktor, barvy_puvodnich, datum, prace_od,
               ''', (puvodni_doktor_id, datum, ordinace_id))
               rows = cur.fetchall()
 
-              print(f"původní záznam: {rows}")
+              # print(f"původní záznam: {rows}")
               
               for zaznam_id, exist_od, exist_do in rows:
                   exist_od_dt = datetime.strptime(exist_od, "%H:%M")
@@ -130,24 +128,24 @@ def uloz_nebo_uprav_ordinacni_cas(novy_doktor, barvy_puvodnich, datum, prace_od,
 
                   # Nový úsek zcela překrývá starý
                   if prace_od_dt <= exist_od_dt and prace_do_dt >= exist_do_dt:
-                      print("Nový úsek zcela překrývá starý")
+                      # print("Nový úsek zcela překrývá starý")
                       cur.execute('DELETE FROM Doktori_Ordinacni_Cas WHERE work_id = ?', (zaznam_id,))
                       conn.commit()
                   # Nový úsek překrývá začátek starého
                   elif prace_od_dt <= exist_od_dt < prace_do_dt < exist_do_dt:
-                      print("Nový úsek překrývá začátek starého")
+                      #print("Nový úsek překrývá začátek starého")
                       exist_do_dt = time_anchores[time_anchores.index(prace_do)+1]
                       cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_od = ? WHERE work_id = ?', (exist_do_dt, zaznam_id))
                       conn.commit()
                   # Nový úsek překrývá konec starého
                   elif exist_od_dt < prace_od_dt <= exist_do_dt <= prace_do_dt:
-                      print("Nový úsek překrývá konec starého")
+                      # print("Nový úsek překrývá konec starého")
                       exist_do_dt = time_anchores[time_anchores.index(exist_do)-1]
                       cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_do = ? WHERE work_id = ?', (exist_do_dt, zaznam_id))
                       conn.commit()
                   # Nový úsek je uvnitř starého (rozdělení na dva)
                   elif exist_od_dt < prace_od_dt and prace_do_dt < exist_do_dt:
-                      print("Nový úsek je uvnitř starého a rozdělí ho na dva")
+                      # print("Nový úsek je uvnitř starého a rozdělí ho na dva")
                       exist_do_dt = time_anchores[time_anchores.index(prace_od)-1]
                       exist_new_od_dt = time_anchores[time_anchores.index(prace_od)+1]
                       cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_do = ? WHERE work_id = ?', (exist_do_dt, zaznam_id))
@@ -156,17 +154,13 @@ def uloz_nebo_uprav_ordinacni_cas(novy_doktor, barvy_puvodnich, datum, prace_od,
                           VALUES (?, ?, ?, ?, ?)
                       ''', (puvodni_doktor_id, datum, exist_new_od_dt, exist_do, ordinace_id))
                       conn.commit()
-                      
-        else:              
-            # 2. Přidej nový úsek novému doktorovi a slouč navazující
-            print("Přidej nový úsek novému doktorovi a slouč navazující")
-            cur.execute('''
-                SELECT prace_od, prace_do FROM Doktori_Ordinacni_Cas
-                WHERE doktor_id = ? AND datum = ? AND ordinace_id = ?
-                ORDER BY prace_od
-            ''', (novy_doktor_id, datum, ordinace_id))
-            conn.commit()
-        
+                                    
+                # 2. Přidej nový úsek novému doktorovi a slouč navazující
+        cur.execute('''
+            SELECT prace_od, prace_do FROM Doktori_Ordinacni_Cas
+            WHERE doktor_id = ? AND datum = ? AND ordinace_id = ?
+            ORDER BY prace_od
+        ''', (novy_doktor_id, datum, ordinace_id))
         intervals = []
         for od, do in cur.fetchall():
             od_dt = datetime.strptime(od, "%H:%M")
@@ -179,22 +173,33 @@ def uloz_nebo_uprav_ordinacni_cas(novy_doktor, barvy_puvodnich, datum, prace_od,
             prace_od_dt, prace_do_dt = prace_do_dt, prace_od_dt
         intervals.append((prace_od_dt, prace_do_dt))
         intervals.sort()
+
+        # Sluč navazující a překrývající se úseky podle time_anchores
         merged = []
         for start, end in intervals:
             if not merged:
                 merged.append([start, end])
             else:
                 last_start, last_end = merged[-1]
-                if start <= last_end:
+                last_end_str = last_end.strftime("%H:%M")
+                start_str = start.strftime("%H:%M")
+                try:
+                    idx_last_end = time_anchores.index(last_end_str)
+                    idx_start = time_anchores.index(start_str)
+                except ValueError:
+                    merged.append([start, end])
+                    continue
+
+                if idx_last_end >= idx_start or idx_last_end + 1 == idx_start:
                     merged[-1][1] = max(last_end, end)
                 else:
                     merged.append([start, end])
+
         cur.execute('''
             DELETE FROM Doktori_Ordinacni_Cas
             WHERE doktor_id = ? AND datum = ? AND ordinace_id = ?
         ''', (novy_doktor_id, datum, ordinace_id))
         for od, do in merged:
-            print(f"Vkládám nový záznam pro doktora {novy_doktor} od {od.strftime('%H:%M')} do {do.strftime('%H:%M')}")
             cur.execute('''
                 INSERT INTO Doktori_Ordinacni_Cas (doktor_id, datum, prace_od, prace_do, ordinace_id)
                 VALUES (?, ?, ?, ?, ?)
@@ -205,8 +210,6 @@ def uloz_nebo_uprav_ordinacni_cas(novy_doktor, barvy_puvodnich, datum, prace_od,
                 do.strftime("%H:%M"),
                 ordinace_id
             ))
-        
-        # Uložení změn
         conn.commit()
 
         
