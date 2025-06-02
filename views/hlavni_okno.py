@@ -92,6 +92,24 @@ class HlavniOkno(QMainWindow):
         else:
             self.logo_label.setText("Logo nenalezeno")
         horni_radek.addWidget(self.logo_label)
+        
+        # --- Přidání barevných štítků doktorů ---
+        self.doktori_layout = QHBoxLayout()
+        for doktor in get_doktori():
+          if doktor[3] == 1:  # Kontrola, zda je doktor aktivní
+            jmeno = f"{doktor[1]} {doktor[2]}"
+            barva = doktor[5].strip()  # Barva doktora
+            label = QLabel(jmeno)
+            label.setStyleSheet(f"""
+                background-color: {barva};
+                color: #222;
+                border-radius: 2px;
+                padding: 2px 4px;
+                margin-right: 6px;
+                font-weight: bold;
+            """)
+            self.doktori_layout.addWidget(label)
+        horni_radek.addLayout(self.doktori_layout)
 
         # --- Střední část: tlačítka a kalendář ---
         stredni_widget = QWidget()
@@ -130,7 +148,7 @@ class HlavniOkno(QMainWindow):
         stredni_widget.setLayout(stredni_layout)
 
         # Přidat stretch mezi logo a střed, a mezi střed a hodiny
-        horni_radek.addStretch()
+        # horni_radek.addStretch()
         horni_radek.addWidget(stredni_widget, alignment=Qt.AlignHCenter)
         horni_radek.addStretch()
 

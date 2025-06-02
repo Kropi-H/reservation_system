@@ -113,7 +113,7 @@ def get_doktori():
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute('''
-        SELECT doktor_id, jmeno, prijmeni 
+        SELECT doktor_id, jmeno, prijmeni,isActive ,specializace, color
         FROM Doktori
         WHERE isActive = 1
         ''')
