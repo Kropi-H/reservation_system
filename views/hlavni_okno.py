@@ -558,14 +558,17 @@ class HlavniOkno(QMainWindow):
                   
                   doktor_item.setToolTip(tooltip_text)
 
-                  # Nastavení světle šedého pozadí pro celý řádek
-                  if index % 2 == 0:  # Sudý řádek
-                      for col in range(2):  # Pro všechny sloupce
-                          if vaccination_time == True:  # Pokud buňka existuje
-                              tabulka.item(index, 0).setBackground(QColor(vaccination_color))  # Vakcinační pozadí
-                          else:  
-                              tabulka.item(index, 0).setBackground(QColor(table_grey_strip))
-                 
+              # Nastavení světle šedého pozadí pro celý řádek
+              if index % 2 == 0:  # Sudý řádek
+                  for col in range(2):  # Pro všechny sloupce
+                    tabulka.item(index, col).setBackground(QColor(table_grey_strip))
+                    if vaccination_time == True:  # Pokud buňka existuje
+                      tabulka.item(index, 0).setBackground(QColor(vaccination_color))  # Vakcinační pozadí
+                    if doktor_bg_color:
+                      tabulka.item(index, 1).setBackground(QColor(doktor_bg_color))
+                    if pause_time == True:
+                      tabulka.item(index, col).setBackground(QColor(pause_color))
+                      
                   index += 1
               else:
                   # Pokud není rezervace, ponech prázdné buňky
@@ -580,16 +583,21 @@ class HlavniOkno(QMainWindow):
                        tabulka.item(index, 1).setBackground(QColor(table_grey_strip))
                        if doktor_bg_color:
                           tabulka.item(index, 1).setBackground(QColor(doktor_bg_color))
+                        
                       elif pause_time == True:
+                        
                         tabulka.item(index, col).setBackground(QColor(pause_color))
                       else:
                         tabulka.item(index, col).setBackground(QColor(table_grey_strip))
                         if doktor_bg_color:
                           tabulka.item(index, 1).setBackground(QColor(doktor_bg_color))
+                          
                     elif pause_time == True:
+                      
                       tabulka.item(index, col).setBackground(QColor(pause_color)) # Pokud je pauza
                     elif vaccination_time == True:
                       tabulka.item(index, 0).setBackground(QColor(vaccination_color))
+                      
                                             
                   index += 1
                   
