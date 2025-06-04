@@ -110,6 +110,7 @@ class HlavniOkno(QMainWindow):
             """)
             self.doktori_layout.addWidget(label)
         horni_radek.addLayout(self.doktori_layout)
+        
 
         # --- Střední část: tlačítka a kalendář ---
         stredni_widget = QWidget()
@@ -119,7 +120,7 @@ class HlavniOkno(QMainWindow):
 
         self.btn_predchozi = QPushButton("<")
         self.btn_predchozi.setFixedWidth(40)
-        self.btn_predchozi.setStyleSheet("font-size: 18px;")
+        self.btn_predchozi.setStyleSheet("font-size: 20px;")
         self.btn_predchozi.clicked.connect(self.predchozi_den)
 
         self.kalendar = QDateEdit()
@@ -128,7 +129,7 @@ class HlavniOkno(QMainWindow):
         self.kalendar.setStyleSheet("""
             QDateEdit {
                 font-size: 22px;
-                min-width: 160px;
+                min-width: 200px;
                 qproperty-alignment: AlignCenter;
                 padding: 4px 10px;
             }
@@ -139,7 +140,7 @@ class HlavniOkno(QMainWindow):
 
         self.btn_nasledujici = QPushButton(">")
         self.btn_nasledujici.setFixedWidth(40)
-        self.btn_nasledujici.setStyleSheet("font-size: 18px;")
+        self.btn_nasledujici.setStyleSheet("font-size: 20px;")
         self.btn_nasledujici.clicked.connect(self.nasledujici_den)
 
         stredni_layout.addWidget(self.btn_predchozi)
@@ -150,8 +151,33 @@ class HlavniOkno(QMainWindow):
         # Přidat stretch mezi logo a střed, a mezi střed a hodiny
         # horni_radek.addStretch()
         horni_radek.addWidget(stredni_widget, alignment=Qt.AlignHCenter)
-        horni_radek.addStretch()
-
+        #horni_radek.addStretch()
+        
+        # Legenda informace vpravo
+        def legenda_stylesheet(color):
+            return f"""
+                background-color: {color};
+                color: #222;
+                border-radius: 2px;
+                min-width: 80px;
+                qproperty-alignment: AlignCenter;
+                padding: 2px 4px;
+                margin-right: 6px;
+                font-weight: bold;
+            """
+        self.legenda_info = QHBoxLayout()
+        legenda_vakcinace = QLabel("Vakcinace")
+        legenda_vakcinace.setStyleSheet(legenda_stylesheet(vaccination_color))
+        
+        legenda_pauza = QLabel("Pauza")
+        legenda_pauza.setStyleSheet(legenda_stylesheet(pause_color))
+        
+        self.legenda_info.addWidget(legenda_vakcinace)
+        self.legenda_info.addWidget(legenda_pauza)
+        horni_radek.addLayout(self.legenda_info)
+        self.legenda_info.addStretch()
+        
+        
         # Hodiny vpravo
         self.clock_label = QLabel()
         self.clock_label.setStyleSheet("font-size: 22px; font-weight: bold; min-width: 80px;")
@@ -284,7 +310,7 @@ class HlavniOkno(QMainWindow):
                   selection-color: black;
               }
           """)
-      self.status_bar.showMessage("Vyber časy pouze ve sloupci ČAS a pokračuj tlačítkem Vyber doktora.")
+      self.status_bar.showMessage("Vyber časy pouze ve sloupci ČAS a pokračuj tlačítkem Plánování ordinací a následně Vyber doktora.")
       self.naplanovat_doktora = QAction("Vyber doktora", self) # Tlačítko pro výběr doktora
       self.srusit_vybrane = QAction("Zrušit výběr", self) # Tlačítko pro zrušení výběru doktora
       self.ukoncit_planovani_doktora = QAction("Ukončit plánování", self) # Tlačítko pro ukončení plánování
