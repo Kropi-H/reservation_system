@@ -16,7 +16,7 @@ from views.vyber_doktora_dialog import VyberDoktoraDialog
 from views.planovani_ordinaci_dialog import PlanovaniOrdinaciDialog
 import os
 
-doktori = [f"{d[1]} {d[2]}" for d in get_doktori()]
+
 
 def get_ordinace_list():
         ordinace = get_ordinace()
@@ -234,11 +234,16 @@ class HlavniOkno(QMainWindow):
     def logout_user(self):
         self.logged_in_user = None
         self.logged_in_user_role = None
+        # Odstranit menu pro plánování, pokud existuje
+        if hasattr(self, "plan_menu") and self.plan_menu:
+          self.menu_bar.removeAction(self.plan_menu.menuAction())
+        self.plan_menu = None
         self.status_bar.showMessage("Nepřihlášen")
         self.login_action.setText("Přihlášení")
         self.login_action.triggered.disconnect()
         self.login_action.triggered.connect(self.show_login_dialog)
         self.update_user_menu()  # <-- Odebrat podmenu
+        self.user_menu = None
         
     def update_user_menu(self):
         # Odeber staré user_menu, pokud existuje
@@ -358,7 +363,7 @@ class HlavniOkno(QMainWindow):
                     if barva in all_doctors_colors:
                       if not barva in match_doctor_colors:
                         match_doctor_colors.append(barva)
-        dialog = VyberDoktoraDialog(doktori, self)
+        dialog = VyberDoktoraDialog(self)
         if dialog.exec():
             new_reservace_doktor = dialog.get_selected()
             # Uložení do databáze
