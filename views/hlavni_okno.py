@@ -14,6 +14,7 @@ from controllers.data import table_grey_strip, vaccination_color, pause_color
 from models.databaze import get_doktori
 from views.vyber_doktora_dialog import VyberDoktoraDialog
 from views.planovani_ordinaci_dialog import PlanovaniOrdinaciDialog
+from views.users_dialog import UsersDialog
 import os
 
 
@@ -258,6 +259,7 @@ class HlavniOkno(QMainWindow):
             self.plan_surgery_section = QAction("Plánování ordinací", self)
             self.plan_surgery_section.triggered.connect(self.zahaj_planovani_ordinaci)
             self.users_section = QAction("Sekce uživatelů", self)
+            self.users_section.triggered.connect(self.sekce_uzivatelu)
             self.doctors_section = QAction("Sekce doktoři", self)
             self.surgery_section = QAction("Sekce ordinace", self)
             # Přidejte další akce podle potřeby
@@ -281,6 +283,10 @@ class HlavniOkno(QMainWindow):
             self.user_menu.addAction(self.doctors_section)
             self.user_menu.addAction(self.surgery_section)
         # Pokud není přihlášen, menu se nezobrazí
+  
+    def sekce_uzivatelu(self):
+        dialog = UsersDialog(self)
+        dialog.exec()
   
     def zahaj_planovani_ordinaci(self):
         self.plan_menu = QMenu("Plánování ordinací", self)
@@ -420,7 +426,6 @@ class HlavniOkno(QMainWindow):
       else:
           slot = timedelta(minutes=20)
   
-      slot_end = slot_start + slot
   
       if not data_str.strip():
         # Předvyplň čas, ordinaci a doktora
