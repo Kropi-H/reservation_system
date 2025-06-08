@@ -1,4 +1,6 @@
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHBoxLayout, QMessageBox
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QHBoxLayout, QMessageBox
+from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QHBoxLayout, QVBoxLayout, QScrollArea
+from views.add_user_dialog import AddUserDialog
 from models.users import get_all_users, add_user, remove_user, update_user
 from functools import partial
 
@@ -6,8 +8,21 @@ class UsersDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Správa uživatelů")
-        self.resize(500, 350)  # Základní velikost okna (šířka, výška)
+        self.resize(400, 350)
         self.center_to_parent()
+        self.setStyleSheet(""" ... """)
+        self.parent_window = parent
+
+        self.layout = QVBoxLayout(self)
+
+        self.button_layout = QHBoxLayout()
+        self.add_user_button = QPushButton("Přidat uživatele", self)
+        self.add_user_button.clicked.connect(self.add_user)
+        self.button_layout.addWidget(self.add_user_button)
+        self.layout.addLayout(self.button_layout)
+
+        self.scroll = None  # <-- přidáno
+        self.load_users()
         
         # Styl pro všechny tabulky v tomto okně
         self.setStyleSheet("""
@@ -29,44 +44,34 @@ class UsersDialog(QDialog):
                 font-weight: bold;
                 font-size: 14px;
             }
-            QPushButton {
-        min-width: 80px;
-        max-width: 120px;
+            QPushButton#remove_user, 
+            QPushButton#update_user,
+            QPushButton#change_password {
+        min-width: 60px;
+        max-width: 80px;
+        min-height: 10px;
+        max-height: 15px;
         padding: 2px 6px;
         font-size: 12px;
-        border: 1px solid #009688;
+        border-style: outset;
+        border-color: #b2d7ef;
+        border-width: 1px;
+        border-radius: 4px;
         background-color: #e6f7ff;
         color: #222;
         }
+        QPushButton#change_password {
+            background-color: #d0f0fd;
+        }
+        
+        QPushButton#remove_user:pressed,
+        QPushButton#update_user:pressed,
+        QPushButton#change_password:pressed {
+           background-color: #b2d7ef;
+            color: #000;
+        }
         """)  
-
-        self.parent_window = parent  # Store the parent window reference
-
-        self.layout = QVBoxLayout(self)
-
-        self.user_table = QTableWidget(self)
-        self.user_table.setColumnCount(4)
-        self.user_table.setHorizontalHeaderLabels(["Uživatel", "Role", "Smazat", "Upravit"])
-        self.user_table.setColumnWidth(2, 150)  # Akce (tlačítko)
-        self.user_table.setColumnWidth(3, 150)  # Akce (tlačítko)
-        self.layout.addWidget(self.user_table)
-
-        self.load_users()
-
-        self.button_layout = QHBoxLayout()
-        self.add_user_button = QPushButton("Přidat uživatele", self)
-        self.add_user_button.clicked.connect(self.add_user)
-        self.button_layout.addWidget(self.add_user_button)
-
-        '''self.remove_user_button = QPushButton("Odebrat uživatele", self)
-        self.remove_user_button.clicked.connect(self.remove_user)
-        self.button_layout.addWidget(self.remove_user_button)'''
-
-        ''' self.update_user_button = QPushButton("Upravit uživatele", self)
-        self.update_user_button.clicked.connect(self.update_user)
-        self.button_layout.addWidget(self.update_user_button)'''
-
-        self.layout.addLayout(self.button_layout)
+ 
         
     def center_to_parent(self):
         if self.parent():
@@ -76,36 +81,62 @@ class UsersDialog(QDialog):
             y = parent_geom.y() + (parent_geom.height() - self_geom.height()) // 2
             self.move(x, y)
 
+
     def load_users(self):
-        self.user_table.setRowCount(0)
+        # Odstraňte starý scroll area, pokud existuje
+        if self.scroll is not None:
+            self.layout.removeWidget(self.scroll)
+            self.scroll.deleteLater()
+            self.scroll = None
+            
+        self.users_widget = QWidget()
+        vbox = QVBoxLayout(self.users_widget)
         users = get_all_users()
         for user in users:
-            user_id = user[0]
-            username = user[1]
-            row_position = self.user_table.rowCount()
-            self.user_table.insertRow(row_position)
-            self.user_table.setItem(row_position, 0, QTableWidgetItem(username))  # Username
-            self.user_table.setItem(row_position, 1, QTableWidgetItem(user[3]))  # Role
+            hbox = QHBoxLayout()
+            label = QLabel(f"{user[1]} ({user[3]})")
+            hbox.addWidget(label)
             if user[3] == 'admin':
-                # If the user is an admin, disable the remove button
                 remove_button = QPushButton("Chráněno")
+                remove_button.setObjectName("remove_user")
                 remove_button.setEnabled(False)
                 update_button = QPushButton("Chráněno")
+                update_button.setObjectName("update_user")
                 update_button.setEnabled(False)
+                password_button = QPushButton("Chráněno")
+                password_button.setObjectName("change_password")
+                password_button.setEnabled(False)
             else:
                 remove_button = QPushButton("Odebrat")
-                remove_button.clicked.connect(partial(self.remove_user, user_id, username))
+                remove_button.setObjectName("remove_user")
+                remove_button.clicked.connect(partial(self.remove_user, user[0], user[1]))
                 update_button = QPushButton("Upravit")
-                update_button.clicked.connect(partial(self.update_user, user_id, username))
-                
-            self.user_table.setCellWidget(row_position, 2, remove_button)
-            self.user_table.setCellWidget(row_position, 3, update_button)
-            # self.user_table.resizeColumnsToContents()
+                update_button.setObjectName("update_user")
+                update_button.clicked.connect(partial(self.update_user, user[0], user[1]))
+                password_button = QPushButton("Heslo")
+                password_button.setObjectName("change_password")
+                password_button.clicked.connect(partial(self.change_password, user[0], user[1]))
+            hbox.addWidget(remove_button)
+            hbox.addWidget(update_button)
+            hbox.addWidget(password_button)
+            vbox.addLayout(hbox)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setWidget(self.users_widget)
+        self.layout.addWidget(self.scroll)
 
     def add_user(self):
-        # Logic to add a new user (show a dialog to enter user details)
-        pass
-
+        dialog = AddUserDialog(self)
+        if dialog.exec() == QDialog.Accepted:
+            data = dialog.get_data()
+            try:
+                add_user(data)
+                self.load_users()
+                if self.parent_window:
+                    self.parent_window.status_bar.showMessage(f"Uživatel {data['username']} byl přidán.")
+            except Exception as e:
+                QMessageBox.critical(self, "Chyba", f"Chyba při přidávání uživatele: {e}")
+    
     def remove_user(self, user_id, username):
         if QMessageBox.question(self, "Odebrat uživatele", f"Opravdu chcete odebrat uživatele {username}?", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
             try:
@@ -120,3 +151,7 @@ class UsersDialog(QDialog):
     def update_user(self, user_id, username):
         # Logic to update user details (show a dialog to edit user details)
         print(f"Update user {username} with ID {user_id}")
+    
+    def change_password(self, user_id, username):
+        # Logic to change user password (show a dialog to enter new password)
+        print(f"Change password for user {username} with ID {user_id}")
