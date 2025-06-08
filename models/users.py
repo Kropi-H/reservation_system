@@ -8,6 +8,15 @@ def get_all_users():
     return cur.fetchall()  # Returns a list of tuples with user data
 
 
+def get_user_by_id(user_id):
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('SELECT * FROM Users WHERE user_id=?;', (user_id,))
+        user = cur.fetchone()
+        if user is None:
+            raise ValueError("Uživatel nenalezen.")
+        return user
+
 def add_user(user):
     try:
         with get_connection() as conn:
@@ -37,9 +46,18 @@ def remove_user(user_id, username):
 
 def update_user(user_id, user_data):
     try:
-      with get_connection():
-          cur = get_connection().cursor()
-          cur.execute('UPDATE Users SET username = ?, role = ? WHERE user_id = ?', (user_data['username'], user_data['role'], user_id))
-          get_connection().commit()
+      with get_connection() as conn:
+          cur = conn.cursor()
+          cur.execute('UPDATE Users SET username = ?, user_role = ? WHERE user_id = ?', (user_data['username'], user_data['role'], user_id))
+          conn.commit()
     except Exception as e:
       print(f"Error updating user: {e}")
+      
+def update_user_pass(user_data, user_id):
+    try:
+        with get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute('UPDATE Users SET password = ? WHERE user_id = ?', (user_data, user_id))
+            conn.commit()
+    except Exception as e:
+        print(f"Error updating user password: {e}")

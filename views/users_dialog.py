@@ -1,7 +1,9 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QHBoxLayout, QMessageBox
 from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QHBoxLayout, QVBoxLayout, QScrollArea
 from views.add_user_dialog import AddUserDialog
-from models.users import get_all_users, add_user, remove_user, update_user
+from views.edit_user_dialog import EditUserDialog
+from views.update_user_password import UpdatePasswordDialog
+from models.users import get_all_users, add_user, remove_user, update_user, get_user_by_id, update_user_pass
 from functools import partial
 
 class UsersDialog(QDialog):
@@ -102,7 +104,7 @@ class UsersDialog(QDialog):
                 update_button.clicked.connect(partial(self.update_user, user[0], user[1]))
                 password_button = QPushButton("Heslo")
                 password_button.setObjectName("change_password")
-                password_button.clicked.connect(partial(self.change_password, user[0], user[1]))
+                password_button.clicked.connect(partial(self.change_password, user[0]))
             hbox.addWidget(remove_button)
             hbox.addWidget(update_button)
             hbox.addWidget(password_button)
@@ -140,9 +142,41 @@ class UsersDialog(QDialog):
                 QMessageBox.critical(self, "Chyba", f"Chyba při odstraňování uživatele: {e}")
 
     def update_user(self, user_id, username):
-        # Logic to update user details (show a dialog to edit user details)
-        print(f"Update user {username} with ID {user_id}")
+        # Najděte aktuální roli uživatele
+        users = get_all_users()
+        user = next((u for u in users if u[0] == user_id), None)
+        if not user:
+            if self.parent_window:
+                self.parent_window.status_bar.showMessage("Uživatel nenalezen.")
+            return
+        current_role = user[3]
+        dialog = EditUserDialog(username, current_role, self)
+        if dialog.exec() == QDialog.Accepted:
+            data = dialog.get_data()
+            try:
+                update_user(user_id, data)
+                self.load_users()
+                if self.parent_window:
+                    self.parent_window.status_bar.showMessage(f"Uživatel {data['username']} upraven.")
+            except Exception as e:
+                if self.parent_window:
+                    self.parent_window.status_bar.showMessage(f"Chyba při úpravě uživatele: {e}")
     
-    def change_password(self, user_id, username):
-        # Logic to change user password (show a dialog to enter new password)
-        print(f"Change password for user {username} with ID {user_id}")
+    def change_password(self, user_id):
+        user = get_user_by_id(user_id)
+        dialog = UpdatePasswordDialog(user, self)
+        if dialog.exec() == QDialog.Accepted:
+            data = dialog.get_data()
+            if data is None:
+                # Kontrola hesel neprošla, uživatel zůstává v dialogu
+                if self.parent_window:
+                    self.parent_window.status_bar.showMessage("Hesla nejsou správně zadána.")
+                return
+            try:
+                update_user_pass(data["new_password"], user_id)
+                self.load_users()
+                if self.parent_window:
+                    self.parent_window.status_bar.showMessage("Heslo bylo změněno.")
+            except Exception as e:
+                if self.parent_window:
+                    self.parent_window.status_bar.showMessage(f"Chyba při změně hesla: {e}")
