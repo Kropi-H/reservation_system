@@ -18,13 +18,11 @@ def add_user(user):
             else:
                 cur.execute('INSERT INTO Users (username, password, user_role) VALUES (?, ?, ?);',
                             (user['username'], user['password'], user['role']))
-                print(f"{user['username']} úspěšně přidán.")
             conn.commit()
     except ValueError as ve:
         print(f"ValueError: {ve}")
         raise
     except Exception as e:
-        print(f"Error adding user: {e}")
         raise
 
 def remove_user(user_id, username):

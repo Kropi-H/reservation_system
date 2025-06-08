@@ -10,7 +10,6 @@ class UsersDialog(QDialog):
         self.setWindowTitle("Správa uživatelů")
         self.resize(400, 350)
         self.center_to_parent()
-        self.setStyleSheet(""" ... """)
         self.parent_window = parent
 
         self.layout = QVBoxLayout(self)
@@ -26,18 +25,6 @@ class UsersDialog(QDialog):
         
         # Styl pro všechny tabulky v tomto okně
         self.setStyleSheet("""
-            QTableWidget {
-                background-color: #fafdff;
-                font-size: 15px;
-                color: #222;
-                gridline-color: #b2d7ef;
-                selection-background-color: #cceeff;
-                selection-color: #000;
-            }
-            QTableWidgetItem {
-                margin: 10px;
-                padding: 6px;
-            }
             QHeaderView::section {
                 background-color: #9ee0fc;
                 color: black;
@@ -128,14 +115,18 @@ class UsersDialog(QDialog):
     def add_user(self):
         dialog = AddUserDialog(self)
         if dialog.exec() == QDialog.Accepted:
-            data = dialog.get_data()
             try:
+                data = dialog.get_data()
                 add_user(data)
                 self.load_users()
                 if self.parent_window:
                     self.parent_window.status_bar.showMessage(f"Uživatel {data['username']} byl přidán.")
+            except ValueError as ve:
+                if self.parent_window:
+                    self.parent_window.status_bar.showMessage(str(ve))
             except Exception as e:
-                QMessageBox.critical(self, "Chyba", f"Chyba při přidávání uživatele: {e}")
+                if self.parent_window:
+                  self.parent_window.status_bar.showMessage(f"Chyba při přidávání uživatele: {e}")
     
     def remove_user(self, user_id, username):
         if QMessageBox.question(self, "Odebrat uživatele", f"Opravdu chcete odebrat uživatele {username}?", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
