@@ -1,6 +1,6 @@
 # views/formular_rezervace.py
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QLabel, QFormLayout, QComboBox, QTextEdit, QDateTimeEdit
-from PySide6.QtCore import QSize, QDateTime, QTime
+from PySide6.QtCore import QDateTime, QTime
 from controllers.rezervace_controller import uloz_rezervaci
 from models.databaze import get_doktori, get_ordinace
 class FormularRezervace(QWidget):

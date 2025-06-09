@@ -1,5 +1,4 @@
 from PySide6.QtWidgets import QDialog, QFormLayout, QLineEdit, QDialogButtonBox
-from views.add_user_dialog import AddUserDialog
 import bcrypt
 
 from models.databaze import get_user_by_username

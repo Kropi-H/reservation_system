@@ -29,8 +29,7 @@ class HlavniOkno(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Veterinární rezervační systém")
-        layout = QVBoxLayout()
-        self.showMaximized()  # Přidat tento řádek pro maximalizaci okna při startu     
+        layout = QVBoxLayout()    
         self.logged_in_user = None
         self.logged_in_user_role = None
         
