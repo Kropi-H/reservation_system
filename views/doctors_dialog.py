@@ -1,0 +1,161 @@
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QHBoxLayout, QMessageBox
+from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QHBoxLayout, QVBoxLayout, QScrollArea
+from views.add_doctor_dialog import AddDoctorDialog
+from views.edit_doctor_dialog import EditDoctorDialog
+from models.doktori import get_all_doctors, update_doctor, remove_doctor, add_doctor, get_all_doctors_colors, get_doctor_by_id
+from functools import partial
+
+class DoctorDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Správa doktorů")
+        self.resize(400, 350)
+        self.center_to_parent()
+        self.parent_window = parent
+
+        self.layout = QVBoxLayout(self)
+
+        self.button_layout = QHBoxLayout()
+        self.add_doctor_button = QPushButton("Přidat doktora", self)
+        self.add_doctor_button.clicked.connect(self.add_doctor)
+        self.button_layout.addWidget(self.add_doctor_button)
+        self.layout.addLayout(self.button_layout)
+
+        self.scroll = None  # <-- přidáno
+        self.load_doctors()
+        
+        # Styl pro všechny tabulky v tomto okně
+        self.setStyleSheet("""
+            QHeaderView::section {
+                background-color: #9ee0fc;
+                color: black;
+                font-weight: bold;
+                font-size: 14px;
+            }
+            QPushButton#remove_doctor, 
+            QPushButton#update_user,
+            QPushButton#change_password {
+        min-width: 60px;
+        max-width: 80px;
+        min-height: 10px;
+        max-height: 15px;
+        padding: 2px 6px;
+        font-size: 12px;
+        border-style: outset;
+        border-color: #b2d7ef;
+        border-width: 1px;
+        border-radius: 4px;
+        background-color: #e6f7ff;
+        color: #222;
+        }
+        QPushButton#change_password {
+            background-color: #d0f0fd;
+        }
+        
+        QPushButton#remove_doctor:pressed,
+        QPushButton#update_user:pressed,
+        QPushButton#change_password:pressed {
+           background-color: #b2d7ef;
+            color: #000;
+        }
+        """)  
+ 
+        
+    def center_to_parent(self):
+        pass
+        if self.parent():
+            parent_geom = self.parent().geometry()
+            self_geom = self.geometry()
+            x = parent_geom.x() + (parent_geom.width() - self_geom.width()) // 2
+            y = parent_geom.y() + (parent_geom.height() - self_geom.height()) // 2
+            self.move(x, y)
+
+
+    def load_doctors(self):
+        # Odstraňte starý scroll area, pokud existuje
+        if self.scroll is not None:
+            self.layout.removeWidget(self.scroll)
+            self.scroll.deleteLater()
+            self.scroll = None
+            
+        self.users_widget = QWidget()
+        vbox = QVBoxLayout(self.users_widget)
+        doctors = get_all_doctors()
+        for doctor in doctors:
+            hbox = QHBoxLayout()
+            label = QLabel(f"{doctor[1]} {doctor[2]}")
+            hbox.addWidget(label)
+            if doctor[0] == 5:  # Předpokládáme, že ID 5 je pro super supervizora
+                remove_button = QPushButton("Chráněno")
+                remove_button.setObjectName("remove_doctor")
+                remove_button.setEnabled(False)
+                update_button = QPushButton("Chráněno")
+                update_button.setObjectName("update_doctor")
+                update_button.setEnabled(False)
+
+            else:
+                remove_button = QPushButton("Odebrat")
+                remove_button.setObjectName("remove_doctor")
+                remove_button.clicked.connect(partial(self.remove_doctor, doctor[0], doctor[1]))
+                update_button = QPushButton("Upravit")
+                update_button.setObjectName("update_doctor")
+                update_button.clicked.connect(partial(self.update_doctor, doctor[0]))
+
+            hbox.addWidget(remove_button)
+            hbox.addWidget(update_button)
+            vbox.addLayout(hbox)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setWidget(self.users_widget)
+        self.layout.addWidget(self.scroll)
+
+    def add_doctor(self):
+        dialog = AddDoctorDialog(self)
+        if dialog.exec() == QDialog.Accepted:
+            try:
+                data = dialog.get_data()
+                add_doctor(data)
+                self.load_doctors()
+                if self.parent_window:
+                    self.parent_window.status_bar.showMessage(f"Doktor {data['jmeno']} byl přidán.")
+            except ValueError as ve:
+                if self.parent_window:
+                    self.parent_window.status_bar.showMessage(str(ve))
+            except Exception as e:
+                if self.parent_window:
+                  self.parent_window.status_bar.showMessage(f"Chyba při přidávání doktora: {e}")
+    
+    def remove_doctor(self, doctor_id, username):
+        if QMessageBox.question(self, "Odebrat doktora", f"Opravdu chcete odebrat doktora {username}?", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+            try:
+                remove_doctor(doctor_id, username)
+                #QMessageBox.information(self, "Úspěch", result)
+                self.load_doctors()
+                if self.parent_window:
+                    self.parent_window.status_bar.showMessage(f"Uživatel {username} byl odebrán.")
+            except Exception as e:
+                QMessageBox.critical(self, "Chyba", f"Chyba při odstraňování doktora: {e}")
+
+    def update_doctor(self, doctor_id):
+        # Najděte aktuální roli doktora
+        doctors = get_all_doctors()
+        doctor = next((u for u in doctors if u[0] == doctor_id), None)
+        if not doctor:
+            if self.parent_window:
+                self.parent_window.status_bar.showMessage("Uživatel nenalezen.")
+            return
+        doctor_id = doctor[0]
+        dialog = EditDoctorDialog(doctor_id)
+        if dialog.exec() == QDialog.Accepted:
+            data = dialog.get_data()
+            try:
+                update_doctor(data, doctor_id)
+                if self.parent_window and hasattr(self.parent_window, "aktualizuj_doktori_layout"):
+                      self.parent_window.aktualizuj_doktori_layout()
+                self.load_doctors()
+                if self.parent_window:
+                    self.parent_window.status_bar.showMessage(f"Uživatel {data['username']} upraven.")
+            except Exception as e:
+                if self.parent_window:
+                    self.parent_window.status_bar.showMessage(f"Chyba při úpravě doktora: {e}")
+    

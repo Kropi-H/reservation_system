@@ -15,6 +15,7 @@ from models.databaze import get_doktori
 from views.vyber_doktora_dialog import VyberDoktoraDialog
 from views.planovani_ordinaci_dialog import PlanovaniOrdinaciDialog
 from views.users_dialog import UsersDialog
+from views.doctors_dialog import DoctorDialog
 import os
 
 
@@ -32,6 +33,17 @@ class HlavniOkno(QMainWindow):
         layout = QVBoxLayout()    
         self.logged_in_user = None
         self.logged_in_user_role = None
+        
+        self.logo_layout = QHBoxLayout()
+        self.add_logo()
+        
+        horni_radek = QHBoxLayout()  # <-- Přesuňte sem vytvoření horni_radek
+        self.doktori_layout = QHBoxLayout()
+        self.aktualizuj_doktori_layout()
+        
+        horni_radek.addLayout(self.logo_layout)
+        horni_radek.addLayout(self.doktori_layout)
+        
         
         # --- MENU BAR ---
         self.menu_bar = QMenuBar(self)
@@ -81,36 +93,8 @@ class HlavniOkno(QMainWindow):
         
 
         # --- NOVÝ HORIZONTÁLNÍ LAYOUT PRO LOGO, DATUM, HODINY ---
-        horni_radek = QHBoxLayout()
 
-        # Logo vlevo
-        self.logo_label = QLabel()
-        logo_path = os.path.join(os.path.dirname(__file__), "../pictures/karakal_logo_grey.png")
-        pixmap = QPixmap(logo_path)
-        if not pixmap.isNull():
-            self.logo_label.setPixmap(pixmap.scaledToHeight(48))
-        else:
-            self.logo_label.setText("Logo nenalezeno")
-        horni_radek.addWidget(self.logo_label)
-        
-        # --- Přidání barevných štítků doktorů ---
-        self.doktori_layout = QHBoxLayout()
-        for doktor in get_doktori():
-          if doktor[3] == 1:  # Kontrola, zda je doktor aktivní
-            jmeno = f"{doktor[1]} {doktor[2]}"
-            barva = doktor[5].strip()  # Barva doktora
-            label = QLabel(jmeno)
-            label.setStyleSheet(f"""
-                background-color: {barva};
-                color: #222;
-                border-radius: 2px;
-                padding: 2px 4px;
-                margin-right: 6px;
-                font-weight: bold;
-            """)
-            self.doktori_layout.addWidget(label)
-        horni_radek.addLayout(self.doktori_layout)
-        
+    
 
         # --- Střední část: tlačítka a kalendář ---
         stredni_widget = QWidget()
@@ -219,6 +203,42 @@ class HlavniOkno(QMainWindow):
         self.setCentralWidget(central_widget)
     
     
+    def add_logo(self):
+        # Logo vlevo
+        self.logo_label = QLabel()
+        logo_path = os.path.join(os.path.dirname(__file__), "../pictures/karakal_logo_grey.png")
+        pixmap = QPixmap(logo_path)
+        if not pixmap.isNull():
+            self.logo_label.setPixmap(pixmap.scaledToHeight(48))
+        else:
+            self.logo_label.setText("Logo nenalezeno")
+        self.logo_layout.addWidget(self.logo_label)
+    
+    
+    def aktualizuj_doktori_layout(self):
+      # Odstraň staré widgety ze self.doktori_layout
+      while self.doktori_layout.count():
+          item = self.doktori_layout.takeAt(0)
+          widget = item.widget()
+          if widget:
+              widget.deleteLater()
+      # Přidej nové štítky podle aktuálních dat
+      for doktor in get_doktori():
+          if doktor[3] == 1:  # Pouze aktivní doktor
+              jmeno = f"{doktor[1]} {doktor[2]}"
+              barva = doktor[5].strip()
+              label = QLabel(jmeno)
+              label.setStyleSheet(f"""
+                  background-color: {barva};
+                  color: #222;
+                  border-radius: 2px;
+                  padding: 2px 4px;
+                  margin-right: 6px;
+                  font-weight: bold;
+              """)
+              self.doktori_layout.addWidget(label)
+              
+              
     def show_login_dialog(self):
         dialog = LoginDialog(self)
         if dialog.exec():
@@ -257,9 +277,12 @@ class HlavniOkno(QMainWindow):
             self.database_section = QAction("Databáze", self)
             self.plan_surgery_section = QAction("Plánování ordinací", self)
             self.plan_surgery_section.triggered.connect(self.zahaj_planovani_ordinaci)
+            # Přidání sekcí pro administrátora
             self.users_section = QAction("Sekce uživatelů", self)
             self.users_section.triggered.connect(self.sekce_uzivatelu)
+            # Přidání sekcí pro administrátora
             self.doctors_section = QAction("Sekce doktoři", self)
+            self.doctors_section.triggered.connect(self.sekce_doktoru)
             self.surgery_section = QAction("Sekce ordinace", self)
             # Přidejte další akce podle potřeby
             self.menu_bar.addMenu(self.user_menu)
@@ -272,7 +295,10 @@ class HlavniOkno(QMainWindow):
             self.user_menu = QMenu("Nastavení", self)
             self.plan_surgery_section = QAction("Plánování ordinací", self)
             self.plan_surgery_section.triggered.connect(self.zahaj_planovani_ordinaci)
+            # Přidání sekcí pro supervisora
             self.users_section = QAction("Sekce uživatelů", self)
+            self.users_section.triggered.connect(self.sekce_uzivatelu)
+            # Přidání sekcí pro supervisora
             self.doctors_section = QAction("Sekce doktoři", self)
             self.surgery_section = QAction("Sekce ordinace", self)
             # Přidejte další akce podle potřeby
@@ -285,6 +311,10 @@ class HlavniOkno(QMainWindow):
   
     def sekce_uzivatelu(self):
         dialog = UsersDialog(self)
+        dialog.exec()
+        
+    def sekce_doktoru(self):
+        dialog = DoctorDialog(self)
         dialog.exec()
   
     def zahaj_planovani_ordinaci(self):
@@ -383,67 +413,68 @@ class HlavniOkno(QMainWindow):
             self.nacti_rezervace()  # Načtení rezervací pro obnovení původního stavu tabulek
     
     def zpracuj_dvojklik(self, mistnost, row, col):
-      tabulka = self.tabulky[mistnost]
-      cas_item = tabulka.item(row, 0)
-      data_item = tabulka.item(row, 1)
-      cas_str = cas_item.text() if cas_item else ""
-      data_str = data_item.text() if data_item else ""
-  
-      if not cas_str:
-          return
-  
-      datum = self.kalendar.date().toPython()
-      slot_start = datetime.combine(datum, datetime.strptime(cas_str, "%H:%M").time())
-      
-      # --- Zjisti jméno a barvu doktora podle rozvrhu ---
-      rezervace_doktoru = ziskej_rozvrh_doktoru_dne(datum.strftime("%Y-%m-%d"))
-      doktor_jmeno = ""
-      for r in rezervace_doktoru:
-          # r = (id, jmeno, barva, datum, od, do, ordinace)
-          if r[6] == mistnost:
-              od = datetime.strptime(r[4], "%H:%M").time()
-              do = datetime.strptime(r[5], "%H:%M").time()
-              if od <= slot_start.time() <= do:
-                  doktor_jmeno = r[1]
-                  break
-  
-      # Zjisti délku slotu stejně jako v nacti_rezervace
-      if slot_start.time() >= datetime.strptime("09:00", "%H:%M").time() and slot_start.time() <= datetime.strptime("09:45", "%H:%M").time():
-          slot = timedelta(minutes=15)
-      elif slot_start.time() >= datetime.strptime("12:00", "%H:%M").time() and slot_start.time() < datetime.strptime("12:30", "%H:%M").time():
-          slot = timedelta(minutes=30)
-      elif slot_start.time() >= datetime.strptime("12:30", "%H:%M").time() and slot_start.time() < datetime.strptime("12:40", "%H:%M").time():
-          slot = timedelta(minutes=10)
-      elif slot_start.time() == datetime.strptime("12:40", "%H:%M").time():
-          slot = timedelta(minutes=20)
-      elif slot_start.time() >= datetime.strptime("16:00", "%H:%M").time() and slot_start.time() <= datetime.strptime("16:30", "%H:%M").time():
-          slot = timedelta(minutes=15)
-      elif slot_start.time() == datetime.strptime("16:45", "%H:%M").time():
-          slot = timedelta(minutes=35)
-      elif slot_start.time() >= datetime.strptime("17:20", "%H:%M").time():
-          slot = timedelta(minutes=20)
-      else:
-          slot = timedelta(minutes=20)
-  
-  
-      if not data_str.strip():
-        # Předvyplň čas, ordinaci a doktora
-        self.formular = FormularRezervace(
-            self,
-            predvyplneny_cas=f"{datum.strftime('%Y-%m-%d')} {cas_str}",
-            predvyplnena_ordinace=mistnost,
-            predvyplneny_doktor=doktor_jmeno  # <-- přidej tento parametr
-        )
-        self.formular.show()
-      else:
-          # ...původní logika pro otevření existující rezervace...
-          rezervace = ziskej_rezervace_dne(datum.strftime("%Y-%m-%d"))
-          for r in rezervace:
-              rez_cas = datetime.strptime(r[0], "%Y-%m-%d %H:%M")
-              if r[8] == mistnost and slot_start <= rez_cas < slot_start + slot:
-                  self.formular = FormularRezervace(self, rezervace_data=r)
-                  self.formular.show()
-                  break    
+      if self.logged_in_user_role in ["admin", "supervisor", "user"]:
+        tabulka = self.tabulky[mistnost]
+        cas_item = tabulka.item(row, 0)
+        data_item = tabulka.item(row, 1)
+        cas_str = cas_item.text() if cas_item else ""
+        data_str = data_item.text() if data_item else ""
+
+        if not cas_str:
+            return
+
+        datum = self.kalendar.date().toPython()
+        slot_start = datetime.combine(datum, datetime.strptime(cas_str, "%H:%M").time())
+
+        # --- Zjisti jméno a barvu doktora podle rozvrhu ---
+        rezervace_doktoru = ziskej_rozvrh_doktoru_dne(datum.strftime("%Y-%m-%d"))
+        doktor_jmeno = ""
+        for r in rezervace_doktoru:
+            # r = (id, jmeno, barva, datum, od, do, ordinace)
+            if r[6] == mistnost:
+                od = datetime.strptime(r[4], "%H:%M").time()
+                do = datetime.strptime(r[5], "%H:%M").time()
+                if od <= slot_start.time() <= do:
+                    doktor_jmeno = r[1]
+                    break
+                  
+        # Zjisti délku slotu stejně jako v nacti_rezervace
+        if slot_start.time() >= datetime.strptime("09:00", "%H:%M").time() and slot_start.time() <= datetime.strptime("09:45", "%H:%M").time():
+            slot = timedelta(minutes=15)
+        elif slot_start.time() >= datetime.strptime("12:00", "%H:%M").time() and slot_start.time() < datetime.strptime("12:30", "%H:%M").time():
+            slot = timedelta(minutes=30)
+        elif slot_start.time() >= datetime.strptime("12:30", "%H:%M").time() and slot_start.time() < datetime.strptime("12:40", "%H:%M").time():
+            slot = timedelta(minutes=10)
+        elif slot_start.time() == datetime.strptime("12:40", "%H:%M").time():
+            slot = timedelta(minutes=20)
+        elif slot_start.time() >= datetime.strptime("16:00", "%H:%M").time() and slot_start.time() <= datetime.strptime("16:30", "%H:%M").time():
+            slot = timedelta(minutes=15)
+        elif slot_start.time() == datetime.strptime("16:45", "%H:%M").time():
+            slot = timedelta(minutes=35)
+        elif slot_start.time() >= datetime.strptime("17:20", "%H:%M").time():
+            slot = timedelta(minutes=20)
+        else:
+            slot = timedelta(minutes=20)
+
+
+        if not data_str.strip():
+          # Předvyplň čas, ordinaci a doktora
+          self.formular = FormularRezervace(
+              self,
+              predvyplneny_cas=f"{datum.strftime('%Y-%m-%d')} {cas_str}",
+              predvyplnena_ordinace=mistnost,
+              predvyplneny_doktor=doktor_jmeno  # <-- přidej tento parametr
+          )
+          self.formular.show()
+        else:
+            # ...původní logika pro otevření existující rezervace...
+            rezervace = ziskej_rezervace_dne(datum.strftime("%Y-%m-%d"))
+            for r in rezervace:
+                rez_cas = datetime.strptime(r[0], "%Y-%m-%d %H:%M")
+                if r[8] == mistnost and slot_start <= rez_cas < slot_start + slot:
+                    self.formular = FormularRezervace(self, rezervace_data=r)
+                    self.formular.show()
+                    break    
 
     def aktualizuj_format_kalendare(self, datum):
         locale = QLocale(QLocale.Czech)

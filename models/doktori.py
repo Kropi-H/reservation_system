@@ -5,6 +5,55 @@ time_anchores = ["08:00","08:20", "08:40", "09:00", "09:15", "09:30", "09:45", "
                  "14:20", "14:40", "15:00", "15:20", "15:40", "16:00", "16:15", "16:30", "16:45",
                  "17:20", "17:40", "18:00", "18:20", "18:40", "19:00", "19:20", "19:40", "20:00"]
 
+def get_all_doctors():
+    """Vrátí seznam všech doktorů a jejich barev."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT * FROM Doktori
+        ''')
+        return cur.fetchall()
+      
+def remove_doctor(doktor_id):
+    """Odstraní doktora podle jeho ID."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+            DELETE FROM Doktori WHERE doktor_id = ?
+        ''', (doktor_id,))
+        conn.commit()
+        
+def add_doctor(jmeno, prijmeni, specializace, color):
+    """Přidá nového doktora do databáze."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+            INSERT INTO Doktori (jmeno, prijmeni, specializace, color)
+            VALUES (?, ?, ?, ?)
+        ''', (jmeno, prijmeni, specializace, color))
+        conn.commit()
+        
+def get_doctor_by_id(doktor_id):
+    """Vrátí informace o doktorovi podle jeho ID."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT * FROM Doktori WHERE doktor_id = ?
+        ''', (doktor_id,))
+        row = cur.fetchone()
+        return row if row else None
+        
+def update_doctor(data, doktor_id):
+    """Aktualizuje informace o doktorovi."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+            UPDATE Doktori
+            SET jmeno = ?, prijmeni = ?, specializace = ?, isActive = ?, color = ?
+            WHERE doktor_id = ?
+        ''', (data["jmeno"], data["prijmeni"], data["specializace"], data["isActive"], data["color"], doktor_id))
+        conn.commit()
+
 def get_doktor_id(doktor):
     """Vrátí doktor_id podle jména a příjmení."""
     with get_connection() as conn:
