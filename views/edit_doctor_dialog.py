@@ -24,7 +24,7 @@ class EditDoctorDialog(QDialog):
 
         layout.addWidget(QLabel("Aktivní:"))
         self.is_active_combo = QComboBox()  # Assuming you have a predefined list of active states
-        self.is_active_combo.addItems(["Ano", "Ne"])
+        self.is_active_combo.addItems(["Ano", "Ne"] if self.doctor[4] == 1 else ["Ne", "Ano"])  # Assuming the active state is in the 4th column
         layout.addWidget(self.is_active_combo)
         
         # Výběr barvy

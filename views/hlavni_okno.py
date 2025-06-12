@@ -7,7 +7,7 @@ from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
 from models.databaze import get_ordinace
-from models.doktori import uloz_nebo_uprav_ordinacni_cas, ziskej_rozvrh_doktoru_dne, get_all_doctors_colors 
+from models.doktori import uloz_nebo_uprav_ordinacni_cas, ziskej_rozvrh_doktoru_dne, get_all_doctors_colors, get_doktor_isactive_by_color
 from views.login_dialog import LoginDialog
 from controllers.data import table_grey_strip, vaccination_color, pause_color
 # from controllers.rezervace_controller import uloz_rezervaci
@@ -255,14 +255,27 @@ class HlavniOkno(QMainWindow):
         self.logged_in_user = None
         self.logged_in_user_role = None
         # Odstranit menu pro plánování, pokud existuje
-        if hasattr(self, "plan_menu") and self.plan_menu:
-          self.menu_bar.removeAction(self.plan_menu.menuAction())
-        self.plan_menu = None
+        # Bezpečně odstranit plan_menu
+        if hasattr(self, "plan_menu") and self.plan_menu is not None:
+            try:
+                self.menu_bar.removeAction(self.plan_menu.menuAction())
+            except RuntimeError:
+                pass  # plan_menu už může být zničen
+            self.plan_menu = None
+            
+        # Bezpečně odstranit user_menu
+        if self.user_menu is not None:
+            try:
+                self.menu_bar.removeAction(self.user_menu.menuAction())
+            except RuntimeError:
+                pass
+            self.user_menu = None
+        
         self.status_bar.showMessage("Nepřihlášen")
         self.login_action.setText("Přihlášení")
         self.login_action.triggered.disconnect()
         self.login_action.triggered.connect(self.show_login_dialog)
-        self.update_user_menu()  # <-- Odebrat podmenu
+        # self.update_user_menu()  # <-- Odebrat podmenu
         self.user_menu = None
         
     def update_user_menu(self):
@@ -285,12 +298,7 @@ class HlavniOkno(QMainWindow):
             self.doctors_section.triggered.connect(self.sekce_doktoru)
             self.surgery_section = QAction("Sekce ordinace", self)
             # Přidejte další akce podle potřeby
-            self.menu_bar.addMenu(self.user_menu)
-            self.user_menu.addAction(self.database_section)
-            self.user_menu.addAction(self.plan_surgery_section)
-            self.user_menu.addAction(self.users_section)
-            self.user_menu.addAction(self.doctors_section)
-            self.user_menu.addAction(self.surgery_section)
+            
         elif self.logged_in_user_role == "supervisor":
             self.user_menu = QMenu("Nastavení", self)
             self.plan_surgery_section = QAction("Plánování ordinací", self)
@@ -300,14 +308,15 @@ class HlavniOkno(QMainWindow):
             self.users_section.triggered.connect(self.sekce_uzivatelu)
             # Přidání sekcí pro supervisora
             self.doctors_section = QAction("Sekce doktoři", self)
+            self.doctors_section.triggered.connect(self.sekce_doktoru)
             self.surgery_section = QAction("Sekce ordinace", self)
             # Přidejte další akce podle potřeby
-            self.menu_bar.addMenu(self.user_menu)
-            self.user_menu.addAction(self.plan_surgery_section)
-            self.user_menu.addAction(self.users_section)
-            self.user_menu.addAction(self.doctors_section)
-            self.user_menu.addAction(self.surgery_section)
         # Pokud není přihlášen, menu se nezobrazí
+        self.menu_bar.addMenu(self.user_menu)
+        self.user_menu.addAction(self.plan_surgery_section)
+        self.user_menu.addAction(self.surgery_section)
+        self.user_menu.addAction(self.users_section)
+        self.user_menu.addAction(self.doctors_section)
   
     def sekce_uzivatelu(self):
         dialog = UsersDialog(self)
@@ -582,6 +591,7 @@ class HlavniOkno(QMainWindow):
                       od = datetime.strptime(r[4], "%H:%M").time()
                       do = datetime.strptime(r[5], "%H:%M").time()
                       if od <= cas.time() <= do:
+                        if get_doktor_isactive_by_color(r[2]) == 1:
                           doktor_bg_color = r[2].strip()
                           doktor_jmeno = r[1]
                           break

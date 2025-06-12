@@ -68,6 +68,17 @@ def get_doktor_id(doktor):
         row = cur.fetchone()
         return row[0] if row else None
 
+def get_doktor_isactive_by_color(barva):
+    """Vrátí isActive status doktora podle barvy."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT isActive FROM Doktori WHERE color = ?
+        ''', (barva,))
+        row = cur.fetchone()
+        return row[0]
+
+
 def get_ordinace_id(nazev):
     """Vrátí ordinace_id podle názvu ordinace."""
     with get_connection() as conn:

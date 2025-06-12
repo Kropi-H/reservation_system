@@ -1,5 +1,6 @@
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QHBoxLayout, QMessageBox
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QHBoxLayout, QMessageBox, QFrame
 from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QHBoxLayout, QVBoxLayout, QScrollArea
+from PySide6.QtCore import Qt
 from views.add_doctor_dialog import AddDoctorDialog
 from views.edit_doctor_dialog import EditDoctorDialog
 from models.doktori import get_all_doctors, update_doctor, remove_doctor, add_doctor, get_all_doctors_colors, get_doctor_by_id
@@ -85,6 +86,19 @@ class DoctorDialog(QDialog):
             hbox = QHBoxLayout()
             label = QLabel(f"{doctor[1]} {doctor[2]}")
             hbox.addWidget(label)
+            
+            # Indikátor aktivního stavu
+            is_active = int(doctor[4]) == 1
+            active_indicator = QFrame()
+            active_indicator.setFixedSize(24, 24)
+            active_indicator.setStyleSheet(f"""
+              background-color: {'#4CAF50' if is_active else '#F44336'};
+              border-radius: 12px;
+              border: 2px solid #888;
+              margin-left: 8px;
+              margin-right: 8px;
+            """)
+                        
             if doctor[0] == 5:  # Předpokládáme, že ID 5 je pro super supervizora
                 remove_button = QPushButton("Chráněno")
                 remove_button.setObjectName("remove_doctor")
@@ -92,7 +106,7 @@ class DoctorDialog(QDialog):
                 update_button = QPushButton("Chráněno")
                 update_button.setObjectName("update_doctor")
                 update_button.setEnabled(False)
-
+                
             else:
                 remove_button = QPushButton("Odebrat")
                 remove_button.setObjectName("remove_doctor")
@@ -103,6 +117,7 @@ class DoctorDialog(QDialog):
 
             hbox.addWidget(remove_button)
             hbox.addWidget(update_button)
+            hbox.addWidget(active_indicator)
             vbox.addLayout(hbox)
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
@@ -148,10 +163,11 @@ class DoctorDialog(QDialog):
         dialog = EditDoctorDialog(doctor_id)
         if dialog.exec() == QDialog.Accepted:
             data = dialog.get_data()
-            try:
+            try: 
                 update_doctor(data, doctor_id)
                 if self.parent_window and hasattr(self.parent_window, "aktualizuj_doktori_layout"):
                       self.parent_window.aktualizuj_doktori_layout()
+                      self.parent_window.nacti_rezervace()
                 self.load_doctors()
                 if self.parent_window:
                     self.parent_window.status_bar.showMessage(f"Uživatel {data['username']} upraven.")
