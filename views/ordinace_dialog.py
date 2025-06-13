@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QHBoxLayout, QVBoxLa
 from PySide6.QtCore import Qt
 from views.add_ordinace_dialog import AddOrdinaceDialog
 from views.edit_ordinace_dialog import EditOrdinaceDialog
-from models.ordinace import get_all_ordinace
+from models.ordinace import get_all_ordinace, add_ordinace, remove_ordinace, update_ordinace_db
 from functools import partial
 
 class OrdinaceDialog(QDialog):
@@ -79,25 +79,13 @@ class OrdinaceDialog(QDialog):
             self.scroll.deleteLater()
             self.scroll = None
             
-        self.users_widget = QWidget()
-        vbox = QVBoxLayout(self.users_widget)
+        self.ordinace_widget = QWidget()
+        vbox = QVBoxLayout(self.ordinace_widget)
         ordinace = get_all_ordinace()
         for ord in ordinace:
             hbox = QHBoxLayout()
-            label = QLabel(f"{ord[1]} {ord[2]}")
-            hbox.addWidget(label)
-            
-            # Indikátor aktivního stavu
-            is_active = int(ord[4]) == 1
-            active_indicator = QFrame()
-            active_indicator.setFixedSize(24, 24)
-            active_indicator.setStyleSheet(f"""
-              background-color: {'#4CAF50' if is_active else '#F44336'};
-              border-radius: 12px;
-              border: 2px solid #888;
-              margin-left: 8px;
-              margin-right: 8px;
-            """)
+            label = QLabel(f"{ord[1]}")
+            hbox.addWidget(label)            
                         
             if ord[0] == 5:  # Předpokládáme, že ID 5 je pro super supervizora
                 remove_button = QPushButton("Chráněno")
@@ -117,11 +105,10 @@ class OrdinaceDialog(QDialog):
 
             hbox.addWidget(remove_button)
             hbox.addWidget(update_button)
-            hbox.addWidget(active_indicator)
             vbox.addLayout(hbox)
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
-        self.scroll.setWidget(self.users_widget)
+        self.scroll.setWidget(self.ordinace_widget)
         self.layout.addWidget(self.scroll)
 
     def add_ordinace(self):
@@ -132,21 +119,21 @@ class OrdinaceDialog(QDialog):
                 add_ordinace(data)
                 self.load_ordinace()
                 if self.parent_window:
-                    self.parent_window.status_bar.showMessage(f"Doktor {data['jmeno']} byl přidán.")
+                    self.parent_window.status_bar.showMessage(f"Ordinace {data['jmeno']} byl přidán.")
             except ValueError as ve:
                 if self.parent_window:
                     self.parent_window.status_bar.showMessage(str(ve))
             except Exception as e:
                 if self.parent_window:
-                  self.parent_window.status_bar.showMessage(f"Chyba při přidávání doktora: {e}")
-    
-    def remove_ordinace(self, ordinace_id, username):
-        if QMessageBox.question(self, "Odebrat doktora", f"Opravdu chcete odebrat doktora {username}?", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+                  self.parent_window.status_bar.showMessage(f"Chyba při přidávání ordinace: {e}")
+
+    def remove_ordinace(self, ordinace_id, nazev):
+        if QMessageBox.question(self, "Odebrat doktora", f"Opravdu chcete odebrat ordinaci {nazev}?", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
             try:
-                remove_ordinace(ordinace_id, username)      
+                remove_ordinace(ordinace_id, nazev)      
                 self.load_ordinace()
                 if self.parent_window:
-                    self.parent_window.status_bar.showMessage(f"Uživatel {username} byl odebrán.")
+                    self.parent_window.status_bar.showMessage(f"Ordinace {nazev} byla odebrán.")
             except Exception as e:
                 QMessageBox.critical(self, "Chyba", f"Chyba při odstraňování doktora: {e}")
 
@@ -156,20 +143,20 @@ class OrdinaceDialog(QDialog):
         ordinace = next((u for u in all_ordinace if u[0] == ordinace_id), None)
         if not ordinace:
             if self.parent_window:
-                self.parent_window.status_bar.showMessage("Uživatel nenalezen.")
+                self.parent_window.status_bar.showMessage("Ordinace nenalezena.")
             return
-        ordinace_id = ord[0]
+        ordinace_id = ordinace[0]
         dialog = EditOrdinaceDialog(ordinace_id)
         if dialog.exec() == QDialog.Accepted:
             data = dialog.get_data()
-            try: 
-                update_ordinace(data, ordinace_id)
+            try:
+                update_ordinace_db(ordinace_id, data)
                 if self.parent_window and hasattr(self.parent_window, "aktualizuj_ordinace_layout"):
                       self.parent_window.aktualizuj_ordinace_layout()
                       self.parent_window.nacti_rezervace()
                 self.load_ordinace()
                 if self.parent_window:
-                    self.parent_window.status_bar.showMessage(f"Ordinae {data['username']} upraven.")
+                    self.parent_window.status_bar.showMessage(f"Ordinace {data['nazev']} upravena.")
             except Exception as e:
                 if self.parent_window:
                     self.parent_window.status_bar.showMessage(f"Chyba při úpravě ordinace: {e}")

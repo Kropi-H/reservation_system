@@ -1,4 +1,4 @@
-
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox
 
 class AddOrdinaceDialog(QDialog):
     def __init__(self, ordinace_id, parent=None):
@@ -9,17 +9,17 @@ class AddOrdinaceDialog(QDialog):
         self.layout = QVBoxLayout(self)
 
         # Form fields for editing ordinace
-        self.username_input = QLineEdit(self)
-        self.username_input.setPlaceholderText("Uživatelské jméno")
-        self.layout.addWidget(self.username_input)
+        self.nazev_ordinace_input = QLineEdit(self)
+        self.nazev_ordinace_input.setPlaceholderText("Název ordinace")
+        self.layout.addWidget(self.nazev_ordinace_input)
 
-        self.jmeno_input = QLineEdit(self)
-        self.jmeno_input.setPlaceholderText("Jméno")
-        self.layout.addWidget(self.jmeno_input)
+        self.ordinace_patro_input = QLineEdit(self)
+        self.ordinace_patro_input.setPlaceholderText("Patro ordinace")
+        self.layout.addWidget(self.ordinace_patro_input)
 
-        self.prijmeni_input = QLineEdit(self)
-        self.prijmeni_input.setPlaceholderText("Příjmení")
-        self.layout.addWidget(self.prijmeni_input)
+        self.popis_ordinace_input = QLineEdit(self)
+        self.popis_ordinace_input.setPlaceholderText("Popis ordinace")
+        self.layout.addWidget(self.popis_ordinace_input)
 
         # Buttons
         button_layout = QHBoxLayout()
@@ -36,11 +36,11 @@ class AddOrdinaceDialog(QDialog):
     def get_data(self):
         return {
             "ordinace_id": self.ordinace_id,
-            "username": self.username_input.text(),
-            "jmeno": self.jmeno_input.text(),
-            "prijmeni": self.prijmeni_input.text()
+            "nazev": self.nazev_ordinace_input.text(),
+            "patro": self.ordinace_patro_input.text(),
+            "popis": self.popis_ordinace_input.text()
         }
     def set_data(self, data):
-        self.username_input.setText(data.get("username", ""))
-        self.jmeno_input.setText(data.get("jmeno", ""))
-        self.prijmeni_input.setText(data.get("prijmeni", ""))
+        self.nazev_ordinace_input.setText(data.get("nazev", ""))
+        self.ordinace_patro_input.setText(data.get("patro", ""))
+        self.popis_ordinace_input.setText(data.get("popis", ""))
