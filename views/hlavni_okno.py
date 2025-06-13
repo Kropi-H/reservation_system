@@ -16,6 +16,7 @@ from views.vyber_doktora_dialog import VyberDoktoraDialog
 from views.planovani_ordinaci_dialog import PlanovaniOrdinaciDialog
 from views.users_dialog import UsersDialog
 from views.doctors_dialog import DoctorDialog
+from views.ordinace_dialog import OrdinaceDialog
 import os
 
 
@@ -288,6 +289,7 @@ class HlavniOkno(QMainWindow):
         if self.logged_in_user_role == "admin":
             self.user_menu = QMenu("Nastavení", self)
             self.database_section = QAction("Databáze", self)
+            self.user_menu.addAction(self.database_section)
             self.plan_surgery_section = QAction("Plánování ordinací", self)
             self.plan_surgery_section.triggered.connect(self.zahaj_planovani_ordinaci)
             # Přidání sekcí pro administrátora
@@ -297,6 +299,7 @@ class HlavniOkno(QMainWindow):
             self.doctors_section = QAction("Sekce doktoři", self)
             self.doctors_section.triggered.connect(self.sekce_doktoru)
             self.surgery_section = QAction("Sekce ordinace", self)
+            self.surgery_section.triggered.connect(self.sekce_ordinace)
             # Přidejte další akce podle potřeby
             
         elif self.logged_in_user_role == "supervisor":
@@ -317,7 +320,11 @@ class HlavniOkno(QMainWindow):
         self.user_menu.addAction(self.surgery_section)
         self.user_menu.addAction(self.users_section)
         self.user_menu.addAction(self.doctors_section)
-  
+
+    def sekce_ordinace(self):
+        dialog = OrdinaceDialog(self)
+        dialog.exec()
+
     def sekce_uzivatelu(self):
         dialog = UsersDialog(self)
         dialog.exec()
