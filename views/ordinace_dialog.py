@@ -5,6 +5,7 @@ from views.add_ordinace_dialog import AddOrdinaceDialog
 from views.edit_ordinace_dialog import EditOrdinaceDialog
 from models.ordinace import get_all_ordinace, add_ordinace, remove_ordinace, update_ordinace_db
 from functools import partial
+from models.rezervace import rezervace_pro_ordinaci
 
 class OrdinaceDialog(QDialog):
     def __init__(self, parent=None):
@@ -85,23 +86,14 @@ class OrdinaceDialog(QDialog):
         for ord in ordinace:
             hbox = QHBoxLayout()
             label = QLabel(f"{ord[1]}")
-            hbox.addWidget(label)            
-                        
-            if ord[0] == 5:  # Předpokládáme, že ID 5 je pro super supervizora
-                remove_button = QPushButton("Chráněno")
-                remove_button.setObjectName("remove_ordinace")
-                remove_button.setEnabled(False)
-                update_button = QPushButton("Chráněno")
-                update_button.setObjectName("update_ordinace")
-                update_button.setEnabled(False)
-                
-            else:
-                remove_button = QPushButton("Odebrat")
-                remove_button.setObjectName("remove_ordinace")
-                remove_button.clicked.connect(partial(self.remove_ordinace, ord[0], ord[1]))
-                update_button = QPushButton("Upravit")
-                update_button.setObjectName("update_ordinace")
-                update_button.clicked.connect(partial(self.update_ordinace, ord[0]))
+            hbox.addWidget(label)                        
+
+            remove_button = QPushButton("Odebrat")
+            remove_button.setObjectName("remove_ordinace")
+            remove_button.clicked.connect(partial(self.remove_ordinace, ord[0], ord[1]))
+            update_button = QPushButton("Upravit")
+            update_button.setObjectName("update_ordinace")
+            update_button.clicked.connect(partial(self.update_ordinace, ord[0]))
 
             hbox.addWidget(remove_button)
             hbox.addWidget(update_button)
@@ -116,10 +108,11 @@ class OrdinaceDialog(QDialog):
         if dialog.exec() == QDialog.Accepted:
             try:
                 data = dialog.get_data()
+                print(data)
                 add_ordinace(data)
                 self.load_ordinace()
                 if self.parent_window:
-                    self.parent_window.status_bar.showMessage(f"Ordinace {data['jmeno']} byl přidán.")
+                    self.parent_window.status_bar.showMessage(f"Ordinace {data['nazev']} byl přidán.")
             except ValueError as ve:
                 if self.parent_window:
                     self.parent_window.status_bar.showMessage(str(ve))
@@ -128,14 +121,22 @@ class OrdinaceDialog(QDialog):
                   self.parent_window.status_bar.showMessage(f"Chyba při přidávání ordinace: {e}")
 
     def remove_ordinace(self, ordinace_id, nazev):
-        if QMessageBox.question(self, "Odebrat doktora", f"Opravdu chcete odebrat ordinaci {nazev}?", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+        if QMessageBox.question(self, "Odebrat ordinaci", f"Opravdu chcete odebrat ordinaci {nazev}?", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
             try:
-                remove_ordinace(ordinace_id, nazev)      
+              # Prohledat databazi, zda pro ordinaci neexistují rezervace
+                rezervations_for_surgery = rezervace_pro_ordinaci(ordinace_id)
+                if rezervations_for_surgery:
+                    QMessageBox.warning(self, "Chyba", f"Ordinace {nazev} má existující rezervace a nemůže být odstraněna.")
+                    return
+                remove_ordinace(ordinace_id, nazev)
                 self.load_ordinace()
                 if self.parent_window:
-                    self.parent_window.status_bar.showMessage(f"Ordinace {nazev} byla odebrán.")
+                    self.parent_window.status_bar.showMessage(f"Ordinace {nazev} byla odebrána.")
+                    if self.parent_window and hasattr(self.parent_window, "aktualizuj_tabulku_ordinaci_layout"):
+                      self.parent_window.aktualizuj_tabulku_ordinaci_layout()
+                      self.parent_window.nacti_rezervace()
             except Exception as e:
-                QMessageBox.critical(self, "Chyba", f"Chyba při odstraňování doktora: {e}")
+                QMessageBox.critical(self, "Chyba", f"Chyba při odstraňování ordinace: {e}")
 
     def update_ordinace(self, ordinace_id):
         # Najděte aktuální roli ordinace
@@ -151,10 +152,13 @@ class OrdinaceDialog(QDialog):
             data = dialog.get_data()
             try:
                 update_ordinace_db(ordinace_id, data)
+                self.load_ordinace()
                 if self.parent_window and hasattr(self.parent_window, "aktualizuj_ordinace_layout"):
                       self.parent_window.aktualizuj_ordinace_layout()
                       self.parent_window.nacti_rezervace()
-                self.load_ordinace()
+                if self.parent_window and hasattr(self.parent_window, "aktualizuj_tabulku_ordinaci_layout"):
+                      self.parent_window.aktualizuj_tabulku_ordinaci_layout()
+                      self.parent_window.nacti_rezervace()
                 if self.parent_window:
                     self.parent_window.status_bar.showMessage(f"Ordinace {data['nazev']} upravena.")
             except Exception as e:

@@ -6,7 +6,7 @@ from PySide6.QtGui import QColor, QPixmap, QAction
 from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
-from models.databaze import get_ordinace
+from models.ordinace import get_all_ordinace
 from models.doktori import uloz_nebo_uprav_ordinacni_cas, ziskej_rozvrh_doktoru_dne, get_all_doctors_colors, get_doktor_isactive_by_color
 from views.login_dialog import LoginDialog
 from controllers.data import table_grey_strip, vaccination_color, pause_color
@@ -17,15 +17,14 @@ from views.planovani_ordinaci_dialog import PlanovaniOrdinaciDialog
 from views.users_dialog import UsersDialog
 from views.doctors_dialog import DoctorDialog
 from views.ordinace_dialog import OrdinaceDialog
+from functools import partial
 import os
 
 
 
 def get_ordinace_list():
-        ordinace = get_ordinace()
+        ordinace = get_all_ordinace()
         return [ f"{i[1]}" for i in ordinace]
-
-ordinace = get_ordinace_list()
 
 class HlavniOkno(QMainWindow):
     def __init__(self):
@@ -80,10 +79,12 @@ class HlavniOkno(QMainWindow):
                 padding: 6px;
             }
             QHeaderView::section {
-                background-color: #9ee0fc;
+                background-color: #f4efeb;
                 color: black;
                 font-weight: bold;
                 font-size: 14px;
+                text-decoration: underline;
+                spacint
             }
             QToolTip{ 
             background-color: #e6f7ff; 
@@ -181,27 +182,37 @@ class HlavniOkno(QMainWindow):
         self.ordinace_layout = QHBoxLayout()  
         
         
-        for mistnost in ordinace:
-            tabulka = QTableWidget()
-            tabulka.setColumnCount(2) # Počet sloupců
-            tabulka.setColumnWidth(0, 70) # Čas
-            tabulka.horizontalHeader().setStretchLastSection(True)  # Řádek rezervace v maximální šířce
-
-            # Skrytí sloupce s čísly řádků
-            tabulka.verticalHeader().setVisible(False)
-            
-            # Připojení signálu pro dvojklik
-            tabulka.cellDoubleClicked.connect(lambda row, col, m=mistnost: self.zpracuj_dvojklik(m, row, col))
-
-
-            self.ordinace_layout.addWidget(tabulka)
-            self.tabulky[mistnost] = tabulka
-
+        self.aktualizuj_tabulku_ordinaci_layout()
         layout.addLayout(self.ordinace_layout)
         self.setLayout(layout)
         self.nacti_rezervace()
         
         self.setCentralWidget(central_widget)
+        
+    def aktualizuj_tabulku_ordinaci_layout(self):
+        ordinace = get_ordinace_list()   
+        # Odstraň všechny widgety z layoutu
+        while self.ordinace_layout.count():
+            item = self.ordinace_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+    
+        # Nyní můžeš bezpečně přidávat nové tabulky
+        self.tabulky.clear()
+        for mistnost in ordinace:
+            tabulka = QTableWidget()
+            tabulka.setColumnCount(2) # Počet sloupců
+            tabulka.setColumnWidth(0, 70) # Čas
+            tabulka.horizontalHeader().setStretchLastSection(True)  # Řádek rezervace v maximální šířce
+            tabulka.verticalHeader().setVisible(False)
+
+            # Připojení signálu pro dvojklik
+            tabulka.cellDoubleClicked.connect(partial(self.zpracuj_dvojklik, mistnost))
+            self.ordinace_layout.addWidget(tabulka)
+            self.tabulky[mistnost] = tabulka
+        self.nacti_rezervace()
+
     
     
     def add_logo(self):
@@ -226,7 +237,7 @@ class HlavniOkno(QMainWindow):
       # Přidej nové štítky podle aktuálních dat
       for doktor in get_doktori():
           if doktor[3] == 1:  # Pouze aktivní doktor
-              jmeno = f"{doktor[1]} {doktor[2]}"
+              jmeno = f"{doktor[1]}\n{doktor[2]}"
               barva = doktor[5].strip()
               label = QLabel(jmeno)
               label.setStyleSheet(f"""
@@ -507,6 +518,7 @@ class HlavniOkno(QMainWindow):
       datum = self.kalendar.date().toPython()
       rezervace = ziskej_rezervace_dne(datum.strftime("%Y-%m-%d"))
       rezervace_doktoru = ziskej_rozvrh_doktoru_dne(datum.strftime("%Y-%m-%d"))
+      ordinace = get_ordinace_list()
       # print(rezervace_doktoru)
       
       # Debug: Výpis rezervací

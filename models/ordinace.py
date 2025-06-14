@@ -18,19 +18,19 @@ def get_ordinace_by_id(ordinace_id):
     cursor.close()
     return ordinace 
   
-def add_ordinace(nazev, patro, popis):
+def add_ordinace(data):
     """Přidá novou ordinaci do databáze."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO ordinace (nazev, patro, popis) VALUES (?, ?, ?)", (nazev, patro, popis))
+    cursor.execute("INSERT INTO Ordinace (nazev, patro, popis) VALUES (?, ?, ?)", (data['nazev'], data['patro'], data['popis']))
     conn.commit()
     cursor.close()
     
-def remove_ordinace(ordinace_id):
+def remove_ordinace(ordinace_id, nazev):
     """Odstraní ordinaci z databáze podle ID."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM ordinace WHERE id = ?", (ordinace_id,))
+    cursor.execute("DELETE FROM Ordinace WHERE ordinace_id = ? AND nazev = ?", (ordinace_id, nazev))
     conn.commit()
     cursor.close()
     

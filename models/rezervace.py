@@ -104,6 +104,22 @@ def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_paci
 
         return cur.rowcount > 0  # True pokud byl záznam upraven
 
+def rezervace_pro_ordinaci(ordinace_id):
+    """
+    Vrátí seznam rezervací pro danou ordinaci.
+    """
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+        SELECT 
+            Rezervace.rezervace_id AS id,
+            Ordinace.nazev AS Ordinace
+        FROM Rezervace
+        INNER JOIN Ordinace ON Rezervace.ordinace_id = Ordinace.ordinace_id
+        WHERE Rezervace.ordinace_id = ?
+        ''', (ordinace_id,))
+        return cur.fetchall()
+
 def ziskej_rezervace_dne(datum_str):
     """
     Vrátí seznam rezervací pro daný den (datum ve formátu 'YYYY-MM-DD') s detaily:

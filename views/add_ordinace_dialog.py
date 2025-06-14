@@ -34,13 +34,10 @@ class AddOrdinaceDialog(QDialog):
         self.layout.addLayout(button_layout)
 
     def get_data(self):
+        if not self.nazev_ordinace_input.text() or not self.ordinace_patro_input.text() or not self.popis_ordinace_input.text():
+            raise ValueError("Všechna pole musí být vyplněna.") 
         return {
-            "ordinace_id": self.ordinace_id,
             "nazev": self.nazev_ordinace_input.text(),
-            "patro": self.ordinace_patro_input.text(),
+            "patro": int(self.ordinace_patro_input.text()),
             "popis": self.popis_ordinace_input.text()
         }
-    def set_data(self, data):
-        self.nazev_ordinace_input.setText(data.get("nazev", ""))
-        self.ordinace_patro_input.setText(data.get("patro", ""))
-        self.popis_ordinace_input.setText(data.get("popis", ""))
