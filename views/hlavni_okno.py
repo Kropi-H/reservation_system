@@ -2,7 +2,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QLabel,
                                QDateEdit, QHBoxLayout, QTableWidget, 
                                QTableWidgetItem, QMenuBar, QMenu, QMainWindow)
 from PySide6.QtCore import QDate, QLocale, QTimer, Qt
-from PySide6.QtGui import QColor, QPixmap, QAction
+from PySide6.QtGui import QColor, QPixmap, QAction, QFont
 from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
@@ -66,6 +66,7 @@ class HlavniOkno(QMainWindow):
         layout = QVBoxLayout(central_widget)
         
         # Styl pro všechny tabulky v tomto okně
+        
         self.setStyleSheet("""
             QTableWidget {
                 background-color: #fafdff;
@@ -82,9 +83,10 @@ class HlavniOkno(QMainWindow):
                 background-color: #f4efeb;
                 color: black;
                 font-weight: bold;
-                font-size: 14px;
+                font-size: 16px;
                 text-decoration: underline;
-                spacint
+                letter-spacing: 0.75px;
+                text-transform: uppercase;
             }
             QToolTip{ 
             background-color: #e6f7ff; 
@@ -291,6 +293,12 @@ class HlavniOkno(QMainWindow):
         self.user_menu = None
         
     def update_user_menu(self):
+        """Aktualizuje menu pro uživatele podle jeho role."""
+        if self.logged_in_user_role == "user":
+            # Pokud je uživatel běžný uživatel, nebudeme přidávat žádné menu
+            self.user_menu = None
+            return
+          
         # Odeber staré user_menu, pokud existuje
         if self.user_menu:
             self.menu_bar.removeAction(self.user_menu.menuAction())
@@ -548,10 +556,12 @@ class HlavniOkno(QMainWindow):
           
       # Vlož data do tabulek
       for mistnost, tabulka in self.tabulky.items():
-          tabulka.setHorizontalHeaderLabels(["ČAS", f"{mistnost}"]) # Set the name of the columne (ordinace)
+          tabulka.setHorizontalHeaderLabels(["", f"{mistnost}"]) # Set the name of the columne (ordinace)
+          
           index = 0
           cas = datetime.combine(datum, datetime.strptime("08:00", "%H:%M").time())
           end = datetime.combine(datum, datetime.strptime("20:00", "%H:%M").time())
+          
           
           rozvrh_doktoru_map = {}
           for r in rezervace_doktoru:
