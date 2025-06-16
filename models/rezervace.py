@@ -113,10 +113,12 @@ def rezervace_pro_ordinaci(ordinace_id):
         cur.execute('''
         SELECT 
             Rezervace.rezervace_id AS id,
+            Rezervace.termin AS Cas,
             Ordinace.nazev AS Ordinace
         FROM Rezervace
         INNER JOIN Ordinace ON Rezervace.ordinace_id = Ordinace.ordinace_id
         WHERE Rezervace.ordinace_id = ?
+        ORDER BY Rezervace.termin
         ''', (ordinace_id,))
         return cur.fetchall()
 
@@ -147,4 +149,16 @@ def ziskej_rezervace_dne(datum_str):
         ORDER BY Rezervace.termin
         ''', (datum_str,))
         return cur.fetchall()
+
+def odstran_rezervaci(rezervace_id):
+    """
+    Odstraní rezervaci podle rezervace_id.
+    """
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+        DELETE FROM Rezervace
+        WHERE rezervace_id = ?
+        ''', (rezervace_id,))
+        return cur.rowcount > 0  # True pokud byl záznam odstraněn
     

@@ -111,6 +111,9 @@ class OrdinaceDialog(QDialog):
                 print(data)
                 add_ordinace(data)
                 self.load_ordinace()
+                if self.parent_window and hasattr(self.parent_window, "aktualizuj_tabulku_ordinaci_layout"):
+                      self.parent_window.aktualizuj_tabulku_ordinaci_layout()
+                      self.parent_window.nacti_rezervace()
                 if self.parent_window:
                     self.parent_window.status_bar.showMessage(f"Ordinace {data['nazev']} byl přidán.")
             except ValueError as ve:
@@ -121,14 +124,27 @@ class OrdinaceDialog(QDialog):
                   self.parent_window.status_bar.showMessage(f"Chyba při přidávání ordinace: {e}")
 
     def remove_ordinace(self, ordinace_id, nazev):
-        if QMessageBox.question(self, "Odebrat ordinaci", f"Opravdu chcete odebrat ordinaci {nazev}?", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Odebrat ordinaci")
+        msg_box.setText(f"Opravdu chcete odebrat ordinaci {nazev}?")
+        ano_button = msg_box.addButton("Ano", QMessageBox.YesRole)
+        msg_box.addButton("Ne", QMessageBox.NoRole)
+        msg_box.exec_()
+        if msg_box.clickedButton() == ano_button:
             try:
               # Prohledat databazi, zda pro ordinaci neexistují rezervace
                 rezervations_for_surgery = rezervace_pro_ordinaci(ordinace_id)
+                '''
+                print(f"Odstraňuji ordinaci s ID {nazev} a názvem {rezervations_for_surgery}")
+                
+                Přidat logiku pro kontrolu rezervací pokud je datum rezervace v budoucnosti
+                if rezervations_for_surgery:
+                '''
+                
                 if rezervations_for_surgery:
                     QMessageBox.warning(self, "Chyba", f"Ordinace {nazev} má existující rezervace a nemůže být odstraněna.")
                     return
-                remove_ordinace(ordinace_id, nazev)
+                #remove_ordinace(ordinace_id, nazev)
                 self.load_ordinace()
                 if self.parent_window:
                     self.parent_window.status_bar.showMessage(f"Ordinace {nazev} byla odebrána.")

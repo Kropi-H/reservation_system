@@ -1,15 +1,18 @@
 # views/formular_rezervace.py
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QLabel, QFormLayout, QComboBox, QTextEdit, QDateTimeEdit
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QLabel, QFormLayout, QComboBox, QTextEdit, QDateTimeEdit, QMessageBox
 from PySide6.QtCore import QDateTime, QTime
-from controllers.rezervace_controller import uloz_rezervaci
+from controllers.rezervace_controller import uloz_rezervaci, odstran_rezervaci_z_db
 from models.databaze import get_doktori, get_ordinace
+
+
 class FormularRezervace(QWidget):
     def __init__(self, hlavni_okno=None, rezervace_data=None, predvyplneny_cas=None, predvyplnena_ordinace=None, predvyplneny_doktor=None):
         super().__init__()
         self.setWindowTitle("Nová rezervace" if rezervace_data is None else "Úprava rezervace")
         self.rezervace_id = rezervace_data[1] if rezervace_data else None
         self.hlavni_okno = hlavni_okno
-        self.predvyplenenty_doktor = predvyplneny_doktor
+        self.predvyplneny_doktor = predvyplneny_doktor
+        self.rezervace_data = rezervace_data
 
         self.layout = QFormLayout()
 
@@ -101,7 +104,7 @@ class FormularRezervace(QWidget):
         self.layout.addRow("Kontakt (nemusí být):", self.kontakt_majitel_input)
         self.layout.addRow("Doktor:", self.doktor_input)
         self.layout.addRow("Poznámka (nemusí být):", self.note_input)
-        self.layout.addRow("Čas (např. 2025-05-06 13:30):", self.cas_input)
+        self.layout.addRow("Čas (např. 21-01-2025 09:00):", self.cas_input)
         self.layout.addRow("Ordinace:", self.mistnost_input)
 
 
@@ -110,11 +113,17 @@ class FormularRezervace(QWidget):
         self.btn_uloz.setMaximumSize(200, 100)
         self.btn_uloz.setStyleSheet("background-color: lightblue; font-weight: bold;color: black;")
         self.btn_uloz.clicked.connect(self.uloz)
-        #self.btn_uloz.clicked.connect(self.print_data)
-
         v_box = QHBoxLayout()
         v_box.addStretch()
         v_box.addWidget(self.btn_uloz)
+        
+        if rezervace_data:
+            self.btn_odstran_rezervaci = QPushButton("Odstranit rezervaci")
+            self.btn_odstran_rezervaci.setMaximumSize(200, 100)
+            self.btn_odstran_rezervaci.setStyleSheet("background-color: #ffcccc; font-weight: bold;color: black;")
+            self.btn_odstran_rezervaci.clicked.connect(self.odstran_rezervaci)
+            v_box.addWidget(self.btn_odstran_rezervaci)
+        #self.btn_uloz.clicked.connect(self.print_data)
         v_box.addStretch()
         self.layout.addRow(v_box)
 
@@ -131,6 +140,29 @@ class FormularRezervace(QWidget):
     def get_ordinace_list(self):
         ordinace = get_ordinace()
         return [ f"{i[1]}" for i in ordinace]
+      
+    def odstran_rezervaci(self):
+        if self.rezervace_id:
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Odebrat rezervaci")
+            msg_box.setText(f"Odebrat rezervaci pro {self.rezervace_data[4]}, majitel {self.rezervace_data[5]}?")
+            ano_button = msg_box.addButton("Ano", QMessageBox.YesRole)
+            ne_button = msg_box.addButton("Ne", QMessageBox.NoRole)
+            msg_box.exec_()
+
+            if msg_box.clickedButton() == ano_button:
+                ok = odstran_rezervaci_z_db(self.rezervace_id)
+                if ok:
+                    self.status.setText("Rezervace byla odstraněna.")
+                    if self.hlavni_okno:
+                        self.hlavni_okno.nacti_rezervace()
+                    self.close()
+                else:
+                    self.status.setText("Chyba při odstraňování rezervace.")
+            else:
+                self.status.setText("Odstranění rezervace zrušeno.")
+        else:
+            self.status.setText("Žádná rezervace k odstranění.")
 
     def uloz(self):
         pacient_jmeno = self.pacient_jmeno_input.text()

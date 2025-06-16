@@ -336,9 +336,9 @@ class HlavniOkno(QMainWindow):
         # Pokud není přihlášen, menu se nezobrazí
         self.menu_bar.addMenu(self.user_menu)
         self.user_menu.addAction(self.plan_surgery_section)
-        self.user_menu.addAction(self.surgery_section)
         self.user_menu.addAction(self.users_section)
         self.user_menu.addAction(self.doctors_section)
+        self.user_menu.addAction(self.surgery_section)
 
     def sekce_ordinace(self):
         dialog = OrdinaceDialog(self)
