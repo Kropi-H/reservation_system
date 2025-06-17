@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QLabel, 
                                QDateEdit, QHBoxLayout, QTableWidget, 
-                               QTableWidgetItem, QMenuBar, QMenu, QMainWindow)
+                               QTableWidgetItem, QMenuBar, QMenu, QMainWindow, QAbstractItemView)
 from PySide6.QtCore import QDate, QLocale, QTimer, Qt
 from PySide6.QtGui import QColor, QPixmap, QAction, QFont
 from views.formular_rezervace import FormularRezervace
@@ -204,6 +204,8 @@ class HlavniOkno(QMainWindow):
         self.tabulky.clear()
         for mistnost in ordinace:
             tabulka = QTableWidget()
+            tabulka.setEditTriggers(QTableWidget.NoEditTriggers)  # Zakázat editaci buněk
+            tabulka.setSelectionMode(QAbstractItemView.NoSelection) # Zakázat výběr buněk
             tabulka.setColumnCount(2) # Počet sloupců
             tabulka.setColumnWidth(0, 70) # Čas
             tabulka.horizontalHeader().setStretchLastSection(True)  # Řádek rezervace v maximální šířce
@@ -332,6 +334,7 @@ class HlavniOkno(QMainWindow):
             self.doctors_section = QAction("Sekce doktoři", self)
             self.doctors_section.triggered.connect(self.sekce_doktoru)
             self.surgery_section = QAction("Sekce ordinace", self)
+            self.surgery_section.triggered.connect(self.sekce_ordinace)
             # Přidejte další akce podle potřeby
         # Pokud není přihlášen, menu se nezobrazí
         self.menu_bar.addMenu(self.user_menu)
@@ -368,6 +371,7 @@ class HlavniOkno(QMainWindow):
     def povol_vyber_casu(self):
       def only_first_column_selection():
           for tabulka in self.tabulky.values():
+              #tabulka.setEditTriggers(QTableWidget.AllEditTriggers)  # Zakázat editaci buněk
               selected = tabulka.selectedItems()
               for item in selected:
                   if item.column() != 0:

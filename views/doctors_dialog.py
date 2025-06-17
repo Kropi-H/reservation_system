@@ -18,6 +18,8 @@ class DoctorDialog(QDialog):
 
         self.button_layout = QHBoxLayout()
         self.add_doctor_button = QPushButton("Přidat doktora", self)
+        self.add_doctor_button.setObjectName("add_doctor_button")
+        self.add_doctor_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
         self.add_doctor_button.clicked.connect(self.add_doctor)
         self.button_layout.addWidget(self.add_doctor_button)
         self.layout.addLayout(self.button_layout)
@@ -85,6 +87,7 @@ class DoctorDialog(QDialog):
         for doctor in doctors:
             hbox = QHBoxLayout()
             label = QLabel(f"{doctor[1]} {doctor[2]}")
+            label.setStyleSheet("font-weight: bold; font-size: 14px;")
             hbox.addWidget(label)
             
             # Indikátor aktivního stavu
@@ -99,21 +102,15 @@ class DoctorDialog(QDialog):
               margin-right: 8px;
             """)
                         
-            if doctor[0] == 5:  # Předpokládáme, že ID 5 je pro super supervizora
-                remove_button = QPushButton("Chráněno")
-                remove_button.setObjectName("remove_doctor")
-                remove_button.setEnabled(False)
-                update_button = QPushButton("Chráněno")
-                update_button.setObjectName("update_doctor")
-                update_button.setEnabled(False)
-                
-            else:
-                remove_button = QPushButton("Odebrat")
-                remove_button.setObjectName("remove_doctor")
-                remove_button.clicked.connect(partial(self.remove_doctor, doctor[0], doctor[1]))
-                update_button = QPushButton("Upravit")
-                update_button.setObjectName("update_doctor")
-                update_button.clicked.connect(partial(self.update_doctor, doctor[0]))
+            
+            remove_button = QPushButton("Odebrat")
+            remove_button.setObjectName("remove_doctor")
+            remove_button.setStyleSheet("background-color: #f44336; color: white; font-weight: bold;")
+            remove_button.clicked.connect(partial(self.remove_doctor, doctor[0], doctor[1]))
+            update_button = QPushButton("Upravit")
+            update_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+            update_button.setObjectName("update_doctor")
+            update_button.clicked.connect(partial(self.update_doctor, doctor[0]))
 
             hbox.addWidget(remove_button)
             hbox.addWidget(update_button)
