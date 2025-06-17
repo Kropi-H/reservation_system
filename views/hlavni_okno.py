@@ -363,7 +363,6 @@ class HlavniOkno(QMainWindow):
               tabulka.clearSelection()
   
     def update_clock(self):
-        from datetime import datetime
         self.clock_label.setText(datetime.now().strftime("%H:%M:%S"))
         
     def povol_vyber_casu(self):

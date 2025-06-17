@@ -161,4 +161,16 @@ def odstran_rezervaci(rezervace_id):
         WHERE rezervace_id = ?
         ''', (rezervace_id,))
         return cur.rowcount > 0  # True pokud byl záznam odstraněn
+      
+def remove_all_older_rezervations_for_ordinaci(ordinace_id):
+    """
+    Odstraní všechny rezervace pro danou ordinaci, které jsou starší než aktuální čas.
+    """
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+        DELETE FROM Rezervace
+        WHERE ordinace_id = ? 
+        ''', (ordinace_id,))
+        return cur.rowcount > 0  # True pokud byly záznamy odstraněny
     

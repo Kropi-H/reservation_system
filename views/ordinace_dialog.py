@@ -1,11 +1,12 @@
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QHBoxLayout, QMessageBox, QFrame
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QHBoxLayout, QMessageBox
 from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QHBoxLayout, QVBoxLayout, QScrollArea
-from PySide6.QtCore import Qt
 from views.add_ordinace_dialog import AddOrdinaceDialog
 from views.edit_ordinace_dialog import EditOrdinaceDialog
 from models.ordinace import get_all_ordinace, add_ordinace, remove_ordinace, update_ordinace_db
+from models.rezervace import remove_all_older_rezervations_for_ordinaci
 from functools import partial
 from models.rezervace import rezervace_pro_ordinaci
+from datetime import datetime
 
 class OrdinaceDialog(QDialog):
     def __init__(self, parent=None):
@@ -123,6 +124,12 @@ class OrdinaceDialog(QDialog):
                 if self.parent_window:
                   self.parent_window.status_bar.showMessage(f"Chyba při přidávání ordinace: {e}")
 
+    def ma_budouci_rezervaci(self, rezervace):
+        for _, datum_cas, _ in rezervace:
+            if datetime.strptime(datum_cas, "%Y-%m-%d %H:%M") > datetime.now():
+                return True
+        return False
+      
     def remove_ordinace(self, ordinace_id, nazev):
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("Odebrat ordinaci")
@@ -134,17 +141,12 @@ class OrdinaceDialog(QDialog):
             try:
               # Prohledat databazi, zda pro ordinaci neexistují rezervace
                 rezervations_for_surgery = rezervace_pro_ordinaci(ordinace_id)
-                '''
-                print(f"Odstraňuji ordinaci s ID {nazev} a názvem {rezervations_for_surgery}")
                 
-                Přidat logiku pro kontrolu rezervací pokud je datum rezervace v budoucnosti
-                if rezervations_for_surgery:
-                '''
-                
-                if rezervations_for_surgery:
+                if self.ma_budouci_rezervaci(rezervations_for_surgery):
                     QMessageBox.warning(self, "Chyba", f"Ordinace {nazev} má existující rezervace a nemůže být odstraněna.")
                     return
-                #remove_ordinace(ordinace_id, nazev)
+                remove_all_older_rezervations_for_ordinaci(ordinace_id) # Odstraní všechny rezervace pro tuto ordinaci
+                remove_ordinace(ordinace_id, nazev) # Odstraní ordinaci z databáze
                 self.load_ordinace()
                 if self.parent_window:
                     self.parent_window.status_bar.showMessage(f"Ordinace {nazev} byla odebrána.")
