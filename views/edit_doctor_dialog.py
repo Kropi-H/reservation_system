@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox, QColorDialog
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox, QColorDialog, QTextEdit
 from models.doktori import get_doctor_by_id
 from PySide6.QtGui import QColor
 
@@ -19,7 +19,7 @@ class EditDoctorDialog(QDialog):
         layout.addWidget(self.prijmeni_add)
         
         layout.addWidget(QLabel("Specializace:"))
-        self.specializace_add = QLineEdit(self.doctor[3])
+        self.specializace_add = QTextEdit(self.doctor[3])
         layout.addWidget(self.specializace_add)
 
         layout.addWidget(QLabel("Aktivní:"))
@@ -37,7 +37,7 @@ class EditDoctorDialog(QDialog):
         self.selected_color = QColor(self.doctor[5])  # Assuming the color is stored in the 5th column
         self.color_preview = QLabel()
         self.color_preview.setFixedSize(40, 20)
-        self.color_preview.setStyleSheet(f"background-color: {self.selected_color.name()}; border: 1px solid #888;")
+        self.color_preview.setStyleSheet(f"background-color:{self.doctor[5]}; border: 1px solid #888;")
         color_layout.addWidget(self.color_preview)
         layout.addLayout(color_layout)
 
@@ -60,7 +60,7 @@ class EditDoctorDialog(QDialog):
         return {
             "jmeno": self.username_edit.text(),
             "prijmeni": self.prijmeni_add.text(),
-            "specializace": self.specializace_add.text(),
+            "specializace": self.specializace_add.toPlainText(),
             "isActive": 1 if self.is_active_combo.currentText() == "Ano" else 0,
             "color": self.selected_color.name()
         } 

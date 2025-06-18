@@ -15,7 +15,9 @@ class EditOrdinaceDialog(QDialog):
         layout.addWidget(self.ordinace_nazev)
         
         layout.addWidget(QLabel("Patro:"))
-        self.ordinace_patro = QLineEdit(str(self.ordinace[2]))
+        self.ordinace_patro = QComboBox()
+        self.ordinace_patro.addItems(["0", "1"])
+        self.ordinace_patro.setCurrentText(str(self.ordinace[2]))
         layout.addWidget(self.ordinace_patro)
         
         layout.addWidget(QLabel("Popis:"))
@@ -35,6 +37,6 @@ class EditOrdinaceDialog(QDialog):
     def get_data(self):
         return {
             "nazev": self.ordinace_nazev.text(),
-            "patro": int(self.ordinace_patro.text()),
+            "patro": int(self.ordinace_patro.currentText()),
             "popis": self.popis_ordinace.text()
         } 

@@ -23,14 +23,14 @@ def remove_doctor(doktor_id):
         ''', (doktor_id,))
         conn.commit()
         
-def add_doctor(jmeno, prijmeni, specializace, color):
+def add_doctor(data):
     """Přidá nového doktora do databáze."""
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute('''
-            INSERT INTO Doktori (jmeno, prijmeni, specializace, color)
-            VALUES (?, ?, ?, ?)
-        ''', (jmeno, prijmeni, specializace, color))
+            INSERT INTO Doktori (jmeno, prijmeni, specializace, isActive, color)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (data["jmeno"], data["prijmeni"], data["specializace"], int(data["isActive"]), data["color"]))
         conn.commit()
         
 def get_doctor_by_id(doktor_id):

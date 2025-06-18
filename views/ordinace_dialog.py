@@ -6,6 +6,7 @@ from models.ordinace import get_all_ordinace, add_ordinace, remove_ordinace, upd
 from models.rezervace import remove_all_older_rezervations_for_ordinaci
 from functools import partial
 from models.rezervace import rezervace_pro_ordinaci
+from controllers.data import basic_button_color, basic_button_style, q_header_view_style
 from datetime import datetime
 
 class OrdinaceDialog(QDialog):
@@ -20,6 +21,8 @@ class OrdinaceDialog(QDialog):
 
         self.button_layout = QHBoxLayout()
         self.add_ordinace_button = QPushButton("Přidat ordinaci", self)
+        self.add_ordinace_button.setObjectName("add_ordinace_button")
+        self.add_ordinace_button.setStyleSheet(f"background-color: {basic_button_color['add_button_color']};")
         self.add_ordinace_button.clicked.connect(self.add_ordinace)
         self.button_layout.addWidget(self.add_ordinace_button)
         self.layout.addLayout(self.button_layout)
@@ -28,39 +31,16 @@ class OrdinaceDialog(QDialog):
         self.load_ordinace()
 
         # Styl pro všechny tabulky v tomto okně
-        self.setStyleSheet("""
-            QHeaderView::section {
-                background-color: #9ee0fc;
-                color: black;
-                font-weight: bold;
-                font-size: 14px;
-            }
+        self.setStyleSheet(f"""
+            QHeaderView::section {{
+                {q_header_view_style}
+            }}
             QPushButton#remove_ordinace, 
             QPushButton#update_ordinace,
-            QPushButton#change_password {
-        min-width: 60px;
-        max-width: 80px;
-        min-height: 10px;
-        max-height: 15px;
-        padding: 2px 6px;
-        font-size: 12px;
-        border-style: outset;
-        border-color: #b2d7ef;
-        border-width: 1px;
-        border-radius: 4px;
-        background-color: #e6f7ff;
-        color: #222;
-        }
-        QPushButton#change_password {
-            background-color: #d0f0fd;
-        }
-        
-        QPushButton#remove_ordinace:pressed,
-        QPushButton#update_user:pressed,
-        QPushButton#change_password:pressed {
-           background-color: #b2d7ef;
-            color: #000;
-        }
+            QPushButton#change_password,
+            QPushButton#add_ordinace_button {{
+                {basic_button_style}
+            }}
         """)  
  
         
@@ -87,13 +67,16 @@ class OrdinaceDialog(QDialog):
         for ord in ordinace:
             hbox = QHBoxLayout()
             label = QLabel(f"{ord[1]}")
+            label.setStyleSheet("font-weight: bold; font-size: 14px;")
             hbox.addWidget(label)                        
 
             remove_button = QPushButton("Odebrat")
             remove_button.setObjectName("remove_ordinace")
+            remove_button.setStyleSheet(f"background-color: {basic_button_color['remove_button_color']};")
             remove_button.clicked.connect(partial(self.remove_ordinace, ord[0], ord[1]))
             update_button = QPushButton("Upravit")
             update_button.setObjectName("update_ordinace")
+            update_button.setStyleSheet(f"background-color: {basic_button_color['update_button_color']};")
             update_button.clicked.connect(partial(self.update_ordinace, ord[0]))
 
             hbox.addWidget(remove_button)

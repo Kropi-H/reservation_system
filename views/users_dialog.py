@@ -5,6 +5,7 @@ from views.edit_user_dialog import EditUserDialog
 from views.update_user_password import UpdatePasswordDialog
 from models.users import get_all_users, add_user, remove_user, update_user, get_user_by_id, update_user_pass
 from functools import partial
+from controllers.data import basic_button_color, basic_button_style, q_header_view_style
 
 class UsersDialog(QDialog):
     def __init__(self, parent=None):
@@ -18,6 +19,8 @@ class UsersDialog(QDialog):
 
         self.button_layout = QHBoxLayout()
         self.add_user_button = QPushButton("Přidat uživatele", self)
+        self.add_user_button.setObjectName("add_user_button")
+        self.add_user_button.setStyleSheet(f"background-color: {basic_button_color['add_button_color']};")
         self.add_user_button.clicked.connect(self.add_user)
         self.button_layout.addWidget(self.add_user_button)
         self.layout.addLayout(self.button_layout)
@@ -26,39 +29,16 @@ class UsersDialog(QDialog):
         self.load_users()
         
         # Styl pro všechny tabulky v tomto okně
-        self.setStyleSheet("""
-            QHeaderView::section {
-                background-color: #9ee0fc;
-                color: black;
-                font-weight: bold;
-                font-size: 14px;
-            }
+        self.setStyleSheet(f"""
+            QHeaderView::section {{
+             {q_header_view_style}   
+            }}
             QPushButton#remove_user, 
             QPushButton#update_user,
-            QPushButton#change_password {
-        min-width: 60px;
-        max-width: 80px;
-        min-height: 10px;
-        max-height: 15px;
-        padding: 2px 6px;
-        font-size: 12px;
-        border-style: outset;
-        border-color: #b2d7ef;
-        border-width: 1px;
-        border-radius: 4px;
-        background-color: #e6f7ff;
-        color: #222;
-        }
-        QPushButton#change_password {
-            background-color: #d0f0fd;
-        }
-        
-        QPushButton#remove_user:pressed,
-        QPushButton#update_user:pressed,
-        QPushButton#change_password:pressed {
-           background-color: #b2d7ef;
-            color: #000;
-        }
+            QPushButton#change_password,
+            QPushButton#add_user_button {{
+        {basic_button_style}
+        }}
         """)  
  
         
@@ -83,8 +63,10 @@ class UsersDialog(QDialog):
         users = get_all_users()
         for user in users:
             hbox = QHBoxLayout()
-            label = QLabel(f"{user[1]} ({user[3]})")
+            label = QLabel(f"{user[1]}\n({user[3]})")
+            label.setStyleSheet("font-weight: bold; font-size: 14px;")
             hbox.addWidget(label)
+            
             if user[3] == 'admin':
                 remove_button = QPushButton("Chráněno")
                 remove_button.setObjectName("remove_user")
@@ -105,6 +87,10 @@ class UsersDialog(QDialog):
                 password_button = QPushButton("Heslo")
                 password_button.setObjectName("change_password")
                 password_button.clicked.connect(partial(self.change_password, user[0]))
+            remove_button.setStyleSheet(f"background-color: {basic_button_color['remove_button_color']};")
+            update_button.setStyleSheet(f"background-color: {basic_button_color['update_button_color']};")
+            password_button.setStyleSheet(f"background-color: {basic_button_color['update_password_button_color'] };")
+            hbox.addStretch(1)  # Přidá prázdný prostor mezi
             hbox.addWidget(remove_button)
             hbox.addWidget(update_button)
             hbox.addWidget(password_button)

@@ -1,10 +1,11 @@
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QHBoxLayout, QMessageBox, QFrame
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QHBoxLayout, QMessageBox, QFrame, QTextEdit
 from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QHBoxLayout, QVBoxLayout, QScrollArea
 from PySide6.QtCore import Qt
 from views.add_doctor_dialog import AddDoctorDialog
 from views.edit_doctor_dialog import EditDoctorDialog
 from models.doktori import get_all_doctors, update_doctor, remove_doctor, add_doctor, get_all_doctors_colors, get_doctor_by_id
 from functools import partial
+from controllers.data import basic_button_color, basic_button_style, q_header_view_style
 
 class DoctorDialog(QDialog):
     def __init__(self, parent=None):
@@ -19,7 +20,7 @@ class DoctorDialog(QDialog):
         self.button_layout = QHBoxLayout()
         self.add_doctor_button = QPushButton("Přidat doktora", self)
         self.add_doctor_button.setObjectName("add_doctor_button")
-        self.add_doctor_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        self.add_doctor_button.setStyleSheet(f"background-color: {basic_button_color['add_button_color']};")
         self.add_doctor_button.clicked.connect(self.add_doctor)
         self.button_layout.addWidget(self.add_doctor_button)
         self.layout.addLayout(self.button_layout)
@@ -28,39 +29,15 @@ class DoctorDialog(QDialog):
         self.load_doctors()
         
         # Styl pro všechny tabulky v tomto okně
-        self.setStyleSheet("""
-            QHeaderView::section {
-                background-color: #9ee0fc;
-                color: black;
-                font-weight: bold;
-                font-size: 14px;
-            }
-            QPushButton#remove_doctor, 
-            QPushButton#update_user,
-            QPushButton#change_password {
-        min-width: 60px;
-        max-width: 80px;
-        min-height: 10px;
-        max-height: 15px;
-        padding: 2px 6px;
-        font-size: 12px;
-        border-style: outset;
-        border-color: #b2d7ef;
-        border-width: 1px;
-        border-radius: 4px;
-        background-color: #e6f7ff;
-        color: #222;
-        }
-        QPushButton#change_password {
-            background-color: #d0f0fd;
-        }
-        
-        QPushButton#remove_doctor:pressed,
-        QPushButton#update_user:pressed,
-        QPushButton#change_password:pressed {
-           background-color: #b2d7ef;
-            color: #000;
-        }
+        self.setStyleSheet(f"""
+        QHeaderView::section {{
+            {q_header_view_style}
+        }}
+        QPushButton#remove_doctor, 
+        QPushButton#update_doctor,
+        QPushButton#add_doctor_button {{
+            {basic_button_style}
+        }}
         """)  
  
         
@@ -105,10 +82,10 @@ class DoctorDialog(QDialog):
             
             remove_button = QPushButton("Odebrat")
             remove_button.setObjectName("remove_doctor")
-            remove_button.setStyleSheet("background-color: #f44336; color: white; font-weight: bold;")
+            remove_button.setStyleSheet(f"background-color: {basic_button_color['remove_button_color']};")
             remove_button.clicked.connect(partial(self.remove_doctor, doctor[0], doctor[1]))
             update_button = QPushButton("Upravit")
-            update_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+            update_button.setStyleSheet(f"background-color: {basic_button_color['update_button_color']};")
             update_button.setObjectName("update_doctor")
             update_button.clicked.connect(partial(self.update_doctor, doctor[0]))
 
@@ -130,6 +107,8 @@ class DoctorDialog(QDialog):
                 self.load_doctors()
                 if self.parent_window:
                     self.parent_window.status_bar.showMessage(f"Doktor {data['jmeno']} byl přidán.")
+                if self.parent_window and hasattr(self.parent_window, "aktualizuj_doktori_layout"):
+                      self.parent_window.aktualizuj_doktori_layout()
             except ValueError as ve:
                 if self.parent_window:
                     self.parent_window.status_bar.showMessage(str(ve))
@@ -167,7 +146,7 @@ class DoctorDialog(QDialog):
                       self.parent_window.nacti_rezervace()
                 self.load_doctors()
                 if self.parent_window:
-                    self.parent_window.status_bar.showMessage(f"Uživatel {data['username']} upraven.")
+                    self.parent_window.status_bar.showMessage(f"Doktor {data['jmeno']} {data['prijmeni']} upraven/a.")
             except Exception as e:
                 if self.parent_window:
                     self.parent_window.status_bar.showMessage(f"Chyba při úpravě doktora: {e}")
