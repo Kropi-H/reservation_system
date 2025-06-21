@@ -27,6 +27,8 @@ class AddOrdinaceDialog(QDialog):
         button_layout = QHBoxLayout()
         save_button = QPushButton("Uložit", self)
         save_button.clicked.connect(self.accept)
+        save_button.clicked.disconnect()
+        save_button.clicked.connect(self.try_accept)
         button_layout.addWidget(save_button)
 
         cancel_button = QPushButton("Zrušit", self)
@@ -34,10 +36,29 @@ class AddOrdinaceDialog(QDialog):
         button_layout.addWidget(cancel_button)
 
         layout.addLayout(button_layout)
+        
+    def check_fields(self):
+        # Check if all fields are filled
+        if not self.nazev_ordinace_input.text():
+            self.nazev_ordinace_input.setPlaceholderText("Název ordinace je povinný")
+            self.nazev_ordinace_input.setStyleSheet("color: red;")
+            return False
+        if not self.popis_ordinace_input.text():
+            self.popis_ordinace_input.setPlaceholderText("Popis ordinace je povinný")
+            self.popis_ordinace_input.setStyleSheet("color: red;")
+            return False
+        return True
+      
+    def try_accept(self):
+        if self.check_fields():
+            self.accept()
+        else:
+            self.nazev_ordinace_input.setFocus()
 
     def get_data(self):
-        if not self.nazev_ordinace_input.text() or not self.ordinace_patro_input.currentText() or not self.popis_ordinace_input.text():
-            raise ValueError("Všechna pole musí být vyplněna.") 
+        if not self.check_fields():
+            raise ValueError("Všechna pole musí být vyplněna.")
+        # Return the data as a dictionary
         return {
             "nazev": self.nazev_ordinace_input.text(),
             "patro": int(self.ordinace_patro_input.currentText()),

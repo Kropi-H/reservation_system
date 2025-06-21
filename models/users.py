@@ -61,3 +61,11 @@ def update_user_pass(user_data, user_id):
             conn.commit()
     except Exception as e:
         print(f"Error updating user password: {e}")
+        
+def get_user_by_name(username):
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('SELECT * FROM Users WHERE username=?;', (username,))
+        user = cur.fetchone()
+        if user:
+            return True  # User exists

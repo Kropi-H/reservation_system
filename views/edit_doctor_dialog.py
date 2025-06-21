@@ -44,6 +44,8 @@ class EditDoctorDialog(QDialog):
         button_layout = QHBoxLayout()
         ok_button = QPushButton("Uložit")
         ok_button.clicked.connect(self.accept)
+        ok_button.clicked.disconnect()
+        ok_button.clicked.connect(self.try_accept)
         cancel_button = QPushButton("Zrušit")
         cancel_button.clicked.connect(self.reject)
         button_layout.addWidget(ok_button)
@@ -57,10 +59,32 @@ class EditDoctorDialog(QDialog):
             self.color_preview.setStyleSheet(f"background-color: {color.name()}; border: 1px solid #888;")
 
     def get_data(self):
+        if not self.check_fields():
+            raise ValueError("Všechna pole musí být vyplněna.")
         return {
             "jmeno": self.username_edit.text(),
             "prijmeni": self.prijmeni_add.text(),
             "specializace": self.specializace_add.toPlainText(),
             "isActive": 1 if self.is_active_combo.currentText() == "Ano" else 0,
             "color": self.selected_color.name()
-        } 
+        }
+    
+    def check_fields(self):
+        # Check if all fields are filled
+        if not self.username_edit.text():
+            self.username_edit.setPlaceholderText("Jméno je povinné")
+            self.username_edit.setStyleSheet("color: red;")
+            return False
+        if not self.prijmeni_add.text():
+            self.prijmeni_add.setPlaceholderText("Příjmení je povinné")
+            self.prijmeni_add.setStyleSheet("color: red;")
+            return False
+        if not self.specializace_add.toPlainText():
+            self.specializace_add.setPlaceholderText("Specializace je povinná")
+            self.specializace_add.setStyleSheet("color: red;")
+            return False
+        return True
+        
+    def try_accept(self):
+        if self.check_fields():
+            self.accept()

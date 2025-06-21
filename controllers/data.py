@@ -3,8 +3,8 @@ vaccination_color = "#d0d4ec" # barva vakcinace
 pause_color = "#e8e500" # barva pauzy
 
 basic_button_color = {
-    "update_password_button_color": "#eeff90", # barva přidat doktora tlačítko
-    "add_button_color": "#c2fa94", # barva přidat tlačítko
+    "update_password_button_color": "#fbff90", # barva přidat doktora tlačítko
+    "add_button_color": "#a9d386", # barva přidat tlačítko
     "remove_button_color": "#F3B0B0", # barva odstranit tlačítko
     "update_button_color": "#cde7ff", # barva aktualizovat tlačítko
 }

@@ -92,7 +92,6 @@ class OrdinaceDialog(QDialog):
         if dialog.exec() == QDialog.Accepted:
             try:
                 data = dialog.get_data()
-                print(data)
                 add_ordinace(data)
                 self.load_ordinace()
                 if self.parent_window and hasattr(self.parent_window, "aktualizuj_tabulku_ordinaci_layout"):
