@@ -1,7 +1,7 @@
 # views/formular_rezervace.py
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QLabel, QFormLayout, QComboBox, QTextEdit, QDateTimeEdit, QMessageBox
 from PySide6.QtCore import QDateTime, QTime
-from controllers.rezervace_controller import uloz_rezervaci, odstran_rezervaci_z_db
+from controllers.rezervace_controller import uloz_rezervaci, odstran_rezervaci_z_db, aktualizuj_rezervaci
 from models.databaze import get_doktori, get_ordinace
 
 
@@ -45,7 +45,7 @@ class FormularRezervace(QWidget):
           if idx != -1:
               self.doktor_input.setCurrentIndex(idx)
           self.note_input.setPlainText(rezervace_data[9])
-          dt = QDateTime.fromString(rezervace_data[0], "yyyy-MM-dd HH:mm")
+          dt = QDateTime.fromString(f"{rezervace_data[0]} {rezervace_data[10]}", "yyyy-MM-dd HH:mm")
           if dt.isValid():
               self.cas_input.setDateTime(dt)
           idx2 = self.mistnost_input.findText(rezervace_data[8])
@@ -91,7 +91,7 @@ class FormularRezervace(QWidget):
           if idx != -1:
               self.doktor_input.setCurrentIndex(idx)
           self.note_input.setPlainText(rezervace_data[9])
-          dt = QDateTime.fromString(rezervace_data[0], "yyyy-MM-dd HH:mm")
+          dt = QDateTime.fromString(f"{rezervace_data[0]} {rezervace_data[10]}", "yyyy-MM-dd HH:mm")
           if dt.isValid():
               self.cas_input.setDateTime(dt)
           idx2 = self.mistnost_input.findText(rezervace_data[8])
@@ -165,14 +165,14 @@ class FormularRezervace(QWidget):
             self.status.setText("Žádná rezervace k odstranění.")
 
     def uloz(self):
-        pacient_jmeno = self.pacient_jmeno_input.text()
-        pacient_druh = self.pacient_druh_input.text()
-        majitel_pacienta = self.majitel_input.text()
-        majitel_kontakt = self.kontakt_majitel_input.text()
+        pacient_jmeno = self.pacient_jmeno_input.text().strip()
+        pacient_druh = self.pacient_druh_input.text().strip()
+        majitel_pacienta = self.majitel_input.text().strip()
+        majitel_kontakt = self.kontakt_majitel_input.text().strip()
         doktor = self.doktor_input.currentText()
-        note = self.note_input.toPlainText()
+        note = self.note_input.toPlainText().strip()
         dt = self.cas_input.dateTime()
-        cas = dt.toString("yyyy-MM-dd HH:mm")
+        datum, cas = dt.toString("yyyy-MM-dd HH:mm").split(" ")
         mistnost = self.mistnost_input.currentText()
         max_cas = QTime(19, 40)
         min_cas = QTime(8, 0)
@@ -192,10 +192,9 @@ class FormularRezervace(QWidget):
         else:
             if self.rezervace_id:
                 # Úprava existující rezervace
-                from controllers.rezervace_controller import aktualizuj_rezervaci
                 ok = aktualizuj_rezervaci(
                     self.rezervace_id, pacient_jmeno, pacient_druh, majitel_pacienta,
-                    majitel_kontakt, doktor, note, cas, mistnost
+                    majitel_kontakt, doktor, note, datum, cas, mistnost
                 )
                 if ok:
                     self.status.setText("Rezervace byla upravena.")
@@ -206,7 +205,7 @@ class FormularRezervace(QWidget):
                     self.status.setText("Chyba při úpravě rezervace.")
             else:
                 # Nová rezervace
-                if uloz_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, cas, mistnost):
+                if uloz_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, datum, cas, mistnost):
                     self.status.setText("Rezervace byla uložena.")
                     if self.hlavni_okno:
                         self.hlavni_okno.nacti_rezervace()

@@ -508,7 +508,7 @@ class HlavniOkno(QMainWindow):
             # ...původní logika pro otevření existující rezervace...
             rezervace = ziskej_rezervace_dne(datum.strftime("%Y-%m-%d"))
             for r in rezervace:
-                rez_cas = datetime.strptime(r[0], "%Y-%m-%d %H:%M")
+                rez_cas = datetime.strptime(f"{r[0]} {r[10]}", "%Y-%m-%d %H:%M")
                 if r[8] == mistnost and slot_start <= rez_cas < slot_start + slot:
                     self.formular = FormularRezervace(self, rezervace_data=r)
                     self.formular.show()
@@ -542,7 +542,7 @@ class HlavniOkno(QMainWindow):
       # Zmapuj rezervace podle ordinace
       mapovane = {i: [] for i in ordinace}
       for r in rezervace:
-          cas = datetime.strptime(r[0], "%Y-%m-%d %H:%M")
+          cas = datetime.strptime(f"{r[0]} {r[10]}", "%Y-%m-%d %H:%M")
           id = r[1] # ID rezervace
           doktor = r[2]
           doktor_color = r[3]

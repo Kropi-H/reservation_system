@@ -1,6 +1,6 @@
 from models.databaze import get_connection, get_or_create
-
-def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, cas, mistnost):
+                    
+def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, termin, cas, mistnost):
     """
     Přidá novou rezervaci.
     """
@@ -44,15 +44,15 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
         cur.execute(
             """
             INSERT INTO Rezervace
-            (pacient_id, doktor_id, ordinace_id, termin)
-            VALUES (?, ?, ?, ?)
+            (pacient_id, doktor_id, ordinace_id, termin, cas)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (pac_id, doc_id, ord_id, cas)
+            (pac_id, doc_id, ord_id, termin, cas)
         )
 
         return cur.lastrowid  # id nově vzniklé rezervace
 
-def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, cas, mistnost):
+def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, termin, cas, mistnost):
     """
     Aktualizuje existující rezervaci podle rezervace_id.
     """
@@ -96,10 +96,10 @@ def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_paci
         cur.execute(
             """
             UPDATE Rezervace
-            SET pacient_id = ?, doktor_id = ?, ordinace_id = ?, termin = ?
+            SET pacient_id = ?, doktor_id = ?, ordinace_id = ?, termin = ?, cas = ?
             WHERE rezervace_id = ?
             """,
-            (pac_id, doc_id, ord_id, cas, rezervace_id)
+            (pac_id, doc_id, ord_id, termin, cas, rezervace_id)
         )
 
         return cur.rowcount > 0  # True pokud byl záznam upraven
@@ -113,7 +113,8 @@ def rezervace_pro_ordinaci(ordinace_id):
         cur.execute('''
         SELECT 
             Rezervace.rezervace_id AS id,
-            Rezervace.termin AS Cas,
+            Rezervace.termin AS Termin,
+            Rezervace.cas AS Cas,
             Ordinace.nazev AS Ordinace
         FROM Rezervace
         INNER JOIN Ordinace ON Rezervace.ordinace_id = Ordinace.ordinace_id
@@ -131,7 +132,7 @@ def ziskej_rezervace_dne(datum_str):
         cur = conn.cursor()
         cur.execute('''
         SELECT 
-            Rezervace.termin AS Cas,
+            Rezervace.termin AS Termin,
             Rezervace.rezervace_id AS id,
             Doktori.jmeno || ' ' || Doktori.prijmeni AS Doktor,
             Doktori.color AS Barva,
@@ -140,7 +141,8 @@ def ziskej_rezervace_dne(datum_str):
             Pacienti.majitel_telefon AS Kontakt,
             Pacienti.druh AS Druh,
             Ordinace.nazev AS Ordinace,
-            Pacienti.poznamka AS Poznamka
+            Pacienti.poznamka AS Poznamka,
+            Rezervace.cas AS Cas
         FROM Rezervace
         INNER JOIN Doktori ON Rezervace.doktor_id = Doktori.doktor_id
         INNER JOIN Pacienti ON Rezervace.pacient_id = Pacienti.pacient_id
@@ -156,11 +158,32 @@ def odstran_rezervaci(rezervace_id):
     """
     with get_connection() as conn:
         cur = conn.cursor()
+        # Zjistíme pacient_id pro tuto rezervaci
+        cur.execute('SELECT pacient_id FROM Rezervace WHERE rezervace_id = ?', (rezervace_id,))
+        row = cur.fetchone()
+        if not row:
+            return False  # Rezervace neexistuje
+        pacient_id = row[0]
+        
         cur.execute('''
         DELETE FROM Rezervace
         WHERE rezervace_id = ?
         ''', (rezervace_id,))
-        return cur.rowcount > 0  # True pokud byl záznam odstraněn
+        deleted = cur.rowcount > 0  # True pokud byl záznam odstraněn
+        
+        if deleted:
+            # Zjistíme, zda má pacient ještě nějakou rezervaci
+            cur.execute('SELECT COUNT(*) FROM Rezervace WHERE pacient_id = ?', (pacient_id,))
+            count = cur.fetchone()[0]
+            if count == 0:
+                # Smažeme pacienta
+                cur.execute('DELETE FROM Pacienti WHERE pacient_id = ?', (pacient_id,))
+        conn.commit()
+        
+        
+        
+        
+        
       
 def remove_all_older_rezervations_for_ordinaci(ordinace_id):
     """

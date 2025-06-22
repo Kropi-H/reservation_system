@@ -65,7 +65,6 @@ class DoctorDialog(QDialog):
             hbox = QHBoxLayout()
             label = QLabel(f"{doctor[1]} {doctor[2]}")
             label.setStyleSheet("font-weight: bold; font-size: 14px;")
-            hbox.addWidget(label)
             
             # Indikátor aktivního stavu
             is_active = int(doctor[4]) == 1
@@ -89,6 +88,9 @@ class DoctorDialog(QDialog):
             update_button.setObjectName("update_doctor")
             update_button.clicked.connect(partial(self.update_doctor, doctor[0]))
 
+            hbox.addWidget(label)
+            hbox.addStretch(1)  # Přidá prázdný prostor mezi jméno a tlačítka
+            # Přidá tlačítka pro odebrání a úpravu
             hbox.addWidget(remove_button)
             hbox.addWidget(update_button)
             hbox.addWidget(active_indicator)
