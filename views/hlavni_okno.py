@@ -348,7 +348,7 @@ class HlavniOkno(QMainWindow):
         dialog.exec()
 
     def sekce_uzivatelu(self):
-        dialog = UsersDialog(self)
+        dialog = UsersDialog(self, current_user=self.logged_in_user_role)
         dialog.exec()
         
     def sekce_doktoru(self):

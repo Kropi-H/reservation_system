@@ -8,12 +8,13 @@ from functools import partial
 from controllers.data import basic_button_color, basic_button_style, q_header_view_style
 
 class UsersDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, current_user=None):
         super().__init__(parent)
         self.setWindowTitle("Správa uživatelů")
         self.resize(400, 350)
         self.center_to_parent()
         self.parent_window = parent
+        self.current_user = current_user
 
         self.layout = QVBoxLayout(self)
 
@@ -26,6 +27,7 @@ class UsersDialog(QDialog):
         self.layout.addLayout(self.button_layout)
 
         self.scroll = None  # <-- přidáno
+        self.all_users = get_all_users()  # Načtení všech uživatelů
         self.load_users()
         
         # Styl pro všechny tabulky v tomto okně
@@ -57,44 +59,40 @@ class UsersDialog(QDialog):
             self.layout.removeWidget(self.scroll)
             self.scroll.deleteLater()
             self.scroll = None
-            
+
         self.users_widget = QWidget()
         vbox = QVBoxLayout(self.users_widget)
-        users = get_all_users()
-        for user in users:
+
+        for user in self.all_users:
+
+            if not self.current_user == 'admin' and user[3] == 'admin':
+              continue
+              
             hbox = QHBoxLayout()
             label = QLabel(f"{user[1]}\n({user[3]})")
             label.setStyleSheet("font-weight: bold; font-size: 14px;")
-            hbox.addWidget(label)
-            
-            if user[3] == 'admin':
-                remove_button = QPushButton("Chráněno")
-                remove_button.setObjectName("remove_user")
-                remove_button.setEnabled(False)
-                update_button = QPushButton("Chráněno")
-                update_button.setObjectName("update_user")
-                update_button.setEnabled(False)
-                password_button = QPushButton("Chráněno")
-                password_button.setObjectName("change_password")
-                password_button.setEnabled(False)
-            else:
-                remove_button = QPushButton("Odebrat")
-                remove_button.setObjectName("remove_user")
-                remove_button.clicked.connect(partial(self.remove_user, user[0], user[1]))
-                update_button = QPushButton("Upravit")
-                update_button.setObjectName("update_user")
-                update_button.clicked.connect(partial(self.update_user, user[0], user[1]))
-                password_button = QPushButton("Heslo")
-                password_button.setObjectName("change_password")
-                password_button.clicked.connect(partial(self.change_password, user[0]))
+
+            # Tlačítka se zobrazí vždy, protože uživatelé s rolí admin se běžnému uživateli nezobrazí
+            remove_button = QPushButton("Odebrat")
+            remove_button.setObjectName("remove_user")
+            remove_button.clicked.connect(partial(self.remove_user, user[0], user[1]))
+            update_button = QPushButton("Upravit")
+            update_button.setObjectName("update_user")
+            update_button.clicked.connect(partial(self.update_user, user[0], user[1]))
+            password_button = QPushButton("Heslo")
+            password_button.setObjectName("change_password")
+            password_button.clicked.connect(partial(self.change_password, user[0]))
             remove_button.setStyleSheet(f"background-color: {basic_button_color['remove_button_color']};")
             update_button.setStyleSheet(f"background-color: {basic_button_color['update_button_color']};")
-            password_button.setStyleSheet(f"background-color: {basic_button_color['update_password_button_color'] };")
-            hbox.addStretch(1)  # Přidá prázdný prostor mezi
+            password_button.setStyleSheet(f"background-color: {basic_button_color['update_password_button_color']};")
+            hbox.addWidget(label)
+            hbox.addStretch(1)
             hbox.addWidget(remove_button)
             hbox.addWidget(update_button)
             hbox.addWidget(password_button)
+
             vbox.addLayout(hbox)
+
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setWidget(self.users_widget)
