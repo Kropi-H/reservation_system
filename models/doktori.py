@@ -1,4 +1,6 @@
+from datetime import datetime
 from models.databaze import get_connection
+
 
 time_anchores = ["08:00","08:20", "08:40", "09:00", "09:15", "09:30", "09:45", "10:00", "10:20", "10:40",
                  "11:00", "11:20", "11:40", "12:00", "12:30", "12:40", "13:00", "13:20", "13:40", "14:00",
@@ -156,7 +158,6 @@ def uloz_nebo_uprav_ordinacni_cas(novy_doktor, barvy_puvodnich, datum, prace_od,
     Úseky původních doktorů, které se překrývají, se rozdělí/zkrátí/smažou.
     Nový úsek se vloží novému doktorovi a sloučí s navazujícími.
     """
-    from datetime import datetime
 
     novy_doktor_id = get_doktor_id(novy_doktor)
     ordinace_id = get_ordinace_id(nazev_ordinace)
@@ -271,8 +272,65 @@ def uloz_nebo_uprav_ordinacni_cas(novy_doktor, barvy_puvodnich, datum, prace_od,
                 ordinace_id
             ))
         conn.commit()
-
         
+def uprav_ordinacni_cas(barvy_puvodnich, datum, prace_od, prace_do, nazev_ordinace):
+    # print(f"Upravování ordinacniho času pro doktora...: Barvy:{barvy_puvodnich}, Datum:{datum}, Prace od:{prace_od}, Prace do:{prace_do}, Ordinace:{nazev_ordinace} ")
+    
+    """Upraví ordinacni čas pro daného doktora."""
+    ordinace_id = get_ordinace_id(nazev_ordinace)
+    prace_od_dt = datetime.strptime(prace_od, "%H:%M")
+    prace_do_dt = datetime.strptime(prace_do, "%H:%M")
+    
+    with get_connection() as conn:
+        cur = conn.cursor()
+    
+        if barvy_puvodnich:
+                for barva in barvy_puvodnich:
+                  # print(f"Zpracovávám barvu: {barva}")
+                  doktor_id = get_doktor_jmeno_podle_barvy(barva)
+                  cur.execute('''
+                      SELECT work_id, prace_od, prace_do FROM Doktori_Ordinacni_Cas
+                      WHERE doktor_id = ? AND datum = ? AND ordinace_id = ?
+                  ''', (doktor_id, datum, ordinace_id))
+                  zaznamy = cur.fetchall()
+
+                  # print(f"Záznamy ordinačních časů: {zaznamy}")
+
+                  for zaznam_id, exist_od, exist_do in zaznamy:
+                      exist_od_dt = datetime.strptime(exist_od, "%H:%M")
+                      exist_do_dt = datetime.strptime(exist_do, "%H:%M")
+
+                      # Nový úsek zcela překrývá starý
+                      if prace_od_dt <= exist_od_dt and prace_do_dt >= exist_do_dt:
+                          # print("Nový úsek zcela překrývá starý")
+                          cur.execute('DELETE FROM Doktori_Ordinacni_Cas WHERE work_id = ?', (zaznam_id,))
+                          conn.commit()
+                      # Nový úsek překrývá začátek starého
+                      elif prace_od_dt <= exist_od_dt <= prace_do_dt <= exist_do_dt:
+                          # print("Nový úsek překrývá začátek starého")
+                          exist_do_dt = time_anchores[time_anchores.index(prace_do)+1]
+                          cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_od = ? WHERE work_id = ?', (exist_do_dt, zaznam_id))
+                          conn.commit()
+                      # Nový úsek překrývá konec starého
+                      elif exist_od_dt < prace_od_dt <= exist_do_dt <= prace_do_dt:
+                          # print("Nový úsek překrývá konec starého")
+                          exist_do_dt = time_anchores[time_anchores.index(prace_od)-1]
+                          cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_do = ? WHERE work_id = ?', (exist_do_dt, zaznam_id))
+                          conn.commit()
+                          
+                      # Nový úsek je uvnitř starého (rozdělení na dva)
+                      elif exist_od_dt < prace_od_dt and prace_do_dt < exist_do_dt:
+                          # print("Nový úsek je uvnitř starého a rozdělí ho na dva")
+                          exist_do_dt = time_anchores[time_anchores.index(prace_od)-1]
+                          exist_new_od_dt = time_anchores[time_anchores.index(prace_od)+1]
+                          cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_do = ? WHERE work_id = ?', (exist_do_dt, zaznam_id))
+                          cur.execute('''
+                              INSERT INTO Doktori_Ordinacni_Cas (doktor_id, datum, prace_od, prace_do, ordinace_id)
+                              VALUES (?, ?, ?, ?, ?)
+                          ''', (doktor_id, datum, exist_new_od_dt, exist_do, ordinace_id))
+                          conn.commit()
+
+
 def ziskej_rozvrh_doktoru_dne(den_v_tydnu):
     """
     Vrátí seznam doktorů a jejich barvy pro daný den v týdnu.
@@ -297,3 +355,12 @@ def ziskej_rozvrh_doktoru_dne(den_v_tydnu):
         ORDER BY Doktori_Ordinacni_Cas.prace_od
         ''', (den_v_tydnu,))
         return cur.fetchall()
+      
+def remove_all_orinacni_cas(ordinace_id):
+    """Odstraní všechny ordinační časy pro daného doktora."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+            DELETE FROM Doktori_Ordinacni_Cas WHERE ordinace_id = ?
+        ''', (ordinace_id,))
+        conn.commit()

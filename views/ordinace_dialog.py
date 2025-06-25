@@ -5,6 +5,7 @@ from views.edit_ordinace_dialog import EditOrdinaceDialog
 from models.ordinace import get_all_ordinace, add_ordinace, remove_ordinace, update_ordinace_db
 from models.rezervace import remove_all_older_rezervations_for_ordinaci
 from functools import partial
+from models.doktori import remove_all_ordinacni_cas
 from models.rezervace import rezervace_pro_ordinaci
 from controllers.data import basic_button_color, basic_button_style, q_header_view_style
 from datetime import datetime
@@ -107,8 +108,8 @@ class OrdinaceDialog(QDialog):
                   self.parent_window.status_bar.showMessage(f"Chyba při přidávání ordinace: {e}")
 
     def ma_budouci_rezervaci(self, rezervace):
-        for _, datum_cas, _ in rezervace:
-            if datetime.strptime(datum_cas, "%Y-%m-%d %H:%M") > datetime.now():
+        for _, datum, cas, _ in rezervace:
+            if datetime.strptime(f"{datum} {cas}", "%Y-%m-%d %H:%M") > datetime.now():
                 return True
         return False
       
@@ -122,13 +123,22 @@ class OrdinaceDialog(QDialog):
         if msg_box.clickedButton() == ano_button:
             try:
               # Prohledat databazi, zda pro ordinaci neexistují rezervace
-                rezervations_for_surgery = rezervace_pro_ordinaci(ordinace_id)
-                
+                try:
+                    rezervations_for_surgery = rezervace_pro_ordinaci(ordinace_id)
+                except Exception as e:
+                    QMessageBox.critical(self, "Chyba", f"Chyba při prohledávání rezervací: {e}")
+                    return
+
                 if self.ma_budouci_rezervaci(rezervations_for_surgery):
                     QMessageBox.warning(self, "Chyba", f"Ordinace {nazev} má existující rezervace a nemůže být odstraněna.")
                     return
-                remove_all_older_rezervations_for_ordinaci(ordinace_id) # Odstraní všechny rezervace pro tuto ordinaci
-                remove_ordinace(ordinace_id, nazev) # Odstraní ordinaci z databáze
+                try:
+                    remove_all_older_rezervations_for_ordinaci(ordinace_id) # Odstraní všechny rezervace pro tuto ordinaci
+                    remove_all_ordinacni_cas(ordinace_id) # Odstraní všechny ordinace, které jsou spojeny s touto ordinací
+                    remove_ordinace(ordinace_id, nazev) # Odstraní ordinaci z databáze
+                except Exception as e:
+                    QMessageBox.critical(self, "Chyba", f"Chyba při odstraňování ordinace: {e}")
+                    return
                 self.load_ordinace()
                 if self.parent_window:
                     self.parent_window.status_bar.showMessage(f"Ordinace {nazev} byla odebrána.")

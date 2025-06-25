@@ -105,6 +105,7 @@ def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_paci
         return cur.rowcount > 0  # True pokud byl záznam upraven
 
 def rezervace_pro_ordinaci(ordinace_id):
+    print(f"Získávám rezervace pro ordinaci ID: {ordinace_id}")
     """
     Vrátí seznam rezervací pro danou ordinaci.
     """
@@ -121,8 +122,10 @@ def rezervace_pro_ordinaci(ordinace_id):
         WHERE Rezervace.ordinace_id = ?
         ORDER BY Rezervace.termin
         ''', (ordinace_id,))
-        return cur.fetchall()
-
+        result = cur.fetchall()
+        print(f"Nalezené rezervace z databáze pro ordinaci ID: {ordinace_id}: {result}") 
+        return result
+      
 def ziskej_rezervace_dne(datum_str):
     """
     Vrátí seznam rezervací pro daný den (datum ve formátu 'YYYY-MM-DD') s detaily:
@@ -180,11 +183,6 @@ def odstran_rezervaci(rezervace_id):
                 cur.execute('DELETE FROM Pacienti WHERE pacient_id = ?', (pacient_id,))
         conn.commit()
         
-        
-        
-        
-        
-      
 def remove_all_older_rezervations_for_ordinaci(ordinace_id):
     """
     Odstraní všechny rezervace pro danou ordinaci, které jsou starší než aktuální čas.

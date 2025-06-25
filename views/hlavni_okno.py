@@ -7,7 +7,7 @@ from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
 from models.ordinace import get_all_ordinace
-from models.doktori import uloz_nebo_uprav_ordinacni_cas, ziskej_rozvrh_doktoru_dne, get_all_doctors_colors, get_doktor_isactive_by_color
+from models.doktori import uloz_nebo_uprav_ordinacni_cas, ziskej_rozvrh_doktoru_dne, get_all_doctors_colors, get_doktor_isactive_by_color, uprav_ordinacni_cas
 from views.login_dialog import LoginDialog
 from controllers.data import table_grey_strip, vaccination_color, pause_color
 # from controllers.rezervace_controller import uloz_rezervaci
@@ -388,20 +388,50 @@ class HlavniOkno(QMainWindow):
                   selection-color: black;
               }
           """)
-      self.status_bar.showMessage("Vyber časy pouze ve sloupci ČAS a pokračuj tlačítkem Plánování ordinací a následně Vyber doktora.")
+      self.status_bar.showMessage("Vyber časy pouze v prvním sloupci ordinace a pokračuj tlačítkem Plánování ordinací, kde následně Vyber doktora.")
       self.naplanovat_doktora = QAction("Vyber doktora", self) # Tlačítko pro výběr doktora
-      self.srusit_vybrane = QAction("Zrušit výběr", self) # Tlačítko pro zrušení výběru doktora
+      self.zrusit_vybrane = QAction("Zrušit vybraný čas doktora", self) # Tlačítko pro zrušení výběru doktora
+      self.zrusit_vybrane.triggered.connect(self.zrus_vybrany_cas_doktora) # Přidání akce pro zrušení výběru
       self.ukoncit_planovani_doktora = QAction("Ukončit plánování", self) # Tlačítko pro ukončení plánování
       self.naplanovat_doktora.triggered.connect(self.uloz_vybrany_cas_doktora) # Přidání akce pro uložení vybraných časů a ordinace
-      self.srusit_vybrane.triggered.connect(self.zrus_vybrany_cas_doktora) # Přidání akce pro uložení vybraných časů a ordinace
+      # self.zrusit_vybrane.triggered.connect(self.zrus_vybrany_cas_doktora) # Přidání akce pro uložení vybraných časů a ordinace
       self.ukoncit_planovani_doktora.triggered.connect(self.zrus_planovani) # Zrušení plánování ordinací a odstranění tlačítka
       self.plan_menu.addAction(self.naplanovat_doktora) # Přidání tlačítka pro výběr doktora
-      self.plan_menu.addAction(self.srusit_vybrane) # Přidání tlačítka pro výběr doktora
+      self.plan_menu.addAction(self.zrusit_vybrane) # Přidání tlačítka pro výběr doktora
       self.plan_menu.addAction(self.ukoncit_planovani_doktora) # Přidání tlačítka pro ukončení plánování ordinací
 
     def zrus_vybrany_cas_doktora(self):
-        # Zrušení výběru a odstranění tlačítka
-      pass
+        # Získání vybraných časů a ordinace a uložení do databáze
+        all_doctors_colors = [ color[0] for color in get_all_doctors_colors()]
+        barvy_puvodnich = []        
+        vybrane_casy = []
+        mistnost = None
+        barva = None
+        for m, tabulka in self.tabulky.items():
+            for item in tabulka.selectedItems():
+                #print(item.text(), item.row(), item.column())
+                if item.column() == 0:
+                  vybrane_casy.append(item.text())
+                  mistnost = m  # Uložení ordinace, pokud je vybrán čas
+                  # vybrane_casy.append((m, item.text()))
+                  doktor_item = tabulka.item(item.row(), 1)
+                  # Získání barvy doktora z buňky    
+                  if doktor_item:
+                    barva = doktor_item.background().color().name()
+                    if barva in all_doctors_colors:
+                      if not barva in barvy_puvodnich:
+                        barvy_puvodnich.append(barva)
+        
+        # Uložení do databáze
+        datum = self.kalendar.date().toPython()
+        # print(f"Barvy doktorů:{barvy_puvodnich}, Datum: {datum}, Čas od: {vybrane_casy[0]}, Čas do: {vybrane_casy[-1]}, Ordinace: {mistnost}")
+        # print(vybrane_casy)
+        uprav_ordinacni_cas(barvy_puvodnich=barvy_puvodnich, datum=datum, prace_od=vybrane_casy[0], prace_do=vybrane_casy[-1], nazev_ordinace=mistnost)
+        self.status_bar.showMessage("Plánování uloženo. Pokračuj v plánování ordinací, nebo jej ukonči.")
+        # Vypnutí výběru a odstranění tlačítka
+        for tabulka in self.tabulky.values():
+            tabulka.clearSelection()  # Odznačí všechny vybrané řádky/buňky
+            self.nacti_rezervace()  # Načtení rezervací pro obnovení původního stavu tabulek
         
     def zrus_planovani(self):
         # Zrušení plánování a odstranění tlačítka
@@ -441,7 +471,7 @@ class HlavniOkno(QMainWindow):
             new_reservace_doktor = dialog.get_selected()
             # Uložení do databáze
             datum = self.kalendar.date().toPython()
-            # print(f"Nový dokotr:{new_reservace_doktor}, Starý doktor/doktoři: {match_doctor_colors}, {datum}, {vybrane_casy[0]}, {vybrane_casy[-1]}, {mistnost}")
+            # print(f"Nový doktor:{new_reservace_doktor}, Starý doktor/doktoři: {match_doctor_colors}, {datum}, {vybrane_casy[0]}, {vybrane_casy[-1]}, {mistnost}")
             # print(vybrane_casy)
             uloz_nebo_uprav_ordinacni_cas(new_reservace_doktor, match_doctor_colors ,datum, vybrane_casy[0],vybrane_casy[-1], mistnost)
             self.status_bar.showMessage("Plánování uloženo. Pokračuj v plánování ordinací, nebo jej ukonči.")
