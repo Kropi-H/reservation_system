@@ -1,6 +1,24 @@
 import sqlite3
+import os
+from config import get_database_path_from_config, save_database_path_to_config
 
-DB = "veterina.db"
+DB = get_database_path_from_config()
+if not DB:
+    DB = "veterina.db"
+
+def set_database_path(path):
+    """Nastaví cestu k databázi."""
+    global DB
+    DB = path
+    save_database_path_to_config(path)
+
+def get_database_path():
+    """Vrátí aktuální cestu k databázi."""
+    return DB
+
+def database_exists():
+    """Zkontroluje, zda databáze existuje."""
+    return DB and os.path.exists(DB)
 
 def inicializuj_databazi():
     """Vytvoří tabulky Doktori, Ordinace, Pacienti a Rezervace, pokud neexistují."""
@@ -27,7 +45,11 @@ def inicializuj_databazi():
             popis         TEXT
         );
         ''')
-
+        cur.execute('''
+        INSERT OR IGNORE INTO Ordinace (nazev, patro, popis)
+        VALUES ('Ordinace 1', 1, 'Hlavní ordinace');
+        ''')
+        
         # 3) Pacienti
         cur.execute('''
         CREATE TABLE IF NOT EXISTS Pacienti (

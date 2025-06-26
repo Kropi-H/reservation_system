@@ -356,7 +356,7 @@ def ziskej_rozvrh_doktoru_dne(den_v_tydnu):
         ''', (den_v_tydnu,))
         return cur.fetchall()
       
-def remove_all_orinacni_cas(ordinace_id):
+def remove_all_ordinacni_cas(ordinace_id):
     """Odstraní všechny ordinační časy pro daného doktora."""
     with get_connection() as conn:
         cur = conn.cursor()

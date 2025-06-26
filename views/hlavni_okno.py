@@ -11,20 +11,27 @@ from models.doktori import uloz_nebo_uprav_ordinacni_cas, ziskej_rozvrh_doktoru_
 from views.login_dialog import LoginDialog
 from controllers.data import table_grey_strip, vaccination_color, pause_color
 # from controllers.rezervace_controller import uloz_rezervaci
-from models.databaze import get_doktori
+from models.databaze import get_doktori, set_database_path, inicializuj_databazi
 from views.vyber_doktora_dialog import VyberDoktoraDialog
 from views.planovani_ordinaci_dialog import PlanovaniOrdinaciDialog
 from views.users_dialog import UsersDialog
 from views.doctors_dialog import DoctorDialog
 from views.ordinace_dialog import OrdinaceDialog
+from views.database_setup_dialog import DatabaseSetupDialog
 from functools import partial
 import os
 
 
 
 def get_ordinace_list():
-        ordinace = get_all_ordinace()
-        return [ f"{i[1]}" for i in ordinace]
+    ordinace = get_all_ordinace()
+    # Vytvoř seznam unikátních názvů ordinací
+    nazvy = []
+    for i in ordinace:
+        nazev = f"{i[1]}"
+        if nazev not in nazvy:
+            nazvy.append(nazev)
+    return nazvy
 
 class HlavniOkno(QMainWindow):
     def __init__(self):
@@ -53,6 +60,7 @@ class HlavniOkno(QMainWindow):
         
         # Uživatel menu bude přidáváno/odebíráno dynamicky
         self.user_menu = None
+        self.database_action = None  # Inicializace pro pozdější použití
         
             
         self.setMenuBar(self.menu_bar)  # Přidání menu bar do layoutu
@@ -286,13 +294,19 @@ class HlavniOkno(QMainWindow):
             except RuntimeError:
                 pass
             self.user_menu = None
+            
+        # Bezpečně odstranit database_action
+        if self.database_action is not None:
+            try:
+                self.menu_bar.removeAction(self.database_action)
+            except RuntimeError:
+                pass
+            self.database_action = None
         
         self.status_bar.showMessage("Nepřihlášen")
         self.login_action.setText("Přihlášení")
         self.login_action.triggered.disconnect()
         self.login_action.triggered.connect(self.show_login_dialog)
-        # self.update_user_menu()  # <-- Odebrat podmenu
-        self.user_menu = None
         
     def update_user_menu(self):
         """Aktualizuje menu pro uživatele podle jeho role."""
@@ -305,12 +319,20 @@ class HlavniOkno(QMainWindow):
         if self.user_menu:
             self.menu_bar.removeAction(self.user_menu.menuAction())
             self.user_menu = None
+            
+        # Odeber staré database_action, pokud existuje
+        if self.database_action:
+            self.menu_bar.removeAction(self.database_action)
+            self.database_action = None
 
         # Přidej nové podle role
         if self.logged_in_user_role == "admin":
             self.user_menu = QMenu("Nastavení", self)
-            self.database_section = QAction("Databáze", self)
-            self.user_menu.addAction(self.database_section)
+            
+            # Databázové menu jako součást Nastavení
+            self.database_section = QAction("Změnit databázi", self)
+            self.database_section.triggered.connect(self.change_database)
+            
             self.plan_surgery_section = QAction("Plánování ordinací", self)
             self.plan_surgery_section.triggered.connect(self.zahaj_planovani_ordinaci)
             # Přidání sekcí pro administrátora
@@ -321,7 +343,6 @@ class HlavniOkno(QMainWindow):
             self.doctors_section.triggered.connect(self.sekce_doktoru)
             self.surgery_section = QAction("Sekce ordinace", self)
             self.surgery_section.triggered.connect(self.sekce_ordinace)
-            # Přidejte další akce podle potřeby
             
         elif self.logged_in_user_role == "supervisor":
             self.user_menu = QMenu("Nastavení", self)
@@ -335,13 +356,16 @@ class HlavniOkno(QMainWindow):
             self.doctors_section.triggered.connect(self.sekce_doktoru)
             self.surgery_section = QAction("Sekce ordinace", self)
             self.surgery_section.triggered.connect(self.sekce_ordinace)
-            # Přidejte další akce podle potřeby
-        # Pokud není přihlášen, menu se nezobrazí
-        self.menu_bar.addMenu(self.user_menu)
-        self.user_menu.addAction(self.plan_surgery_section)
-        self.user_menu.addAction(self.users_section)
-        self.user_menu.addAction(self.doctors_section)
-        self.user_menu.addAction(self.surgery_section)
+            
+        # Pokud bylo vytvořeno user_menu, přidej ho do menu_bar a akce
+        if self.user_menu:
+            self.menu_bar.addMenu(self.user_menu)
+            if self.logged_in_user_role == "admin":
+                self.user_menu.addAction(self.database_section)  # Pouze pro admina
+            self.user_menu.addAction(self.plan_surgery_section)
+            self.user_menu.addAction(self.users_section)
+            self.user_menu.addAction(self.doctors_section)
+            self.user_menu.addAction(self.surgery_section)
 
     def sekce_ordinace(self):
         dialog = OrdinaceDialog(self)
@@ -742,3 +766,52 @@ class HlavniOkno(QMainWindow):
               cas += slot
             
       #print("Rezervace načtené z databáze:", rezervace)
+    
+    def change_database(self):
+        """Zobrazí dialog pro změnu databáze."""
+        from PySide6.QtWidgets import QMessageBox
+        
+        reply = QMessageBox.question(
+            self,
+            "Změna databáze",
+            "Opravdu chcete změnit databázi? Všechny neuložené změny budou ztraceny.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            dialog = DatabaseSetupDialog(self)
+            result = dialog.exec()
+            
+            if result == DatabaseSetupDialog.Accepted:
+                new_path = dialog.get_database_path()
+                set_database_path(new_path)
+                
+                try:
+                    # Pokud byla vybrána nová databáze, inicializuj ji
+                    if not os.path.exists(new_path):
+                        inicializuj_databazi()
+                        QMessageBox.information(
+                            self,
+                            "Úspěch", 
+                            f"Nová databáze byla úspěšně vytvořena: {new_path}"
+                        )
+                    else:
+                        # Existující databáze - zkontroluj a případně aktualizuj strukturu
+                        inicializuj_databazi()
+                        QMessageBox.information(
+                            self,
+                            "Úspěch", 
+                            f"Databáze byla úspěšně změněna na: {new_path}"
+                        )
+                    
+                    # Restartuj zobrazení
+                    self.aktualizuj_tabulku_ordinaci_layout()
+                    self.aktualizuj_doktori_layout()
+                    
+                except Exception as e:
+                    QMessageBox.critical(
+                        self,
+                        "Chyba",
+                        f"Nepodařilo se připojit k databázi: {str(e)}"
+                    )
