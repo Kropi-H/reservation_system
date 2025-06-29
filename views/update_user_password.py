@@ -96,10 +96,15 @@ class UpdatePasswordDialog(QDialog):
         if not self.check_passwords():
             return None
         return {
-            "new_password":  bcrypt.hashpw(self.new_password.text().encode(), bcrypt.gensalt()).decode()
+            "new_password":  self.password_crypt(self.new_password.text())
         }
 
     def try_accept(self):
       if self.check_passwords():
         self.accept()
+        
+    @staticmethod
+    def password_crypt(password):
+        """Zahashuje heslo pomocí bcrypt."""
+        return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode()
         

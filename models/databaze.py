@@ -40,15 +40,19 @@ def inicializuj_databazi():
         cur.execute('''
         CREATE TABLE IF NOT EXISTS Ordinace (
             ordinace_id   INTEGER PRIMARY KEY AUTOINCREMENT,
-            nazev         TEXT    NOT NULL,
+            nazev         TEXT    NOT NULL UNIQUE,
             patro         INTEGER,
             popis         TEXT
         );
         ''')
         cur.execute('''
-        INSERT OR IGNORE INTO Ordinace (nazev, patro, popis)
-        VALUES ('Ordinace 1', 1, 'Hlavní ordinace');
+        select count(*) from Ordinace
         ''')
+        if cur.fetchone()[0] == 0:
+          cur.execute('''
+          INSERT INTO Ordinace (nazev, patro, popis)
+          VALUES ('Ordinace 1', 1, 'Hlavní ordinace');
+          ''')
         
         # 3) Pacienti
         cur.execute('''
@@ -93,6 +97,16 @@ def inicializuj_databazi():
                 ON DELETE CASCADE,
             FOREIGN KEY(ordinace_id) REFERENCES Ordinace(ordinace_id)
                 ON DELETE RESTRICT
+        );
+        ''')
+        
+        # 6) Uživatelé
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS Users (
+            user_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+            username     TEXT    NOT NULL UNIQUE,
+            password     TEXT    NOT NULL,
+            user_role    TEXT    NOT NULL
         );
         ''')
 

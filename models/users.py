@@ -1,5 +1,18 @@
 from models.databaze import get_connection
+from views.update_user_password import UpdatePasswordDialog
 
+
+def insert_admin_user(u_name, password, u_role="admin"):
+  hashed_password = UpdatePasswordDialog.password_crypt(password)
+          
+  # Vložení výchozího uživatele (pokud neexistuje)
+  with get_connection() as conn:
+      cur = conn.cursor()
+      cur.execute('''
+        INSERT OR IGNORE INTO Users (username, password, user_role)
+        VALUES (?, ?, ? );
+      ''', (u_name, hashed_password, u_role))
+      conn.commit()
 
 def get_all_users():
   with get_connection():

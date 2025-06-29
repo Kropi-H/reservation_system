@@ -1,8 +1,8 @@
+import os
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
                                QLabel, QFileDialog, QMessageBox)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
-import os
 from models.databaze import inicializuj_databazi
 from config import get_last_directory
 import shutil
