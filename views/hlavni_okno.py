@@ -1,8 +1,9 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QLabel, 
-                               QDateEdit, QHBoxLayout, QTableWidget, 
+                               QDateEdit, QHBoxLayout, QTableWidget, QApplication,
                                QTableWidgetItem, QMenuBar, QMenu, QMainWindow, QAbstractItemView)
 from PySide6.QtCore import QDate, QLocale, QTimer, Qt
 from PySide6.QtGui import QColor, QPixmap, QAction, QFont
+from nicegui import app
 from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
@@ -51,7 +52,25 @@ class HlavniOkno(QMainWindow):
         horni_radek.addLayout(self.logo_layout)
         horni_radek.addLayout(self.doktori_layout)
         
-        
+        app = QApplication.instance()
+        if app:
+           # Nastavení delšího timeoutu pro tooltips - BEZ globálního stylingu
+           try:
+               from PySide6.QtWidgets import QToolTip
+               
+               # Pouze pokus o nastavení timeoutu - bez CSS
+               app.setProperty("toolTipTimeout", 15000)
+               
+               # Alternativní metody pro timeout
+               if hasattr(QToolTip, 'setHideDelay'):
+                   QToolTip.setHideDelay(15000)  # 15 sekund
+               if hasattr(QToolTip, 'setShowDelay'):
+                   QToolTip.setShowDelay(500)    # 0.5 sekundy
+                   
+           except Exception as e:
+               print(f"Tooltip configuration error: {e}")
+                
+         
         # --- MENU BAR ---
         self.menu_bar = QMenuBar(self)
         self.login_action = QAction("Přihlášení", self)
@@ -96,11 +115,6 @@ class HlavniOkno(QMainWindow):
                 letter-spacing: 0.75px;
                 text-transform: uppercase;
             }
-            QToolTip{ 
-            background-color: #e6f7ff; 
-            color: #222; border: 
-            1px solid #009688; 
-            font-size: 14px; }
         """)   
         
 
@@ -708,17 +722,21 @@ class HlavniOkno(QMainWindow):
                   doktor_item.setBackground(QColor(doktor_bg_color))
                   tabulka.setItem(index, 1, doktor_item)
                   # Přidejte tooltip s detaily rezervace
-                  tooltip_text = (
-                      f"Čas: <b>{cas_str}</b><br>"
-                      f"Pacient: <b>{rez[4]}</b><br>"
-                      f"Majitel: <b>{rez[5]}</b><br>"
-                      f"Kontakt: <b>{rez[6]}</b><br>"
-                      f"Druh: <b>{rez[7]}</b><br>"
-                      f"Doktor: <b>{rez[2]}</b><br>"
-                      f"Poznámka: <b>{rez[8]}</b>"
-                  )
-                  
-                  doktor_item.setToolTip(tooltip_text)
+                  tooltip_html = f"""
+                      <table style="background-color: {doktor_bg_color}; padding: 8px; border-radius: 6px; border: 3px solid #009688; font-family: Arial; font-size: 14px; color: #222; min-width: 250px; margin: 0; border-collapse: collapse;">
+                          <tr><td colspan="2" style="text-align: center; font-weight: bold; font-size: 16px; padding: 4px; border-radius: 3px; margin-bottom: 8px;">
+                              🩺 {rez[2]}
+                          </td></tr>
+                          <tr><td>⏰ Čas:</td><td style="font-weight: bold; padding-top:1px">{cas_str}</td></tr>
+                          <tr><td>🐕 Pacient:</td><td style="font-weight: bold; padding-top:1px">{rez[4]}</td></tr>
+                          <tr><td>👤 Majitel:</td><td style="font-weight: bold; padding-top:1px">{rez[5]}</td></tr>
+                          <tr><td>📞 Kontakt:</td><td style="font-weight: bold; padding-top:1px">{rez[6]}</td></tr>
+                          <tr><td>🏷️ Druh:</td><td style="font-weight: bold; padding-top:1px">{rez[7]}</td></tr>
+                          <tr><td>📝 Poznámka:</td><td style="font-weight: bold; padding-top:1px">{rez[8]}</td></tr>
+                      </table>
+                      """
+
+                  doktor_item.setToolTip(tooltip_html)
 
               # Nastavení světle šedého pozadí pro celý řádek
               if index % 2 == 0:  # Sudý řádek
