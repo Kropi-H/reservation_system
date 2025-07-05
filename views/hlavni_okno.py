@@ -3,7 +3,6 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QLabel,
                                QTableWidgetItem, QMenuBar, QMenu, QMainWindow, QAbstractItemView)
 from PySide6.QtCore import QDate, QLocale, QTimer, Qt
 from PySide6.QtGui import QColor, QPixmap, QAction, QFont
-from nicegui import app
 from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
@@ -66,7 +65,7 @@ class HlavniOkno(QMainWindow):
                if hasattr(QToolTip, 'setHideDelay'):
                    QToolTip.setHideDelay(15000)  # 15 sekund
                if hasattr(QToolTip, 'setShowDelay'):
-                   QToolTip.setShowDelay(500)    # 0.5 sekundy
+                   QToolTip.setShowDelay(1500)    # 0.5 sekundy
                    
            except Exception as e:
                print(f"Tooltip configuration error: {e}")
