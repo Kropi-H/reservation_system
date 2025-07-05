@@ -1,4 +1,5 @@
 from models.databaze import get_connection, get_or_create
+from datetime import datetime, timedelta
                     
 def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, termin, cas, mistnost):
     """
@@ -195,3 +196,54 @@ def remove_all_older_rezervations_for_ordinaci(ordinace_id):
         ''', (ordinace_id,))
         return cur.rowcount > 0  # True pokud byly záznamy odstraněny
     
+def smaz_rezervace_starsi_nez(pocet_dni):
+    """
+    Smaže rezervace starší než zadaný počet dní od dneška.
+    Pokud je pocet_dni = 0, nic se neudělá.
+    
+    Args:
+        pocet_dni (int): Počet dní od dneška. Rezervace starší budou smazány.
+    
+    Returns:
+        int: Počet smazaných rezervací
+    """
+    if pocet_dni <= 0:
+        return 0
+    
+    # Vypočítáme datum hranice
+    datum_hranice = datetime.now() - timedelta(days=pocet_dni)
+    datum_hranice_str = datum_hranice.strftime('%Y-%m-%d')
+    
+    with get_connection() as conn:
+        cur = conn.cursor()
+        
+        # Najdeme pacienty, kteří budou mít smazané všechny rezervace
+        cur.execute('''
+        SELECT DISTINCT pacient_id 
+        FROM Rezervace 
+        WHERE DATE(termin) < ?
+        ''', (datum_hranice_str,))
+        
+        pacienti_ke_smazani = [row[0] for row in cur.fetchall()]
+        
+        # Smažeme staré rezervace
+        cur.execute('''
+        DELETE FROM Rezervace 
+        WHERE DATE(termin) < ?
+        ''', (datum_hranice_str,))
+        
+        pocet_smazanych = cur.rowcount
+        
+        # Zkontrolujeme, kteří pacienti už nemají žádné rezervace
+        for pacient_id in pacienti_ke_smazani:
+            cur.execute('''
+            SELECT COUNT(*) FROM Rezervace WHERE pacient_id = ?
+            ''', (pacient_id,))
+            
+            if cur.fetchone()[0] == 0:
+                # Pacient nemá žádné rezervace, smažeme ho
+                cur.execute('DELETE FROM Pacienti WHERE pacient_id = ?', (pacient_id,))
+        
+        conn.commit()
+        
+        return {"pocet_smazanych": pocet_smazanych, "datum_hranice": datum_hranice_str}

@@ -109,6 +109,23 @@ def inicializuj_databazi():
             user_role    TEXT    NOT NULL
         );
         ''')
+                
+        # 7) Nastavení
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS Settings (
+            setting_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+            setting_name TEXT    NOT NULL UNIQUE,
+            setting_value TEXT    NOT NULL
+        );
+        ''')
+        cur.execute('''
+        select count(*) from Settings
+        ''')
+        if cur.fetchone()[0] == 0:
+          cur.execute('''
+          INSERT INTO Settings (setting_name, setting_value)
+          VALUES ('days_to_keep', '0');
+          ''')
 
         conn.commit()
         

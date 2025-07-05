@@ -19,6 +19,7 @@ from views.users_dialog import UsersDialog
 from views.doctors_dialog import DoctorDialog
 from views.ordinace_dialog import OrdinaceDialog
 from views.database_setup_dialog import DatabaseSetupDialog
+from views.smaz_rezervace_po_xy_dialog import SmazRezervaceDialog
 from functools import partial
 import os
 
@@ -340,37 +341,30 @@ class HlavniOkno(QMainWindow):
             self.database_action = None
 
         # Přidej nové podle role
-        if self.logged_in_user_role == "admin":
-            self.user_menu = QMenu("Nastavení", self)
-            
-            # Databázové menu jako součást Nastavení
-            self.database_section = QAction("Změnit databázi", self)
-            self.database_section.triggered.connect(self.change_database)
-            
-            self.plan_surgery_section = QAction("Plánování ordinací", self)
-            self.plan_surgery_section.triggered.connect(self.zahaj_planovani_ordinaci)
-            # Přidání sekcí pro administrátora
-            self.users_section = QAction("Sekce uživatelů", self)
-            self.users_section.triggered.connect(self.sekce_uzivatelu)
-            # Přidání sekcí pro administrátora
-            self.doctors_section = QAction("Sekce doktoři", self)
-            self.doctors_section.triggered.connect(self.sekce_doktoru)
-            self.surgery_section = QAction("Sekce ordinace", self)
-            self.surgery_section.triggered.connect(self.sekce_ordinace)
-            
-        elif self.logged_in_user_role == "supervisor":
-            self.user_menu = QMenu("Nastavení", self)
-            self.plan_surgery_section = QAction("Plánování ordinací", self)
-            self.plan_surgery_section.triggered.connect(self.zahaj_planovani_ordinaci)
-            # Přidání sekcí pro supervisora
-            self.users_section = QAction("Sekce uživatelů", self)
-            self.users_section.triggered.connect(self.sekce_uzivatelu)
-            # Přidání sekcí pro supervisora
-            self.doctors_section = QAction("Sekce doktoři", self)
-            self.doctors_section.triggered.connect(self.sekce_doktoru)
-            self.surgery_section = QAction("Sekce ordinace", self)
-            self.surgery_section.triggered.connect(self.sekce_ordinace)
-            
+        
+        self.user_menu = QMenu("Nastavení", self)
+        
+        # Databázové menu jako součást Nastavení
+        self.database_section = QAction("Změnit databázi", self)
+        self.database_section.triggered.connect(self.change_database)
+        
+        self.plan_surgery_section = QAction("Plánování ordinací", self)
+        self.plan_surgery_section.triggered.connect(self.zahaj_planovani_ordinaci)
+        # Přidání sekcí pro administrátora
+        self.users_section = QAction("Sekce uživatelů", self)
+        self.users_section.triggered.connect(self.sekce_uzivatelu)
+        
+        # Přidání sekcí pro administrátora
+        self.doctors_section = QAction("Sekce doktoři", self)
+        self.doctors_section.triggered.connect(self.sekce_doktoru)
+        
+        self.surgery_section = QAction("Sekce ordinace", self)
+        self.surgery_section.triggered.connect(self.sekce_ordinace)
+        
+        
+        self.database_days_deletion_setting = QAction("Nastavení smazání dat", self)
+        self.database_days_deletion_setting.triggered.connect(self.nastaveni_smazani_dat)
+
         # Pokud bylo vytvořeno user_menu, přidej ho do menu_bar a akce
         if self.user_menu:
             self.menu_bar.addMenu(self.user_menu)
@@ -380,6 +374,7 @@ class HlavniOkno(QMainWindow):
             self.user_menu.addAction(self.users_section)
             self.user_menu.addAction(self.doctors_section)
             self.user_menu.addAction(self.surgery_section)
+            self.user_menu.addAction(self.database_days_deletion_setting)
 
     def sekce_ordinace(self):
         dialog = OrdinaceDialog(self)
@@ -833,3 +828,19 @@ class HlavniOkno(QMainWindow):
                         "Chyba",
                         f"Nepodařilo se připojit k databázi: {str(e)}"
                     )
+      
+    def nastaveni_smazani_dat(self):
+      """Zobrazí dialog pro nastavení smazání dat."""
+      from PySide6.QtWidgets import QMessageBox
+      
+      dialog = SmazRezervaceDialog(self)
+      if dialog.exec():
+          days_to_keep = dialog.get_days()
+          if days_to_keep is not None:
+              days_to_keep = dialog.set_days_to_keep()
+              self.nacti_rezervace()
+              QMessageBox.information(
+                  self,
+                  "Úspěch",
+                  f"Nastavení smazání dat bylo úspěšně aktualizováno.\nBylo smazáno {days_to_keep['pocet_smazanych']} rezervací starších než {days_to_keep['datum_hranice']}."
+              )
