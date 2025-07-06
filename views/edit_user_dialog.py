@@ -1,10 +1,12 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox
 from models.users import get_user_by_name
+from controllers.data import basic_style
 class EditUserDialog(QDialog):
     def __init__(self, username, role, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Upravit uživatele")
         layout = QVBoxLayout(self)
+        self.setStyleSheet(basic_style)
 
         layout.addWidget(QLabel("Jméno uživatele:"))
         self.username_edit = QLineEdit(username)

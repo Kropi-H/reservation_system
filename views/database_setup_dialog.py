@@ -5,12 +5,14 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from models.databaze import inicializuj_databazi
 from config import get_last_directory
+from controllers.data import basic_style
 import shutil
 
 class DatabaseSetupDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Nastavení databáze - Veterinární rezervační systém")
+        self.setStyleSheet(basic_style)
         self.setModal(True)
         self.setFixedSize(450, 250)
         self.database_path = ""

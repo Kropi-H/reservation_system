@@ -1,10 +1,12 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton
 import bcrypt
+from controllers.data import basic_style
 
 
 class UpdatePasswordDialog(QDialog):
     def __init__(self, user, parent=None):
         super().__init__(parent)
+        self.setStyleSheet(basic_style)
         layout = QVBoxLayout(self)
         self.old_user_password = user[2]
         self.setWindowTitle(f"Upravit heslo {user[1]}")

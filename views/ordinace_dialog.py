@@ -7,7 +7,7 @@ from models.rezervace import remove_all_older_rezervations_for_ordinaci
 from functools import partial
 from models.doktori import remove_all_ordinacni_cas
 from models.rezervace import rezervace_pro_ordinaci
-from controllers.data import basic_button_color, basic_button_style, q_header_view_style
+from controllers.data import basic_button_color, basic_button_style, q_header_view_style, basic_style
 from datetime import datetime
 
 class OrdinaceDialog(QDialog):
@@ -32,6 +32,7 @@ class OrdinaceDialog(QDialog):
         self.load_ordinace()
 
         # Styl pro všechny tabulky v tomto okně
+        self.setStyleSheet(basic_style)
         self.setStyleSheet(f"""
             QHeaderView::section {{
                 {q_header_view_style}

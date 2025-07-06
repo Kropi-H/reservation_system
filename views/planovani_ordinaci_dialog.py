@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
+from controllers.data import basic_style
 
 class PlanovaniOrdinaciDialog(QDialog):
     def __init__(self, parent=None):
@@ -12,3 +13,4 @@ class PlanovaniOrdinaciDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
         layout.addWidget(btn_ok)
         layout.addWidget(btn_cancel)
+        self.setStyleSheet(basic_style)

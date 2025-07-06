@@ -60,6 +60,14 @@ def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_paci
     with get_connection() as conn:
         cur = conn.cursor()
 
+        # Najdeme stávající pacient_id pro tuto rezervaci
+        cur.execute('SELECT pacient_id FROM Rezervace WHERE rezervace_id = ?', (rezervace_id,))
+        row = cur.fetchone()
+        if not row:
+            return False  # Rezervace neexistuje
+        
+        existing_pacient_id = row[0]
+
         # 1) Doktor
         doc_id = get_or_create(
             cur,
@@ -71,19 +79,12 @@ def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_paci
             }
         )
 
-        # 2) Pacient (zvíře + majitel)
-        pac_id = get_or_create(
-            cur,
-            table="Pacienti",
-            unique_cols=("jmeno_zvirete","druh","majitel_jmeno","majitel_telefon", "poznamka"),
-            data_cols={
-                "jmeno_zvirete": pacient_jmeno,
-                "druh":          pacient_druh,
-                "majitel_jmeno": majitel_pacienta,
-                "majitel_telefon": majitel_kontakt,
-                "poznamka": note
-            }
-        )
+        # 2) Aktualizujeme existujícího pacienta místo vytváření nového
+        cur.execute('''
+            UPDATE Pacienti
+            SET jmeno_zvirete = ?, druh = ?, majitel_jmeno = ?, majitel_telefon = ?, poznamka = ?
+            WHERE pacient_id = ?
+        ''', (pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, note, existing_pacient_id))
 
         # 3) Ordinace
         ord_id = get_or_create(
@@ -93,14 +94,14 @@ def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_paci
             data_cols={"nazev": mistnost}
         )
 
-        # 4) Aktualizace rezervace
+        # 4) Aktualizace rezervace (zachováme stávající pacient_id)
         cur.execute(
             """
             UPDATE Rezervace
-            SET pacient_id = ?, doktor_id = ?, ordinace_id = ?, termin = ?, cas = ?
+            SET doktor_id = ?, ordinace_id = ?, termin = ?, cas = ?
             WHERE rezervace_id = ?
             """,
-            (pac_id, doc_id, ord_id, termin, cas, rezervace_id)
+            (doc_id, ord_id, termin, cas, rezervace_id)
         )
 
         return cur.rowcount > 0  # True pokud byl záznam upraven
@@ -207,6 +208,7 @@ def smaz_rezervace_starsi_nez(pocet_dni):
     Returns:
         int: Počet smazaných rezervací
     """
+    pocet_dni = int(pocet_dni)
     if pocet_dni <= 0:
         return 0
     

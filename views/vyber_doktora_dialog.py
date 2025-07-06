@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QComboBox, QPushButton
 from models.databaze import get_doktori
+from controllers.data import basic_style
 
 class VyberDoktoraDialog(QDialog):
     def __init__(self, parent=None):
@@ -10,6 +11,7 @@ class VyberDoktoraDialog(QDialog):
         layout.addWidget(QLabel("Vyberte doktora pro zvolené časy:"))
         self.combo = QComboBox()
         self.combo.addItems(self.doktori)
+        self.setStyleSheet(basic_style)
         layout.addWidget(self.combo)
         btn_ok = QPushButton("Potvrdit")
         btn_ok.clicked.connect(self.accept)

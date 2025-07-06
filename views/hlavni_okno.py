@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QLabel, 
-                               QDateEdit, QHBoxLayout, QTableWidget, QApplication,
+                               QDateEdit, QHBoxLayout, QTableWidget, QApplication, QMessageBox,
                                QTableWidgetItem, QMenuBar, QMenu, QMainWindow, QAbstractItemView)
 from PySide6.QtCore import QDate, QLocale, QTimer, Qt
 from PySide6.QtGui import QColor, QPixmap, QAction, QFont
@@ -20,8 +20,13 @@ from views.ordinace_dialog import OrdinaceDialog
 from views.database_setup_dialog import DatabaseSetupDialog
 from views.smaz_rezervace_po_xy_dialog import SmazRezervaceDialog
 from functools import partial
+from controllers.data import basic_style
 import os
+from models.rezervace import smaz_rezervace_starsi_nez
+from models.settings import get_settings
 
+# Smazání rezervací starších než nastavený počet dní
+smaz_rezervace_starsi_nez(get_settings("days_to_keep"))
 
 
 def get_ordinace_list():
@@ -93,7 +98,6 @@ class HlavniOkno(QMainWindow):
         layout = QVBoxLayout(central_widget)
         
         # Styl pro všechny tabulky v tomto okně
-        
         self.setStyleSheet("""
             QTableWidget {
                 background-color: #fafdff;
@@ -709,7 +713,7 @@ class HlavniOkno(QMainWindow):
                 for rez in rezervace_pro_cas:
                   # tabulka.insertRow(index)
                   tabulka.setItem(index, 0, QTableWidgetItem(cas_str))  # Čas
-                  doktor_item = QTableWidgetItem(f"{rez[5]}")  # Majitel
+                  doktor_item = QTableWidgetItem(f"{rez[5]}: {rez[7]} - {rez[4]}")  # Majitel
                   font = doktor_item.font()
                   font.setBold(True)
                   doktor_item.setFont(font)
@@ -719,13 +723,13 @@ class HlavniOkno(QMainWindow):
                   tooltip_html = f"""
                       <table style="background-color: {doktor_bg_color}; padding: 8px; border-radius: 6px; border: 3px solid #009688; font-family: Arial; font-size: 14px; color: #222; min-width: 250px; margin: 0; border-collapse: collapse;">
                           <tr><td colspan="2" style="text-align: center; font-weight: bold; font-size: 16px; padding: 4px; border-radius: 3px; margin-bottom: 8px;">
-                              🩺 {rez[2]}
+                              🐕 {rez[4]}
                           </td></tr>
-                          <tr><td>⏰ Čas:</td><td style="font-weight: bold; padding-top:1px">{cas_str}</td></tr>
-                          <tr><td>🐕 Pacient:</td><td style="font-weight: bold; padding-top:1px">{rez[4]}</td></tr>
+                          <tr><td>🔗 Druh:</td><td style="font-weight: bold; padding-top:1px">{rez[7]}</td></tr>
                           <tr><td>👤 Majitel:</td><td style="font-weight: bold; padding-top:1px">{rez[5]}</td></tr>
+                          <tr><td>🩺 Doktor:</td><td style="font-weight: bold; padding-top:1px">{rez[2]}</td></tr>
+                          <tr><td>🕰️ Čas:</td><td style="font-weight: bold; padding-top:1px">{cas_str}</td></tr>
                           <tr><td>📞 Kontakt:</td><td style="font-weight: bold; padding-top:1px">{rez[6]}</td></tr>
-                          <tr><td>🏷️ Druh:</td><td style="font-weight: bold; padding-top:1px">{rez[7]}</td></tr>
                           <tr><td>📝 Poznámka:</td><td style="font-weight: bold; padding-top:1px">{rez[8]}</td></tr>
                       </table>
                       """
@@ -781,7 +785,6 @@ class HlavniOkno(QMainWindow):
     
     def change_database(self):
         """Zobrazí dialog pro změnu databáze."""
-        from PySide6.QtWidgets import QMessageBox
         
         reply = QMessageBox.question(
             self,
@@ -830,16 +833,17 @@ class HlavniOkno(QMainWindow):
       
     def nastaveni_smazani_dat(self):
       """Zobrazí dialog pro nastavení smazání dat."""
-      from PySide6.QtWidgets import QMessageBox
       
       dialog = SmazRezervaceDialog(self)
       if dialog.exec():
           days_to_keep = dialog.get_days()
           if days_to_keep is not None:
-              days_to_keep = dialog.set_days_to_keep()
+              delete_after = dialog.set_days_to_keep()
               self.nacti_rezervace()
-              QMessageBox.information(
-                  self,
-                  "Úspěch",
-                  f"Nastavení smazání dat bylo úspěšně aktualizováno.\nBylo smazáno {days_to_keep['pocet_smazanych']} rezervací starších než {days_to_keep['datum_hranice']}."
-              )
+              if delete_after is not None:
+                  # Zobraz úspěšnou zprávu
+                  QMessageBox.information(
+                      self,
+                      "Úspěch",
+                      f"Nastavení smazání dat bylo úspěšně aktualizováno.\nBylo smazáno {delete_after['pocet_smazanych']} rezervací starších než {delete_after['datum_hranice']}."
+                  )

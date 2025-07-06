@@ -1,10 +1,11 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox
-
+from controllers.data import basic_style
 class AddOrdinaceDialog(QDialog):
     def __init__(self, ordinace_id, parent=None):
         super().__init__(parent)
         self.ordinace_id = ordinace_id
         self.setWindowTitle("Přidat ordinaci")
+        self.setStyleSheet(basic_style)
         layout = QVBoxLayout(self)
 
         # Form fields for editing ordinace

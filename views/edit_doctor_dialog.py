@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox, QColorDialog, QTextEdit
 from models.doktori import get_doctor_by_id
+from controllers.data import basic_style
 from PySide6.QtGui import QColor
 
 
@@ -8,6 +9,7 @@ class EditDoctorDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Upravit doktora")
         layout = QVBoxLayout(self)
+        self.setStyleSheet(basic_style)
         self.doctor = get_doctor_by_id(doctor_id)  # Assuming this function retrieves a doctor's details by ID
 
         layout.addWidget(QLabel("Jméno doktora:"))

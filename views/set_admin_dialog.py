@@ -1,5 +1,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QLabel, QLineEdit
+from controllers.data import basic_style
 
 class SetAdminDialog(QDialog):
     def __init__(self, parent=None):
@@ -9,6 +10,7 @@ class SetAdminDialog(QDialog):
         self.setFixedSize(400, 200)
         # Inicializace dialogu pro nastavení administrátora
         self.init_ui()
+        self.setStyleSheet(basic_style)
 
     def init_ui(self):
         layout = QVBoxLayout()

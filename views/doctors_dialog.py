@@ -5,7 +5,7 @@ from views.add_doctor_dialog import AddDoctorDialog
 from views.edit_doctor_dialog import EditDoctorDialog
 from models.doktori import get_all_doctors, update_doctor, remove_doctor, add_doctor, get_all_doctors_colors, get_doctor_by_id
 from functools import partial
-from controllers.data import basic_button_color, basic_button_style, q_header_view_style
+from controllers.data import basic_button_color, basic_button_style, q_header_view_style, basic_style
 
 class DoctorDialog(QDialog):
     def __init__(self, parent=None):
@@ -29,6 +29,7 @@ class DoctorDialog(QDialog):
         self.load_doctors()
         
         # Styl pro všechny tabulky v tomto okně
+        self.setStyleSheet(basic_style)
         self.setStyleSheet(f"""
         QHeaderView::section {{
             {q_header_view_style}
@@ -38,7 +39,7 @@ class DoctorDialog(QDialog):
         QPushButton#add_doctor_button {{
             {basic_button_style}
         }}
-        """)  
+        """)
  
         
     def center_to_parent(self):

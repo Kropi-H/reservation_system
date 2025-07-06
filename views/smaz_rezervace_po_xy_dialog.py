@@ -1,7 +1,8 @@
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QSlider, QDialogButtonBox
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QSlider, QDialogButtonBox, QMessageBox
 from PySide6.QtCore import Qt
 from models.settings import get_settings, save_settings
 from models.rezervace import smaz_rezervace_starsi_nez
+from controllers.data import basic_style
 
 class SmazRezervaceDialog(QDialog):
     def __init__(self, parent=None):
@@ -12,56 +13,7 @@ class SmazRezervaceDialog(QDialog):
         self.days_to_keep = int(get_settings("days_to_keep"))
 
         # Jednoduché stylování
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #f5f5f5;
-                font-family: Arial, sans-serif;
-            }
-            QLabel {
-                color: #333;
-                font-size: 12px;
-                padding: 5px;
-            }
-            QSpinBox {
-                border: 1px solid #ccc;
-                border-radius: 3px;
-                padding: 5px;
-                font-size: 14px;
-                background-color: white;
-            }
-            QSpinBox:focus {
-                border-color: #0078d4;
-            }
-            QSlider::groove:horizontal {
-                border: 1px solid #ccc;
-                height: 6px;
-                background: #e0e0e0;
-                border-radius: 3px;
-            }
-            QSlider::handle:horizontal {
-                background: #0078d4;
-                border: 1px solid #005a9e;
-                width: 16px;
-                height: 16px;
-                border-radius: 8px;
-                margin: -5px 0;
-            }
-            QSlider::sub-page:horizontal {
-                background: #0078d4;
-                border-radius: 3px;
-            }
-            QPushButton {
-                background-color: #0078d4;
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 3px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #106ebe;
-            }
-        """)
+        self.setStyleSheet(basic_style)
 
         layout = QVBoxLayout(self)
         layout.setSpacing(15)
@@ -116,12 +68,18 @@ class SmazRezervaceDialog(QDialog):
         """Nastaví počet dní pro uchování rezervací."""
         try:
             days = self.days_input.value()
+            if days <= 0:
+                raise ValueError("Data se nebudou mazat, protože počet dní je 0.")
             self.days_input.setValue(days)
             self.days_slider.setValue(days)
             save_settings({"days_to_keep": str(days)})
             result = smaz_rezervace_starsi_nez(days)
             return result
         except ValueError as e:
-            print(f"Chyba při nastavování počtu dní: {e}")
-            return None
-            # Můžete přidat další zpracování chyby, např. zobrazit dialog s chybou
+             QMessageBox.information(
+                      self,
+                      "Zpráva:",
+                      f"{e}"
+                  )
+             return None
+            

@@ -5,7 +5,7 @@ from views.edit_user_dialog import EditUserDialog
 from views.update_user_password import UpdatePasswordDialog
 from models.users import get_all_users, add_user, remove_user, update_user, get_user_by_id, update_user_pass
 from functools import partial
-from controllers.data import basic_button_color, basic_button_style, q_header_view_style
+from controllers.data import basic_button_color, basic_button_style, q_header_view_style, basic_style
 
 class UsersDialog(QDialog):
     def __init__(self, parent=None, current_user=None):
@@ -31,6 +31,7 @@ class UsersDialog(QDialog):
         self.load_users()
         
         # Styl pro všechny tabulky v tomto okně
+        self.setStyleSheet(basic_style)
         self.setStyleSheet(f"""
             QHeaderView::section {{
              {q_header_view_style}   

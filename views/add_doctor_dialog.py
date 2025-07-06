@@ -1,11 +1,13 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox, QColorDialog, QTextEdit
 from models.doktori import get_doctor_by_id  # Assuming this function retrieves a list of doctors
 from PySide6.QtGui import QColor
+from controllers.data import basic_style
 
 class AddDoctorDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Přidat doktora")
+        self.setStyleSheet(basic_style)
         self.setModal(True)
         self.layout = QVBoxLayout(self)
 

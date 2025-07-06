@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox, QColorDialog
 from models.ordinace import get_ordinace_by_id
+from controllers.data import basic_style
 from PySide6.QtGui import QColor
 
 
@@ -8,6 +9,7 @@ class EditOrdinaceDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Upravit ordinaci")
         layout = QVBoxLayout(self)
+        self.setStyleSheet(basic_style)
         self.ordinace = get_ordinace_by_id(ordinace_id)  # Assuming this function retrieves a doctor's details by ID
 
         layout.addWidget(QLabel("Název ordinace:"))

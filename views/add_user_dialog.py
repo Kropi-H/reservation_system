@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox
 from models.users import get_user_by_name
+from controllers.data import basic_style
 import bcrypt
 
 class AddUserDialog(QDialog):
@@ -7,6 +8,7 @@ class AddUserDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Přidat uživatele")
         self.setModal(True)
+        self.setStyleSheet(basic_style)
         layout = QVBoxLayout(self)
 
         layout.addWidget(QLabel("Jméno uživatele:"))

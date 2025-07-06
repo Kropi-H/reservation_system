@@ -3,6 +3,8 @@ from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QLab
 from PySide6.QtCore import QDateTime, QTime
 from controllers.rezervace_controller import uloz_rezervaci, odstran_rezervaci_z_db, aktualizuj_rezervaci
 from models.databaze import get_doktori, get_ordinace
+from controllers.data import basic_style
+
 
 
 class FormularRezervace(QWidget):
@@ -13,6 +15,7 @@ class FormularRezervace(QWidget):
         self.hlavni_okno = hlavni_okno
         self.predvyplneny_doktor = predvyplneny_doktor
         self.rezervace_data = rezervace_data
+        self.setStyleSheet(basic_style)
 
         self.layout = QFormLayout()
 
@@ -67,19 +70,7 @@ class FormularRezervace(QWidget):
                 idx = self.doktor_input.findText(predvyplneny_doktor)
                 if idx != -1:
                     self.doktor_input.setCurrentIndex(idx)
-        '''
-        # Použití QDateTimeEdit místo QLineEdit
-        self.cas_input = QDateTimeEdit()
-        self.cas_input.setCalendarPopup(True)  # Zobrazí kalendář při kliknutí
-        self.cas_input.setDisplayFormat("dd-MM-yyyy HH:mm")  # Nastavení formátu data a času
-        self.cas_input.setDateTime(QDateTime.currentDateTime())  # Výchozí hodnota je aktuální datum a čas
-        
-        
-        self.note_input = QTextEdit()
-        self.mistnost_input = QComboBox()
-        self.mistnost_input.addItem("!---Vyberte ordinaci---!")
-        self.mistnost_input.addItems(self.get_ordinace_list())
-        '''
+
         # Předvyplnění dat pokud jsou k dispozici
         if rezervace_data:
           # Předpoklad: rezervace_data = (cas, id, doktor, doktor_color, pacient, majitel, kontakt, druh, mistnost, poznamka)

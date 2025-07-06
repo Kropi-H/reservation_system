@@ -32,3 +32,54 @@ q_header_view_style = f"""
     font-weight: bold;
     font-size: 14px;
     """
+    
+basic_style = f"""
+            QDialog {{
+                background-color: #f5f5f5;
+                font-family: Arial, sans-serif;
+            }}
+            QLabel {{
+                color: #333;
+                font-size: 12px;
+                padding: 5px;
+            }}
+            QSpinBox {{
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                padding: 5px;
+                font-size: 14px;
+                background-color: white;
+            }}
+            QSpinBox:focus {{
+                border-color: #0078d4;
+            }}
+            QSlider::groove:horizontal {{
+                border: 1px solid #ccc;
+                height: 6px;
+                background: #e0e0e0;
+                border-radius: 3px;
+            }}
+            QSlider::handle:horizontal {{
+                background-color: #0078d4;
+                border: 1px solid #005a9e;
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                margin: -5px 0;
+            }}
+            QSlider::sub-page:horizontal {{
+                background-color: #0078d4;
+                border-radius: 3px;
+            }}
+            QPushButton {{
+                background-color: #0078d4;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 3px;
+                font-size: 12px;
+            }}
+            QPushButton:hover {{
+                background-color: #106ebe;
+            }}
+        """

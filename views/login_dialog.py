@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import QDialog, QFormLayout, QLineEdit, QDialogButtonBox
+from controllers.data import basic_style
 import bcrypt
 
 from models.databaze import get_user_by_username
@@ -19,7 +20,7 @@ class LoginDialog(QDialog):
         layout.addWidget(buttons)
         self.login_success = False
         self.role = ""
-
+        self.setStyleSheet(basic_style)
     def try_login(self):
         username = self.username.text()
         password = self.password.text()
@@ -39,13 +40,3 @@ class LoginDialog(QDialog):
     
     def get_name_and_role(self):
         return self.username.text(), self.role
-
-'''
-def hash_password(password):
-    """
-    Hashes the password using bcrypt.
-    """
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-  
-print(hash_password("magdamagda"))  # Example usage, remove in production
-'''
