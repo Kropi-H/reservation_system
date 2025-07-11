@@ -74,7 +74,8 @@ def inicializuj_databazi():
             doktor_id      INTEGER    NOT NULL,
             ordinace_id    INTEGER    NOT NULL,
             termin         DATETIME   NOT NULL,
-            cas            TEXT       NOT NULL,
+            cas_od         TEXT       NOT NULL,
+            cas_do         TEXT       NOT NULL,
             FOREIGN KEY(pacient_id) REFERENCES Pacienti(pacient_id)
                 ON DELETE CASCADE,
             FOREIGN KEY(doktor_id)  REFERENCES Doktori(doktor_id)

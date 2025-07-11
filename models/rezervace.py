@@ -53,7 +53,7 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
 
         return cur.lastrowid  # id nově vzniklé rezervace
 
-def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, termin, cas, mistnost):
+def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, termin, cas_od, cas_do, mistnost):
     """
     Aktualizuje existující rezervaci podle rezervace_id.
     """
@@ -98,10 +98,10 @@ def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_paci
         cur.execute(
             """
             UPDATE Rezervace
-            SET doktor_id = ?, ordinace_id = ?, termin = ?, cas = ?
+            SET doktor_id = ?, ordinace_id = ?, termin = ?, cas_od = ?, cas_do = ?
             WHERE rezervace_id = ?
             """,
-            (doc_id, ord_id, termin, cas, rezervace_id)
+            (doc_id, ord_id, termin, cas_od, cas_do, rezervace_id)
         )
 
         return cur.rowcount > 0  # True pokud byl záznam upraven
@@ -147,7 +147,8 @@ def ziskej_rezervace_dne(datum_str):
             Pacienti.druh AS Druh,
             Ordinace.nazev AS Ordinace,
             Pacienti.poznamka AS Poznamka,
-            Rezervace.cas AS Cas
+            Rezervace.cas_od AS Cas_od,
+            Rezervace.cas_do AS Cas_do
         FROM Rezervace
         INNER JOIN Doktori ON Rezervace.doktor_id = Doktori.doktor_id
         INNER JOIN Pacienti ON Rezervace.pacient_id = Pacienti.pacient_id
