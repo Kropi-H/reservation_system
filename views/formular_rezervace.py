@@ -4,6 +4,7 @@ from PySide6.QtCore import QDateTime, QTime
 from controllers.rezervace_controller import uloz_rezervaci, odstran_rezervaci_z_db, aktualizuj_rezervaci
 from models.databaze import get_doktori, get_ordinace
 from controllers.data import basic_style
+from models.doktori import time_anchores
 
 
 
@@ -35,7 +36,9 @@ class FormularRezervace(QWidget):
         self.note_input = QTextEdit()
         self.mistnost_input = QComboBox()
         self.mistnost_input.addItem("!---Vyberte ordinaci---!")
+        self.delka_rezervace_input = QComboBox()
         self.mistnost_input.addItems(self.get_ordinace_list())
+        
 
         # Předvyplnění dat pokud jsou k dispozici
         if rezervace_data:
@@ -70,25 +73,11 @@ class FormularRezervace(QWidget):
                 idx = self.doktor_input.findText(predvyplneny_doktor)
                 if idx != -1:
                     self.doktor_input.setCurrentIndex(idx)
+              
 
-        # Předvyplnění dat pokud jsou k dispozici
-        if rezervace_data:
-          # Předpoklad: rezervace_data = (cas, id, doktor, doktor_color, pacient, majitel, kontakt, druh, mistnost, poznamka)
-          self.pacient_jmeno_input.setText(rezervace_data[4])
-          self.pacient_druh_input.setText(rezervace_data[7])
-          self.majitel_input.setText(rezervace_data[5])
-          self.kontakt_majitel_input.setText(rezervace_data[6])
-          idx = self.doktor_input.findText(rezervace_data[2])  # OPRAVENO: index 2 je doktor
-          if idx != -1:
-              self.doktor_input.setCurrentIndex(idx)
-          self.note_input.setPlainText(rezervace_data[9])
-          dt = QDateTime.fromString(f"{rezervace_data[0]} {rezervace_data[10]}", "yyyy-MM-dd HH:mm")
-          if dt.isValid():
-              self.cas_input.setDateTime(dt)
-          idx2 = self.mistnost_input.findText(rezervace_data[8])
-          if idx2 != -1:
-              self.mistnost_input.setCurrentIndex(idx2)
-
+        # Časové kotvy pro délku rezervace
+        self.delka_rezervace_input.addItems(self.reservation_length())
+        
         self.layout.addRow("Jméno pacienta:", self.pacient_jmeno_input)
         self.layout.addRow("Druh:", self.pacient_druh_input)
         self.layout.addRow("Příjmení majitele:", self.majitel_input)
@@ -96,6 +85,7 @@ class FormularRezervace(QWidget):
         self.layout.addRow("Doktor:", self.doktor_input)
         self.layout.addRow("Poznámka (nemusí být):", self.note_input)
         self.layout.addRow("Čas (např. 21-01-2025 09:00):", self.cas_input)
+        self.layout.addRow(f"Rezervovat od {self.cas_input.dateTime().toString('HH:mm')} do:", self.delka_rezervace_input)
         self.layout.addRow("Ordinace:", self.mistnost_input)
 
 
@@ -131,7 +121,24 @@ class FormularRezervace(QWidget):
     def get_ordinace_list(self):
         ordinace = get_ordinace()
         return [ f"{i[1]}" for i in ordinace]
-      
+    
+    def reservation_length(self):
+      start = self.cas_input.dateTime().toString('HH:mm')
+      return time_anchores[time_anchores.index(start)+1:]
+    
+    def get_time_slots(self, start=None, end=None):
+      if end:
+          try:
+              start = time_anchores.index(start)
+              end = time_anchores.index(end)-1
+              result_anchores = time_anchores[start:end+1]
+              return result_anchores
+          except ValueError as e:
+              print(e)
+      else:
+          return time_anchores[time_anchores.index(start):]
+    
+    
     def odstran_rezervaci(self):
         if self.rezervace_id:
             msg_box = QMessageBox(self)
@@ -167,6 +174,8 @@ class FormularRezervace(QWidget):
         mistnost = self.mistnost_input.currentText()
         max_cas = QTime(19, 40)
         min_cas = QTime(8, 0)
+        slots = self.get_time_slots(cas, self.delka_rezervace_input.currentText())
+        print(f"Slots: {slots}")
 
         if not pacient_jmeno:
             self.status.setText("Vyplňte jmeno pacienta.")
