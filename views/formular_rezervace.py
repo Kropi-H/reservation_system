@@ -181,18 +181,6 @@ class FormularRezervace(QWidget):
         start = self.cas_od_input.currentText() if hasattr(self, 'cas_od_input') else time_anchores[0]
         return self.reservation_length_from_time(start)
     
-    def get_time_slots(self, start=None, end=None):
-      if end:
-          try:
-              start = time_anchores.index(start)
-              end = time_anchores.index(end)
-              result_anchores = time_anchores[start:end+1]
-              return result_anchores
-          except ValueError as e:
-              print(e)
-      else:
-          return time_anchores[time_anchores.index(start):]
-    
     
     def odstran_rezervaci(self):
         if self.rezervace_id:
@@ -235,8 +223,6 @@ class FormularRezervace(QWidget):
         mistnost = self.mistnost_input.currentText()
         max_cas = QTime(19, 40)
         min_cas = QTime(8, 0)
-        slots = self.get_time_slots(cas_od,cas_do)
-        print(f"Slots: {slots}")
 
         # Kontrola času
         selected_time = QTime.fromString(cas_od, "HH:mm")
@@ -253,6 +239,8 @@ class FormularRezervace(QWidget):
             self.status.setText("Vybrat ordinaci.")
         elif selected_time > max_cas or selected_time < min_cas:
             self.status.setText(f"Zadán špatný čas rezervace ({selected_time.toString('HH:mm')}).")
+        elif cas_od in ["12:00", "16:45"]:
+            self.status.setText(f"V pauze nelze rezervovat ({selected_time.toString('HH:mm')}).")
         else:
             if self.rezervace_id:
                 # Úprava existující rezervace

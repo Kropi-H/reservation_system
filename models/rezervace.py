@@ -1,7 +1,7 @@
 from models.databaze import get_connection, get_or_create
 from datetime import datetime, timedelta
                     
-def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, termin, cas, mistnost):
+def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, termin, cas_od, cas_do, mistnost):
     """
     Přidá novou rezervaci.
     """
@@ -45,10 +45,10 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
         cur.execute(
             """
             INSERT INTO Rezervace
-            (pacient_id, doktor_id, ordinace_id, termin, cas)
-            VALUES (?, ?, ?, ?, ?)
+            (pacient_id, doktor_id, ordinace_id, termin, cas_od, cas_do)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (pac_id, doc_id, ord_id, termin, cas)
+            (pac_id, doc_id, ord_id, termin, cas_od, cas_do)
         )
 
         return cur.lastrowid  # id nově vzniklé rezervace
