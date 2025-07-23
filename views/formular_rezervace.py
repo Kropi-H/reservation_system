@@ -69,7 +69,7 @@ class FormularRezervace(QWidget):
           self.pacient_druh_input.setText(rezervace_data[7])
           self.majitel_input.setText(rezervace_data[5])
           self.kontakt_majitel_input.setText(rezervace_data[6])
-          idx = self.doktor_input.findText(rezervace_data[2]) # index 2 je doktor (jméno)
+          idx = self.doktor_input.findText(rezervace_data[2]) # index 2 je doktor (jméno)self.delka_rezervace_input.setText(rezervace_data[11]) # index 11 je délka rezervace
           if idx != -1:
               self.doktor_input.setCurrentIndex(idx)
           self.note_input.setPlainText(rezervace_data[9])
@@ -78,6 +78,9 @@ class FormularRezervace(QWidget):
               # self.cas_input.setDateTime(dt)
               self.datum_input.setDate(dt.date())
               self.cas_od_input.setCurrentText(dt.time().toString("HH:mm"))
+          # Nastavení délky rezervace (času do)
+          if len(rezervace_data) > 11 and rezervace_data[11]:
+              self.delka_rezervace_input.setCurrentText(rezervace_data[11])    
           idx2 = self.mistnost_input.findText(rezervace_data[8])
           if idx2 != -1:
               self.mistnost_input.setCurrentIndex(idx2)
@@ -91,6 +94,7 @@ class FormularRezervace(QWidget):
                     # self.cas_input.setDateTime(dt)
                     self.datum_input.setDate(dt.date())
                     self.cas_od_input.setCurrentText(dt.time().toString("HH:mm"))
+                    self.delka_rezervace_input.setCurrentText(dt.time().toString("HH:mm"))
             if predvyplnena_ordinace:
                 idx = self.mistnost_input.findText(predvyplnena_ordinace)
                 if idx != -1:
@@ -102,7 +106,7 @@ class FormularRezervace(QWidget):
               
 
         # Časové kotvy pro délku rezervace
-        self.delka_rezervace_input.addItems(self.reservation_length())
+        # self.delka_rezervace_input.addItems(self.reservation_length())
         
         self.layout.addRow("Jméno pacienta:", self.pacient_jmeno_input)
         self.layout.addRow("Druh:", self.pacient_druh_input)
@@ -153,7 +157,11 @@ class FormularRezervace(QWidget):
         cas_widget = QWidget()
         cas_layout = QHBoxLayout(cas_widget)
         cas_layout.setContentsMargins(0, 0, 0, 0)
-        cas_layout.setSpacing(5)  # Minimální mezera mezi widgety
+        cas_layout.setSpacing(6)  # Minimální mezera mezi widgety
+        
+        # Nastavení minimální šířky pro ComboBox widgety
+        self.cas_od_input.setMinimumWidth(80)
+        self.delka_rezervace_input.setMinimumWidth(80)
         
         cas_layout.addWidget(self.cas_od_input)
         cas_layout.addWidget(QLabel("do: "))  # Kratší oddělovač
