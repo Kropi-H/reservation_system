@@ -1,9 +1,9 @@
 import re
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QLabel, 
                                QDateEdit, QHBoxLayout, QTableWidget, QApplication, QMessageBox,
-                               QTableWidgetItem, QMenuBar, QMenu, QMainWindow, QAbstractItemView)
+                               QTableWidgetItem, QMenuBar, QMenu, QMainWindow, QAbstractItemView, QSystemTrayIcon)
 from PySide6.QtCore import QDate, QLocale, QTimer, Qt
-from PySide6.QtGui import QColor, QPixmap, QAction, QFont
+from PySide6.QtGui import QColor, QPixmap, QAction, QFont, QIcon
 from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
@@ -44,12 +44,15 @@ class HlavniOkno(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Veterinární rezervační systém")
+        # Nastavení ikony aplikace a okna
+        self.setup_icons()
         layout = QVBoxLayout()    
         self.logged_in_user = None
         self.logged_in_user_role = None
         
         self.logo_layout = QHBoxLayout()
         self.add_logo()
+        
         
         horni_radek = QHBoxLayout()  # <-- Přesuňte sem vytvoření horni_radek
         self.doktori_layout = QHBoxLayout()
@@ -825,3 +828,82 @@ class HlavniOkno(QMainWindow):
                       "Úspěch",
                       f"Nastavení smazání dat bylo úspěšně aktualizováno.\nBylo smazáno {delete_after['pocet_smazanych']} rezervací starších než {delete_after['datum_hranice']}."
                   )
+            
+    def setup_icons(self):
+        """Nastavení ikon pro aplikaci a okno."""
+        # Zkuste nejprve .ico soubor pro Windows
+        icon_path = os.path.join(os.path.dirname(__file__), "../pictures/karakal_logo_grey.ico")
+        
+        # Fallback na PNG pokud .ico neexistuje
+        if not os.path.exists(icon_path):
+            icon_path = os.path.join(os.path.dirname(__file__), "../pictures/karakal_logo_grey.png")
+        
+        if os.path.exists(icon_path):
+            # Vytvoření QIcon objektu
+            app_icon = QIcon(icon_path)
+            
+            # Nastavení ikony pro okno (levý horní roh)
+            self.setWindowIcon(app_icon)
+            
+            # Nastavení ikony pro celou aplikaci (taskbar, Alt+Tab) - DŮLEŽITÉ POŘADÍ
+            app = QApplication.instance()
+            if app:
+                app.setWindowIcon(app_icon)
+                
+            # Pro Windows - explicitní nastavení pro všechna okna
+            if hasattr(app, 'setWindowIcon'):
+                QApplication.setWindowIcon(app_icon)
+            
+            # System tray ikona...
+            if QSystemTrayIcon.isSystemTrayAvailable():
+                self.tray_icon = QSystemTrayIcon(app_icon, self)
+                
+                # Vytvoření kontextového menu pro systémovou lištu
+                tray_menu = QMenu()
+                
+                # Akce pro zobrazení/skrytí okna
+                show_action = tray_menu.addAction("Zobrazit")
+                show_action.triggered.connect(self.show)
+                
+                hide_action = tray_menu.addAction("Skrýt")
+                hide_action.triggered.connect(self.hide)
+                
+                tray_menu.addSeparator()
+                
+                # Akce pro ukončení aplikace
+                quit_action = tray_menu.addAction("Ukončit")
+                quit_action.triggered.connect(QApplication.instance().quit)
+                
+                self.tray_icon.setContextMenu(tray_menu)
+                
+                # Zobrazení ikony v systémové liště
+                self.tray_icon.show()
+                
+                # Tooltip pro ikonu v systémové liště
+                self.tray_icon.setToolTip("Veterinární rezervační systém")
+                
+                # Reakce na kliknutí na ikonu (zobrazí/skryje okno)
+                self.tray_icon.activated.connect(self.tray_icon_activated)
+            else:
+                print("Systémová lišta není dostupná")
+                self.tray_icon = None
+        else:
+            print(f"Ikona nenalezena: {icon_path}")
+            self.tray_icon = None
+            
+    def tray_icon_activated(self, reason):
+        """Obsluha kliknutí na ikonu v systémové liště."""
+        if reason == QSystemTrayIcon.DoubleClick:
+            # Dvojklik - zobrazí/skryje okno
+            if self.isVisible():
+                self.hide()
+            else:
+                self.show()
+                self.raise_()
+                self.activateWindow()
+        elif reason == QSystemTrayIcon.Trigger:
+            # Jednoduché kliknutí - zobrazí okno
+            if not self.isVisible():
+                self.show()
+                self.raise_()
+                self.activateWindow()
