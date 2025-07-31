@@ -107,7 +107,6 @@ def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_paci
         return cur.rowcount > 0  # True pokud byl záznam upraven
 
 def rezervace_pro_ordinaci(ordinace_id):
-    print(f"Získávám rezervace pro ordinaci ID: {ordinace_id}")
     """
     Vrátí seznam rezervací pro danou ordinaci.
     """
@@ -250,3 +249,55 @@ def smaz_rezervace_starsi_nez(pocet_dni):
         conn.commit()
         
         return {"pocet_smazanych": pocet_smazanych, "datum_hranice": datum_hranice_str}
+      
+def kontrola_prekryvani_rezervaci(termin, cas_od, cas_do, mistnost, rezervace_id=None):
+    with get_connection() as conn:
+        cur = conn.cursor()
+        
+        # Získáme ID ordinace
+        cur.execute('SELECT ordinace_id FROM Ordinace WHERE nazev = ?', (mistnost,))
+        result = cur.fetchone()
+        if not result:
+            return True, f"Ordinace '{mistnost}' neexistuje."
+        
+        ordinace_id = result[0]
+        
+        # Získáme všechny rezervace pro danou ordinaci a datum
+        if rezervace_id:
+            query = '''
+                SELECT rezervace_id, cas_od, cas_do FROM Rezervace
+                WHERE ordinace_id = ? AND termin = ? AND rezervace_id != ?
+            '''
+            params = (ordinace_id, termin, rezervace_id)
+        else:
+            query = '''
+                SELECT rezervace_id, cas_od, cas_do FROM Rezervace
+                WHERE ordinace_id = ? AND termin = ?
+            '''
+            params = (ordinace_id, termin)
+        
+        cur.execute(query, params)
+        existujici_rezervace = cur.fetchall()
+
+        
+        try:
+            novy_start = str_na_cas(cas_od)
+            novy_konec = str_na_cas(cas_do)
+            
+            for rezervace in existujici_rezervace:
+                existujici_start = str_na_cas(rezervace[1])
+                existujici_konec = str_na_cas(rezervace[2])
+                
+                # Kontrola překrývání: dva časové úseky se nepřekrývají pouze pokud
+                # jeden končí před začátkem druhého nebo začíná po konci druhého
+                if novy_start <= existujici_konec and novy_konec >= existujici_start:
+                    return True, f"Konflikt s jinou rezervací, vyberte jiný čas nebo ordinaci!"
+            
+            return False, ""
+            
+        except ValueError as e:
+            return True, f"Chyba při parsování času: {e}"
+          
+# Pomocná funkce na převod řetězce na čas (bez data)
+def str_na_cas(cas_str):
+    return datetime.strptime(cas_str, "%H:%M").time()

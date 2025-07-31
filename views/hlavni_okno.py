@@ -726,16 +726,21 @@ class HlavniOkno(QMainWindow):
                   
                   # Tooltip s detaily
                   tooltip_html = f"""
-                      <table style="background-color: {doktor_bg_color}; padding: 8px; border-radius: 6px; border: 3px solid #009688; font-family: Arial; font-size: 14px; color: #222; min-width: 250px; margin: 0; border-collapse: collapse;">
-                          <tr><td colspan="2" style="text-align: center; font-weight: bold; font-size: 16px; padding: 4px; border-radius: 3px; margin-bottom: 8px;">
-                              🐕 {rez[5]}
-                          </td></tr>
+                      <table style="background-color: {doktor_bg_color}; padding: 8px; border-radius: 6px; border: 3px solid #009688; font-family: Arial; font-size: 14px; color: #222; min-width: 250px; margin: 10px; border-collapse: collapse;">
+                          <thead>
+                          <tr><th colspan="2" style="text-align: center; font-weight: bold; font-size: 16px; padding: 4px; border-radius: 3px; margin-bottom: 8px;">
+                            🐕 {rez[5]}
+                          </th></tr>
+                          </thead>
+                          <tbody>
+                          <tr><td colspan="2" style="text-align: center; color: lightgrey">{40*"-"}</td></tr>
                           <tr><td>🔗 Druh:</td><td style="font-weight: bold; padding-top:1px">{rez[8]}</td></tr>
                           <tr><td>👤 Majitel:</td><td style="font-weight: bold; padding-top:1px">{rez[6]}</td></tr>
                           <tr><td>🩺 Doktor:</td><td style="font-weight: bold; padding-top:1px">{rez[3]}</td></tr>
                           <tr><td>🕰️ Čas:</td><td style="font-weight: bold; padding-top:1px">{cas_od_str} - {cas_do_str}</td></tr>
                           <tr><td>📞 Kontakt:</td><td style="font-weight: bold; padding-top:1px">{rez[7]}</td></tr>
                           <tr><td>📝 Poznámka:</td><td style="font-weight: bold; padding-top:1px">{rez[9]}</td></tr>
+                      </tbody>  
                       </table>
                       """
                   doktor_item.setToolTip(tooltip_html)

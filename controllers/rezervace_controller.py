@@ -28,3 +28,19 @@ def odstran_rezervaci_z_db(rezervace_id):
     except Exception as e:
         print(f"Chyba: {e}")
         return False
+      
+      
+def kontrola_prekryvani_rezervaci(datum, cas_od, cas_do, mistnost, rezervace_id=None):
+    try:
+        result = rezervace.kontrola_prekryvani_rezervaci(datum, cas_od, cas_do, mistnost, rezervace_id)
+        if result is None:
+            return True, "Chyba při kontrole překrývání - neočekávaný návrat."
+        
+        prekryva, chyba_zprava = result
+        if prekryva:
+            return True, chyba_zprava
+        else:
+            return False, ""
+    except Exception as e:
+        print(f"Chyba při kontrole překrývání: {e}")
+        return True, "Chyba při kontrole překrývání rezervací."

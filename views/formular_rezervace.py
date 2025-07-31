@@ -1,7 +1,7 @@
 # views/formular_rezervace.py
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QLabel, QFormLayout, QComboBox, QTextEdit, QDateTimeEdit, QMessageBox
 from PySide6.QtCore import QDateTime, QTime
-from controllers.rezervace_controller import uloz_rezervaci, odstran_rezervaci_z_db, aktualizuj_rezervaci
+from controllers.rezervace_controller import uloz_rezervaci, odstran_rezervaci_z_db, aktualizuj_rezervaci, kontrola_prekryvani_rezervaci
 from models.databaze import get_doktori, get_ordinace
 from controllers.data import basic_style
 from models.doktori import time_anchores
@@ -78,6 +78,8 @@ class FormularRezervace(QWidget):
               # self.cas_input.setDateTime(dt)
               self.datum_input.setDate(dt.date())
               self.cas_od_input.setCurrentText(dt.time().toString("HH:mm"))
+              # Naplnění možností pro čas do na základě času od
+              self.aktualizuj_delku_rezervace()
           # Nastavení délky rezervace (času do)
           if len(rezervace_data) > 11 and rezervace_data[11]:
               self.delka_rezervace_input.setCurrentText(rezervace_data[11])    
@@ -220,8 +222,6 @@ class FormularRezervace(QWidget):
         majitel_kontakt = self.kontakt_majitel_input.text().strip()
         doktor = self.doktor_input.currentText()
         note = self.note_input.toPlainText().strip()
-        # dt = self.cas_input.dateTime()
-        # datum, cas = dt.toString("yyyy-MM-dd HH:mm").split(" ")
         
         # Sestavení datetime z datumu a času
         datum = self.datum_input.date().toString("yyyy-MM-dd")
@@ -250,6 +250,15 @@ class FormularRezervace(QWidget):
         elif cas_od in ["12:00", "16:45"]:
             self.status.setText(f"V pauze nelze rezervovat ({selected_time.toString('HH:mm')}).")
         else:
+            # Kontrola překrývání rezervací
+            prekryva, chyba_zprava = kontrola_prekryvani_rezervaci(
+                datum, cas_od, cas_do, mistnost, self.rezervace_id
+            )
+            
+            if prekryva:
+                self.status.setText(f"{chyba_zprava}")
+                return
+            
             if self.rezervace_id:
                 # Úprava existující rezervace
                 ok = aktualizuj_rezervaci(
