@@ -1,7 +1,7 @@
 import re
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QLabel, 
                                QDateEdit, QHBoxLayout, QTableWidget, QApplication, QMessageBox,
-                               QTableWidgetItem, QMenuBar, QMenu, QMainWindow, QAbstractItemView, QSystemTrayIcon)
+                               QTableWidgetItem, QMenuBar, QMenu, QMainWindow, QAbstractItemView, QSystemTrayIcon, QCheckBox)
 from PySide6.QtCore import QDate, QLocale, QTimer, Qt
 from PySide6.QtGui import QColor, QPixmap, QAction, QFont, QIcon
 from views.formular_rezervace import FormularRezervace
@@ -96,6 +96,18 @@ class HlavniOkno(QMainWindow):
         # --- STATUS BAR ---
         self.status_bar = self.statusBar()
         self.status_bar.showMessage("Nepřihlášen")
+        
+        # Vytvoření widgetu pro checkboxy v status baru
+        self.checkboxy_widget = QWidget()
+        self.checkboxy_layout = QHBoxLayout(self.checkboxy_widget)
+        self.checkboxy_layout.setContentsMargins(5, 2, 5, 2)
+        self.checkboxy_layout.setSpacing(10)
+        
+        # Přidání checkboxů do status baru napravo
+        self.status_bar.addPermanentWidget(self.checkboxy_widget)
+        
+        # Slovník pro uložení checkboxů
+        self.checkboxy = {}
         
         # --- CENTRÁLNÍ WIDGET A LAYOUT ---
         central_widget = QWidget()
@@ -213,7 +225,7 @@ class HlavniOkno(QMainWindow):
         self.tabulky = {} # mistnost -> QTableWidget
         self.ordinace_layout = QHBoxLayout()  
         
-        
+
         self.aktualizuj_tabulku_ordinaci_layout()
         layout.addLayout(self.ordinace_layout)
         self.setLayout(layout)
@@ -223,6 +235,14 @@ class HlavniOkno(QMainWindow):
         
     def aktualizuj_tabulku_ordinaci_layout(self):
         ordinace = get_ordinace_list()   
+        
+        # Vymaž staré checkboxy ze status baru
+        while self.checkboxy_layout.count():
+            item = self.checkboxy_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        
         # Odstraň všechny widgety z layoutu
         while self.ordinace_layout.count():
             item = self.ordinace_layout.takeAt(0)
@@ -232,7 +252,35 @@ class HlavniOkno(QMainWindow):
     
         # Nyní můžeš bezpečně přidávat nové tabulky
         self.tabulky.clear()
+        self.checkboxy.clear()
+        
         for mistnost in ordinace:
+            # Vytvoření checkboxu pro status bar
+            checkbox = QCheckBox(mistnost)
+            checkbox.setChecked(True)  # Defaultně zaškrtnuto (tabulka viditelná)
+            checkbox.setStyleSheet("""
+                QCheckBox {
+                    font-weight: bold;
+                    font-size: 12px;
+                    padding: 2px 4px;
+                    background-color: #f0f0f0;
+                    border-radius: 3px;
+                    margin: 1px;
+                }
+                QCheckBox::indicator {
+                    width: 16px;
+                    height: 16px;
+                }
+            """)
+            
+            # Připojení checkboxu k funkci pro skrývání/zobrazování
+            checkbox.toggled.connect(partial(self.toggle_tabulka_visibility, mistnost))
+            
+            # Přidání checkboxu do status baru
+            self.checkboxy_layout.addWidget(checkbox)
+            self.checkboxy[mistnost] = checkbox
+            
+            # Zbytek kódu zůstává stejný
             tabulka = QTableWidget()
             tabulka.setEditTriggers(QTableWidget.NoEditTriggers)  # Zakázat editaci buněk
             tabulka.setSelectionMode(QAbstractItemView.NoSelection) # Zakázat výběr buněk
@@ -247,7 +295,14 @@ class HlavniOkno(QMainWindow):
             self.tabulky[mistnost] = tabulka
         self.nacti_rezervace()
 
-    
+    def toggle_tabulka_visibility(self, mistnost, checked):
+        """Skryje nebo zobrazí tabulku podle stavu checkboxu."""
+        if mistnost in self.tabulky:
+            tabulka = self.tabulky[mistnost]
+            if checked:
+                tabulka.show()
+            else:
+                tabulka.hide()
     
     def add_logo(self):
         # Logo vlevo
@@ -703,7 +758,9 @@ class HlavniOkno(QMainWindow):
               # Vlož data rezervace
               if rezervace_pro_cas:
                 for rez in rezervace_pro_cas:
-                  tabulka.setItem(index, 0, QTableWidgetItem(cas_str))
+                  cas_item = QTableWidgetItem(cas_str)
+                  
+                  tabulka.setItem(index, 0, cas_item)
                   
                   # Zobraz čas od-do pro víceřádkové rezervace
                   cas_od_str = rez[0].strftime("%H:%M")
@@ -741,7 +798,6 @@ class HlavniOkno(QMainWindow):
                           <tr><td>📞 Kontakt:</td><td style="font-weight: bold; padding-top:1px">{rez[7]}</td></tr>
                           <tr><td>📝 Poznámka:</td><td style="font-weight: bold; padding-top:1px">{rez[9]}</td></tr>
                       </tbody>  
-                      </table>
                       """
                   doktor_item.setToolTip(tooltip_html)
 

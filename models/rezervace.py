@@ -116,7 +116,7 @@ def rezervace_pro_ordinaci(ordinace_id):
         SELECT 
             Rezervace.rezervace_id AS id,
             Rezervace.termin AS Termin,
-            Rezervace.cas AS Cas,
+            Rezervace.cas_od AS Cas,
             Ordinace.nazev AS Ordinace
         FROM Rezervace
         INNER JOIN Ordinace ON Rezervace.ordinace_id = Ordinace.ordinace_id
