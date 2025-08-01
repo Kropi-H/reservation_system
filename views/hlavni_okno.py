@@ -223,12 +223,20 @@ class HlavniOkno(QMainWindow):
 
         # Záložky pro jednotlivé ordinace
         self.tabulky = {} # mistnost -> QTableWidget
-        self.ordinace_layout = QHBoxLayout()  
         
-
+        # Vytvoření pevného kontejneru pro ordinace
+        self.ordinace_container = QWidget()
+        self.ordinace_container.setMinimumHeight(1000)  # Pevná minimální výška
+        # self.ordinace_container.setMaximumHeight(800)  # Pevná maximální výška
+        
+        self.ordinace_layout = QHBoxLayout(self.ordinace_container)
+        self.ordinace_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # Přidání kontejneru místo přímého layoutu
+        layout.addWidget(self.ordinace_container)
+        
         self.aktualizuj_tabulku_ordinaci_layout()
-        layout.addLayout(self.ordinace_layout)
-        self.setLayout(layout)
+        # Odstraň tento řádek: layout.addLayout(self.ordinace_layout)
         self.nacti_rezervace()
         
         self.setCentralWidget(central_widget)
