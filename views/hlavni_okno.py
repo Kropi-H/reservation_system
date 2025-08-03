@@ -1,7 +1,8 @@
 import re
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QLabel, 
                                QDateEdit, QHBoxLayout, QTableWidget, QApplication, QMessageBox,
-                               QTableWidgetItem, QMenuBar, QMenu, QMainWindow, QAbstractItemView, QSystemTrayIcon, QCheckBox)
+                               QTableWidgetItem, QMenuBar, QMenu, QMainWindow, QAbstractItemView,
+                               QSystemTrayIcon, QCheckBox, QInputDialog, QTabWidget)
 from PySide6.QtCore import QDate, QLocale, QTimer, Qt
 from PySide6.QtGui import QColor, QPixmap, QAction, QFont, QIcon
 from views.formular_rezervace import FormularRezervace
@@ -25,6 +26,7 @@ from controllers.data import basic_style
 import os
 from models.rezervace import smaz_rezervace_starsi_nez
 from models.settings import get_settings
+from chat.chat_widget import ChatWidget
 
 # Smazání rezervací starších než nastavený počet dní
 smaz_rezervace_starsi_nez(get_settings("days_to_keep"))
@@ -53,8 +55,7 @@ class HlavniOkno(QMainWindow):
         self.logo_layout = QHBoxLayout()
         self.add_logo()
         
-        
-        horni_radek = QHBoxLayout()  # <-- Přesuňte sem vytvoření horni_radek
+        horni_radek = QHBoxLayout()
         self.doktori_layout = QHBoxLayout()
         self.aktualizuj_doktori_layout()
         
@@ -224,19 +225,34 @@ class HlavniOkno(QMainWindow):
         # Záložky pro jednotlivé ordinace
         self.tabulky = {} # mistnost -> QTableWidget
         
-        # Vytvoření pevného kontejneru pro ordinace
+        # Vytvoření pevného kontejneru pro ordinace a chat
         self.ordinace_container = QWidget()
-        self.ordinace_container.setMinimumHeight(1000)  # Pevná minimální výška
-        # self.ordinace_container.setMaximumHeight(800)  # Pevná maximální výška
+        # Odstranění pevné výšky kontejneru
+        # self.ordinace_container.setMinimumHeight(1000)  # Odstraňte tento řádek
         
         self.ordinace_layout = QHBoxLayout(self.ordinace_container)
         self.ordinace_layout.setContentsMargins(5, 5, 5, 5)
+        self.ordinace_layout.setSpacing(10)  # Přidání spacing mezi sloupci
         
-        # Přidání kontejneru místo přímého layoutu
+        # Inicializace chatu - ale nepřidávaj ho do layoutu ještě
+        name, ok = QInputDialog.getText(self, "Uživatel", "Zadej jméno do chatu:")
+        if not ok or not name:
+            name = "Uživatel"
+        self.chat = ChatWidget(username=name, server_host='127.0.0.1')
+        
+        # Nastavení velikosti chatu
+        self.chat.setMinimumWidth(300)
+        self.chat.setMaximumWidth(450)  # Trochu větší maximální šířka
+        # Odstranění pevné výšky - nechte chat růst s oknem
+        # self.chat.setMinimumHeight(600)  # Odstraňte tento řádek
+        
+        # Nastavení size policy pro lepší chování
+        from PySide6.QtWidgets import QSizePolicy
+        self.chat.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        
         layout.addWidget(self.ordinace_container)
         
         self.aktualizuj_tabulku_ordinaci_layout()
-        # Odstraň tento řádek: layout.addLayout(self.ordinace_layout)
         self.nacti_rezervace()
         
         self.setCentralWidget(central_widget)
@@ -251,11 +267,11 @@ class HlavniOkno(QMainWindow):
             if widget is not None:
                 widget.deleteLater()
         
-        # Odstraň všechny widgety z layoutu
+        # Odstraň všechny widgety z layoutu (včetně chatu)
         while self.ordinace_layout.count():
             item = self.ordinace_layout.takeAt(0)
             widget = item.widget()
-            if widget is not None:
+            if widget is not None and widget != self.chat:  # Neodstraňuj chat widget
                 widget.deleteLater()
     
         # Nyní můžeš bezpečně přidávat nové tabulky
@@ -301,7 +317,40 @@ class HlavniOkno(QMainWindow):
             tabulka.cellDoubleClicked.connect(partial(self.zpracuj_dvojklik, mistnost))
             self.ordinace_layout.addWidget(tabulka)
             self.tabulky[mistnost] = tabulka
+            
+        # Přidání checkboxu pro chat
+        chat_checkbox = QCheckBox("Chat")
+        chat_checkbox.setChecked(True)  # Chat defaultně viditelný
+        chat_checkbox.setStyleSheet("""
+            QCheckBox {
+                font-weight: bold;
+                font-size: 12px;
+                padding: 2px 4px;
+                background-color: #e8f5e8;
+                border-radius: 3px;
+                margin: 1px;
+                color: #2e7d32;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+            }
+        """)
+        chat_checkbox.toggled.connect(self.toggle_chat_visibility)
+        self.checkboxy_layout.addWidget(chat_checkbox)
+        self.checkboxy["Chat"] = chat_checkbox
+        
+        # Přidání chatu jako posledního sloupce
+        self.ordinace_layout.addWidget(self.chat)
+        
         self.nacti_rezervace()
+
+    def toggle_chat_visibility(self, checked):
+        """Skryje nebo zobrazí chat podle stavu checkboxu."""
+        if checked:
+            self.chat.show()
+        else:
+            self.chat.hide()
 
     def toggle_tabulka_visibility(self, mistnost, checked):
         """Skryje nebo zobrazí tabulku podle stavu checkboxu."""
