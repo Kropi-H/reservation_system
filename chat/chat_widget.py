@@ -20,18 +20,28 @@ class ReceiverThread(QThread):
         self.running = True
 
     def run(self):
+        print("ReceiverThread: Spouštím receiver thread")
         while self.running:
             try:
+                print("ReceiverThread: Čekám na data...")
+                # Použijeme timeout pro recv aby thread neskončil
+                self.sock.settimeout(1.0)
                 data = self.sock.recv(1024)
+                self.sock.settimeout(None)
+                
                 if not data:
                     print("ReceiverThread: Žádná data - spojení ukončeno")
                     self.connection_lost.emit()
                     break
                 
                 message = data.decode('utf-8', errors='ignore')
-                print(f"ReceiverThread: Přijata zpráva: {message}")
+                print(f"ReceiverThread: Přijata zpráva: '{message}' (délka: {len(message)})")
                 self.message_received.emit(message)
+                print("ReceiverThread: Signal message_received emitted")
                 
+            except socket.timeout:
+                # Timeout je normální, pokračujeme
+                continue
             except socket.error as e:
                 print(f"ReceiverThread: Socket error: {e}")
                 self.connection_lost.emit()
@@ -40,8 +50,11 @@ class ReceiverThread(QThread):
                 print(f"ReceiverThread: Unexpected error: {e}")
                 logging.error(f"Receiver thread error: {e}")
                 break
+        
+        print("ReceiverThread: Končím receiver thread")
 
     def stop(self):
+        print("ReceiverThread: Zastavuji thread")
         self.running = False
         if self.sock:
             try:
@@ -277,11 +290,18 @@ class ChatWidget(QWidget):
         self.show_message("TEST: Připojení úspěšné!")
 
     def show_message(self, msg):
-        print(f"ChatWidget: show_message volána s: {msg}")
+        print(f"ChatWidget: show_message volána s: '{msg}' (délka: {len(msg)})")
         try:
             self.chat_area.addItem(msg)
             self.chat_area.scrollToBottom()
             print(f"ChatWidget: Zpráva přidána do chat_area. Celkem položek: {self.chat_area.count()}")
+            
+            # Ujistěte se, že widget je viditelný
+            if not self.chat_area.isVisible():
+                print("ChatWidget: VAROVÁNÍ - chat_area není viditelný!")
+            if not self.isVisible():
+                print("ChatWidget: VAROVÁNÍ - ChatWidget není viditelný!")
+                
         except Exception as e:
             print(f"ChatWidget: Chyba při zobrazování zprávy: {e}")
 
