@@ -216,10 +216,18 @@ class ChatWidget(QWidget):
 
             # Připojení úspěšné
             self.receiver = ReceiverThread(self.sock)
-            self.receiver.message_received.connect(self.show_message)
-            self.receiver.connection_lost.connect(self.on_connection_lost)
+            
+            # EXPLICIT CONNECTION - použijeme Qt.QueuedConnection
+            from PySide6.QtCore import Qt
+            self.receiver.message_received.connect(self.show_message, Qt.QueuedConnection)
+            self.receiver.connection_lost.connect(self.on_connection_lost, Qt.QueuedConnection)
+            
+            print("ChatWidget: Signály připojeny")
             self.receiver.start()
             print("ChatWidget: ReceiverThread spuštěn")
+
+            # Test připojení - odešli test zprávu ihned po připojení
+            QTimer.singleShot(1000, self.test_message_display)
 
             self.enable_chat()
             
@@ -263,6 +271,20 @@ class ChatWidget(QWidget):
             if self.connection_attempts < self.max_attempts:
                 self.reconnect_timer.start()
 
+    def test_message_display(self):
+        """Test funkce pro přímé zobrazení zprávy"""
+        print("ChatWidget: Test - přidávám zprávu přímo do GUI")
+        self.show_message("TEST: Připojení úspěšné!")
+
+    def show_message(self, msg):
+        print(f"ChatWidget: show_message volána s: {msg}")
+        try:
+            self.chat_area.addItem(msg)
+            self.chat_area.scrollToBottom()
+            print(f"ChatWidget: Zpráva přidána do chat_area. Celkem položek: {self.chat_area.count()}")
+        except Exception as e:
+            print(f"ChatWidget: Chyba při zobrazování zprávy: {e}")
+
     def on_connection_lost(self):
         """Handle connection lost signal from receiver thread"""
         print("ChatWidget: Spojení ztraceno")
@@ -298,11 +320,6 @@ class ChatWidget(QWidget):
                 self.status_label.setText("Stav: Odeslání selhalo")
                 self.disable_chat()
                 self.reconnect_timer.start()
-
-    def show_message(self, msg):
-        print(f"ChatWidget: Zobrazuji zprávu v GUI: {msg}")
-        self.chat_area.addItem(msg)
-        self.chat_area.scrollToBottom()
 
     def closeEvent(self, event):
         """Ukončení widgetu - zastavit timery a ukončit server pokud byl spuštěn"""
