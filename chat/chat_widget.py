@@ -267,8 +267,7 @@ class ChatWidget(QWidget):
         msg = self.message_input.text().strip()
         if msg and self.sock:
             try:
-                current_time = datetime.now().strftime("%H:%M:%S")
-                # ZMĚNA: Použijeme stejný formát jako ostatní klienti
+                # Použijeme stejný formát jako chat_client_gui.py
                 full_msg = f"{self.username}: {msg}"
                 print(f"ChatWidget: Odesílám zprávu: {full_msg}")
                 self.sock.sendall(full_msg.encode('utf-8'))
