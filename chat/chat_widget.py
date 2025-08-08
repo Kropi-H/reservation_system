@@ -1,11 +1,14 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget,
-    QLineEdit, QPushButton, QLabel, QSizePolicy  # Přidejte QSizePolicy
+    QLineEdit, QPushButton, QLabel, QSizePolicy
 )
 from PySide6.QtCore import QThread, Signal, QTimer
 from datetime import datetime
 import socket
 import logging
+import subprocess
+import sys
+import os
 
 class ReceiverThread(QThread):
     message_received = Signal(str)
@@ -38,7 +41,7 @@ class ReceiverThread(QThread):
                 self.sock.shutdown(socket.SHUT_RDWR)
             except:
                 pass
-        self.wait(3000)  # Wait max 3 seconds
+        self.wait(3000)
 
 class ChatWidget(QWidget):
     def __init__(self, username, server_host='127.0.0.1', server_port=12345):
@@ -49,7 +52,9 @@ class ChatWidget(QWidget):
         self.sock = None
         self.receiver = None
         self.connection_attempts = 0
-        self.max_attempts = 5
+        self.max_attempts = 3  # Sníženo pro rychlejší detekci
+        self.server_process = None  # Pro sledování procesu serveru
+        self.server_started_by_me = False  # Flag zda jsem spustil server
 
         # UI prvky
         self.chat_area = QListWidget()
@@ -80,9 +85,7 @@ class ChatWidget(QWidget):
         # Layout
         layout = QVBoxLayout()
         layout.addWidget(self.status_label)
-        
-        # Chat area by měla zabírat většinu prostoru
-        layout.addWidget(self.chat_area, 1)  # stretch factor 1 = zabere maximum prostoru
+        layout.addWidget(self.chat_area, 1)
         
         input_layout = QHBoxLayout()
         input_layout.addWidget(self.message_input)
@@ -91,30 +94,63 @@ class ChatWidget(QWidget):
         layout.addLayout(input_layout)
         layout.addWidget(self.retry_button)
         
-        # Nastavení margínů a spacing pro lepší vzhled
         layout.setContentsMargins(5, 5, 5, 5)
-        layout.setSpacing(8)  # Zvětšený spacing
+        layout.setSpacing(8)
         
         self.setLayout(layout)
         
-        # Nastavení minimální velikosti widgetu - DŮLEŽITÉ!
-        self.setMinimumSize(300, 500)  # Zvětšená minimální výška
+        self.setMinimumSize(300, 500)
         self.setSizePolicy(
-            QSizePolicy.Expanding,  # Horizontálně se může rozšiřovat
-            QSizePolicy.Expanding   # Vertikálně se může rozšiřovat
+            QSizePolicy.Expanding,
+            QSizePolicy.Expanding
         )
 
         # Timer pro automatické pokusy o připojení
         self.reconnect_timer = QTimer()
-        self.reconnect_timer.setInterval(5000)  # každých 5 s
+        self.reconnect_timer.setInterval(2000)  # Zkráceno na 2 sekundy
         self.reconnect_timer.timeout.connect(self.try_connect)
 
         self.disable_chat()
         self.try_connect()
 
-    def try_connect(self):
-        if self.connection_attempts >= self.max_attempts:
-            self.status_label.setText(f"Stav: Připojení selhalo ({self.max_attempts} pokusů)")
+    def start_server(self):
+        """Spustí chat server jako samostatný proces."""
+        if self.server_started_by_me:
+            return
+            
+        try:
+            # Cesta k chat_server.py
+            script_dir = os.path.dirname(__file__)
+            server_script = os.path.join(script_dir, "chat_server.py")
+            
+            if not os.path.exists(server_script):
+                self.status_label.setText("Stav: Soubor chat_server.py nenalezen")
+                return
+            
+            # Spuštění serveru jako subprocess
+            self.server_process = subprocess.Popen([
+                sys.executable, server_script
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            self.server_started_by_me = True
+            self.status_label.setText("Stav: Spouštím vlastní server...")
+            self.status_label.setStyleSheet("""
+                QLabel {
+                    background-color: #fff3cd;
+                    color: #856404;
+                    padding: 5px;
+                    border: 1px solid #ffeaa7;
+                    border-radius: 3px;
+                    font-weight: bold;
+                }
+            """)
+            
+            # Počkej chvilku a zkus se připojit
+            QTimer.singleShot(3000, self.try_connect_after_server_start)
+            
+        except Exception as e:
+            logging.error(f"Nepodařilo se spustit server: {e}")
+            self.status_label.setText("Stav: Chyba při spouštění serveru")
             self.status_label.setStyleSheet("""
                 QLabel {
                     background-color: #f8d7da;
@@ -125,8 +161,34 @@ class ChatWidget(QWidget):
                     font-weight: bold;
                 }
             """)
-            self.reconnect_timer.stop()
-            return
+
+    def try_connect_after_server_start(self):
+        """Pokus o připojení po spuštění serveru."""
+        self.connection_attempts = 0  # Reset pokusů
+        self.max_attempts = 5  # Více pokusů po spuštění serveru
+        self.try_connect()
+
+    def try_connect(self):
+        if self.connection_attempts >= self.max_attempts:
+            if not self.server_started_by_me:
+                # Pokud jsme se nepřipojili a server ještě nebyl spuštěn
+                self.status_label.setText("Stav: Server nedostupný, spouštím vlastní...")
+                self.start_server()
+                return
+            else:
+                self.status_label.setText(f"Stav: Připojení selhalo i po spuštění serveru")
+                self.status_label.setStyleSheet("""
+                    QLabel {
+                        background-color: #f8d7da;
+                        color: #721c24;
+                        padding: 5px;
+                        border: 1px solid #f5c6cb;
+                        border-radius: 3px;
+                        font-weight: bold;
+                    }
+                """)
+                self.reconnect_timer.stop()
+                return
             
         self.connection_attempts += 1
         
@@ -150,7 +212,13 @@ class ChatWidget(QWidget):
             self.receiver.start()
 
             self.enable_chat()
-            self.status_label.setText("Stav: Připojeno")
+            
+            # Zobraz správný status podle toho, zda jsme spustili server
+            if self.server_started_by_me:
+                self.status_label.setText("Stav: Připojeno (vlastní server)")
+            else:
+                self.status_label.setText("Stav: Připojeno")
+                
             self.status_label.setStyleSheet("""
                 QLabel {
                     background-color: #d4edda;
@@ -166,7 +234,11 @@ class ChatWidget(QWidget):
             
         except Exception as e:
             self.disable_chat()
-            self.status_label.setText(f"Stav: Nepřipojeno (pokus {self.connection_attempts}/{self.max_attempts})")
+            if self.server_started_by_me:
+                self.status_label.setText(f"Stav: Připojování k vlastnímu serveru... ({self.connection_attempts}/{self.max_attempts})")
+            else:
+                self.status_label.setText(f"Stav: Nepřipojeno ({self.connection_attempts}/{self.max_attempts})")
+                
             self.status_label.setStyleSheet("""
                 QLabel {
                     background-color: #f8d7da;
@@ -184,7 +256,8 @@ class ChatWidget(QWidget):
         """Handle connection lost signal from receiver thread"""
         self.disable_chat()
         self.status_label.setText("Stav: Spojení ztraceno, zkouším znovu...")
-        self.connection_attempts = 0  # Reset attempts on connection loss
+        self.connection_attempts = 0
+        self.max_attempts = 3  # Reset na původní hodnotu
         self.reconnect_timer.start()
 
     def enable_chat(self):
@@ -219,6 +292,7 @@ class ChatWidget(QWidget):
         self.chat_area.scrollToBottom()
 
     def closeEvent(self, event):
+        """Ukončení widgetu - zastavit timery a ukončit server pokud byl spuštěn"""
         self.reconnect_timer.stop()
         if self.receiver:
             self.receiver.stop()
@@ -227,4 +301,16 @@ class ChatWidget(QWidget):
                 self.sock.close()
             except:
                 pass
+        
+        # Ukončit server pokud byl spuštěn tímto widgetem
+        if self.server_started_by_me and self.server_process:
+            try:
+                self.server_process.terminate()
+                self.server_process.wait(timeout=3)
+            except:
+                try:
+                    self.server_process.kill()
+                except:
+                    pass
+                    
         event.accept()
