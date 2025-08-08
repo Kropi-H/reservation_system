@@ -22,6 +22,7 @@ class ChatServer:
                     client, addr = self.server.accept()
                     print(f"Připojen klient: {addr}")
                     self.clients.append(client)
+                    print(f"Celkem připojených klientů: {len(self.clients)}")
                     
                     thread = threading.Thread(target=self.handle_client, args=(client,))
                     thread.daemon = True
@@ -35,21 +36,26 @@ class ChatServer:
             self.server.close()
 
     def handle_client(self, client):
+        print(f"Spouštím handler pro klienta: {client}")
         while self.running:
             try:
+                print(f"Čekám na zprávu od klienta: {client}")
                 message = client.recv(1024)
                 if not message:
+                    print(f"Žádná zpráva od klienta: {client} - odpojuji")
                     break
                     
-                print(f"Přijata zpráva: {message.decode('utf-8', errors='ignore')}")
+                decoded_message = message.decode('utf-8', errors='ignore')
+                print(f"Přijata zpráva od {client}: '{decoded_message}'")
+                
                 # Přepošli zprávu všem klientům
                 self.broadcast(message, client)
                 
             except socket.error as e:
-                print(f"Client error: {e}")
+                print(f"Client error pro {client}: {e}")
                 break
             except Exception as e:
-                print(f"Unexpected error: {e}")
+                print(f"Unexpected error pro {client}: {e}")
                 break
                 
         # Odstranit klienta ze seznamu při odpojení
@@ -59,18 +65,24 @@ class ChatServer:
             client.close()
         except:
             pass
-        print(f"Klient odpojen. Zbývá klientů: {len(self.clients)}")
+        print(f"Klient {client} odpojen. Zbývá klientů: {len(self.clients)}")
 
     def broadcast(self, message, sender):
-        print(f"Broadcastuji zprávu {len(self.clients)} klientům")
+        print(f"=== BROADCAST START ===")
+        print(f"Zpráva: {message}")
+        print(f"Odesílatel: {sender}")
+        print(f"Počet klientů: {len(self.clients)}")
+        print(f"Seznam klientů: {self.clients}")
+        
         disconnected_clients = []
         
-        for client in self.clients:
+        for i, client in enumerate(self.clients):
+            print(f"Posílám zprávu klientovi #{i}: {client}")
             try:
                 client.send(message)
-                print(f"Zpráva odeslána klientovi")
+                print(f"✓ Zpráva úspěšně odeslána klientovi #{i}")
             except Exception as e:
-                print(f"Chyba při odesílání: {e}")
+                print(f"✗ Chyba při odesílání klientovi #{i}: {e}")
                 disconnected_clients.append(client)
         
         # Odstranit odpojené klienty
@@ -81,6 +93,8 @@ class ChatServer:
                 client.close()
             except:
                 pass
+        
+        print(f"=== BROADCAST END ===")
 
     def stop(self):
         self.running = False
