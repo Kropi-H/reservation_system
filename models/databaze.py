@@ -2,13 +2,23 @@ import sqlite3
 import os
 from config import get_database_path_from_config, save_database_path_to_config
 
+# Určení kořenového adresáře projektu
+# models/databaze.py -> models/ -> project_root/
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 DB = get_database_path_from_config()
-if not DB:
-    DB = "veterina.db"
+
+def get_connection():
+    conn = sqlite3.connect(DB)
+    conn.execute("PRAGMA foreign_keys = ON;")
+    return conn
 
 def set_database_path(path):
     """Nastaví cestu k databázi."""
     global DB
+    # Pokud je path relativní, převeď na absolutní vzhledem k PROJECT_ROOT
+    if not os.path.isabs(path):
+        path = os.path.join(PROJECT_ROOT, path)
     DB = path
     save_database_path_to_config(path)
 
@@ -130,11 +140,6 @@ def inicializuj_databazi():
 
         conn.commit()
         
-        
-def get_connection():
-    conn = sqlite3.connect(DB)
-    conn.execute("PRAGMA foreign_keys = ON;")
-    return conn
 
 def get_or_create(cur, table, unique_cols, data_cols):
     """
@@ -193,3 +198,23 @@ def get_user_by_username(username):
             return {'username': row[0], 'password_hash': row[1], 'role': row[2]}
         return None
       
+# Na konci souboru místo `if not DB:`
+if not DB:
+    DB = os.path.join(PROJECT_ROOT, "veterina.db")
+
+# Vždy zkontroluj, zda databáze existuje a je inicializovaná
+if not os.path.exists(DB):
+    print(f"Vytvářím databázi: {DB}")
+    inicializuj_databazi()
+else:
+    # Zkontroluj, zda má tabulky
+    try:
+        with get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='Doktori'")
+            if not cur.fetchone():
+                print("Databáze existuje, ale chybí tabulky. Inicializuji...")
+                inicializuj_databazi()
+    except Exception as e:
+        print(f"Chyba při kontrole databáze: {e}")
+        inicializuj_databazi()
