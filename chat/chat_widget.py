@@ -24,13 +24,20 @@ class ReceiverThread(QThread):
             try:
                 data = self.sock.recv(1024)
                 if not data:
+                    print("ReceiverThread: Žádná data - spojení ukončeno")
                     self.connection_lost.emit()
                     break
-                self.message_received.emit(data.decode())
-            except socket.error:
+                
+                message = data.decode('utf-8', errors='ignore')
+                print(f"ReceiverThread: Přijata zpráva: {message}")
+                self.message_received.emit(message)
+                
+            except socket.error as e:
+                print(f"ReceiverThread: Socket error: {e}")
                 self.connection_lost.emit()
                 break
             except Exception as e:
+                print(f"ReceiverThread: Unexpected error: {e}")
                 logging.error(f"Receiver thread error: {e}")
                 break
 
@@ -191,6 +198,7 @@ class ChatWidget(QWidget):
                 return
             
         self.connection_attempts += 1
+        print(f"ChatWidget: Pokus o připojení #{self.connection_attempts}")
         
         try:
             # Cleanup existing connections
@@ -204,12 +212,14 @@ class ChatWidget(QWidget):
             self.sock.settimeout(2.0)
             self.sock.connect((self.server_host, self.server_port))
             self.sock.settimeout(None)
+            print(f"ChatWidget: Úspěšně připojeno k {self.server_host}:{self.server_port}")
 
             # Připojení úspěšné
             self.receiver = ReceiverThread(self.sock)
             self.receiver.message_received.connect(self.show_message)
             self.receiver.connection_lost.connect(self.on_connection_lost)
             self.receiver.start()
+            print("ChatWidget: ReceiverThread spuštěn")
 
             self.enable_chat()
             
@@ -233,6 +243,7 @@ class ChatWidget(QWidget):
             self.connection_attempts = 0
             
         except Exception as e:
+            print(f"ChatWidget: Chyba při připojování: {e}")
             self.disable_chat()
             if self.server_started_by_me:
                 self.status_label.setText(f"Stav: Připojování k vlastnímu serveru... ({self.connection_attempts}/{self.max_attempts})")
@@ -254,6 +265,7 @@ class ChatWidget(QWidget):
 
     def on_connection_lost(self):
         """Handle connection lost signal from receiver thread"""
+        print("ChatWidget: Spojení ztraceno")
         self.disable_chat()
         self.status_label.setText("Stav: Spojení ztraceno, zkouším znovu...")
         self.connection_attempts = 0
@@ -280,19 +292,21 @@ class ChatWidget(QWidget):
                 full_msg = f"[{current_time}] {self.username}: {msg}"
                 self.sock.sendall(full_msg.encode('utf-8'))
                 self.message_input.clear()
-                print(f"Odesílám zprávu: {full_msg}")
+                print(f"ChatWidget: Odesílám zprávu: {full_msg}")
             except Exception as e:
-                print(f"Chyba při odesílání: {e}")
+                print(f"ChatWidget: Chyba při odesílání: {e}")
                 self.status_label.setText("Stav: Odeslání selhalo")
                 self.disable_chat()
                 self.reconnect_timer.start()
 
     def show_message(self, msg):
+        print(f"ChatWidget: Zobrazuji zprávu v GUI: {msg}")
         self.chat_area.addItem(msg)
         self.chat_area.scrollToBottom()
 
     def closeEvent(self, event):
         """Ukončení widgetu - zastavit timery a ukončit server pokud byl spuštěn"""
+        print("ChatWidget: Ukončování...")
         self.reconnect_timer.stop()
         if self.receiver:
             self.receiver.stop()
