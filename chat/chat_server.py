@@ -41,28 +41,58 @@ class ChatServer:
                 if not message:
                     break
                     
+                print(f"Přijata zpráva: {message.decode('utf-8', errors='ignore')}")
                 # Přepošli zprávu všem klientům
                 self.broadcast(message, client)
                 
-            except socket.error:
+            except socket.error as e:
+                print(f"Client error: {e}")
+                break
+            except Exception as e:
+                print(f"Unexpected error: {e}")
                 break
                 
-        self.clients.remove(client)
-        client.close()
+        # Odstranit klienta ze seznamu při odpojení
+        if client in self.clients:
+            self.clients.remove(client)
+        try:
+            client.close()
+        except:
+            pass
+        print(f"Klient odpojen. Zbývá klientů: {len(self.clients)}")
 
     def broadcast(self, message, sender):
-        for client in self.clients[:]:  # Copy list to avoid modification during iteration
-            # ZMĚNA: posílat zprávy VŠEM klientům včetně odesílatele
+        print(f"Broadcastuji zprávu {len(self.clients)} klientům")
+        disconnected_clients = []
+        
+        for client in self.clients:
             try:
                 client.send(message)
-            except:
+                print(f"Zpráva odeslána klientovi")
+            except Exception as e:
+                print(f"Chyba při odesílání: {e}")
+                disconnected_clients.append(client)
+        
+        # Odstranit odpojené klienty
+        for client in disconnected_clients:
+            if client in self.clients:
                 self.clients.remove(client)
+            try:
+                client.close()
+            except:
+                pass
 
     def stop(self):
         self.running = False
         for client in self.clients:
-            client.close()
-        self.server.close()
+            try:
+                client.close()
+            except:
+                pass
+        try:
+            self.server.close()
+        except:
+            pass
 
 if __name__ == "__main__":
     server = ChatServer()

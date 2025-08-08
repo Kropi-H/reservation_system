@@ -277,12 +277,12 @@ class ChatWidget(QWidget):
         if msg and self.sock:
             try:
                 current_time = datetime.now().strftime("%H:%M:%S")
-                full_msg = f"{current_time}:\n{self.username}: {msg}"
+                full_msg = f"[{current_time}] {self.username}: {msg}"
                 self.sock.sendall(full_msg.encode('utf-8'))
                 self.message_input.clear()
-                # Zobrazit vlastní zprávu lokálně
-                # self.show_message(full_msg)
+                print(f"Odesílám zprávu: {full_msg}")
             except Exception as e:
+                print(f"Chyba při odesílání: {e}")
                 self.status_label.setText("Stav: Odeslání selhalo")
                 self.disable_chat()
                 self.reconnect_timer.start()
