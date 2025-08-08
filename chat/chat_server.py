@@ -52,11 +52,11 @@ class ChatServer:
 
     def broadcast(self, message, sender):
         for client in self.clients[:]:  # Copy list to avoid modification during iteration
-            if client != sender:
-                try:
-                    client.send(message)
-                except:
-                    self.clients.remove(client)
+            # ZMĚNA: posílat zprávy VŠEM klientům včetně odesílatele
+            try:
+                client.send(message)
+            except:
+                self.clients.remove(client)
 
     def stop(self):
         self.running = False

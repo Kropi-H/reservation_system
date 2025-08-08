@@ -281,7 +281,7 @@ class ChatWidget(QWidget):
                 self.sock.sendall(full_msg.encode('utf-8'))
                 self.message_input.clear()
                 # Zobrazit vlastní zprávu lokálně
-                self.show_message(full_msg)
+                # self.show_message(full_msg)
             except Exception as e:
                 self.status_label.setText("Stav: Odeslání selhalo")
                 self.disable_chat()
