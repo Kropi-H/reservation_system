@@ -20,14 +20,16 @@ class ChatServer:
             while self.running:
                 try:
                     client, addr = self.server.accept()
-                    print(f"Připojen klient: {addr}")
+                    print(f"PŘIPOJEN KLIENT: {addr}")
                     self.clients.append(client)
-                    print(f"Celkem připojených klientů: {len(self.clients)}")
+                    print(f"CELKEM KLIENTŮ: {len(self.clients)}")
                     
                     thread = threading.Thread(target=self.handle_client, args=(client,))
                     thread.daemon = True
                     thread.start()
-                except socket.error:
+                    print(f"THREAD SPUŠTĚN PRO KLIENTA: {addr}")
+                except socket.error as e:
+                    print(f"Socket error v main loop: {e}")
                     break
                     
         except Exception as e:
@@ -36,26 +38,26 @@ class ChatServer:
             self.server.close()
 
     def handle_client(self, client):
-        print(f"Spouštím handler pro klienta: {client}")
+        print(f"HANDLER SPUŠTĚN pro klienta: {client}")
         while self.running:
             try:
-                print(f"Čekám na zprávu od klienta: {client}")
+                print(f"ČEKÁM NA ZPRÁVU od: {client}")
                 message = client.recv(1024)
                 if not message:
-                    print(f"Žádná zpráva od klienta: {client} - odpojuji")
+                    print(f"PRÁZDNÁ ZPRÁVA - odpojuji: {client}")
                     break
                     
                 decoded_message = message.decode('utf-8', errors='ignore')
-                print(f"Přijata zpráva od {client}: '{decoded_message}'")
+                print(f"PŘIJATA ZPRÁVA: '{decoded_message}'")
                 
                 # Přepošli zprávu všem klientům
                 self.broadcast(message, client)
                 
             except socket.error as e:
-                print(f"Client error pro {client}: {e}")
+                print(f"Socket error v handle_client: {e}")
                 break
             except Exception as e:
-                print(f"Unexpected error pro {client}: {e}")
+                print(f"Neočekávaná chyba v handle_client: {e}")
                 break
                 
         # Odstranit klienta ze seznamu při odpojení
@@ -65,22 +67,20 @@ class ChatServer:
             client.close()
         except:
             pass
-        print(f"Klient {client} odpojen. Zbývá klientů: {len(self.clients)}")
+        print(f"KLIENT ODPOJEN. Zbývá: {len(self.clients)}")
 
     def broadcast(self, message, sender):
         print(f"=== BROADCAST START ===")
-        print(f"Zpráva: {message}")
-        print(f"Odesílatel: {sender}")
-        print(f"Počet klientů: {len(self.clients)}")
-        print(f"Seznam klientů: {self.clients}")
+        print(f"Zpráva k odeslání: {message}")
+        print(f"Počet příjemců: {len(self.clients)}")
         
         disconnected_clients = []
         
         for i, client in enumerate(self.clients):
-            print(f"Posílám zprávu klientovi #{i}: {client}")
+            print(f"Posílám zprávu klientovi #{i}")
             try:
                 client.send(message)
-                print(f"✓ Zpráva úspěšně odeslána klientovi #{i}")
+                print(f"✓ Odesláno klientovi #{i}")
             except Exception as e:
                 print(f"✗ Chyba při odesílání klientovi #{i}: {e}")
                 disconnected_clients.append(client)
@@ -109,6 +109,7 @@ class ChatServer:
             pass
 
 if __name__ == "__main__":
+    print("Spouštím chat server...")
     server = ChatServer()
     try:
         server.start()

@@ -1,6 +1,7 @@
+import sys
+import socket
 from PySide6.QtWidgets import *
 from PySide6.QtCore import QThread, Signal
-import socket, sys
 
 class ReceiverThread(QThread):
     message_received = Signal(str)
@@ -48,6 +49,7 @@ class ChatClient(QWidget):
         layout.addLayout(input_layout)
         self.setLayout(layout)
 
+        # Připojení signálů
         self.send_button.clicked.connect(self.send_message)
         self.message_input.returnPressed.connect(self.send_message)
 
@@ -55,7 +57,7 @@ class ChatClient(QWidget):
         msg = self.message_input.text().strip()
         if msg:
             full_msg = f"{self.username}: {msg}"
-            self.sock.sendall(full_msg.encode())
+            self.sock.sendall(full_msg.encode('utf-8'))
             self.message_input.clear()
 
     def show_message(self, msg):
@@ -66,7 +68,6 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     name, ok = QInputDialog.getText(None, "Uživatel", "Zadej své jméno:")
     if ok and name:
-        window = ChatClient(name, host="127.0.0.1")  # ← zde změň IP serveru v LAN
-        window.resize(400, 500)
-        window.show()
+        client = ChatClient(name)
+        client.show()
         sys.exit(app.exec())
