@@ -19,6 +19,7 @@ class ReceiverThread(QThread):
         self.sock = sock
         self.running = True
 
+
     def run(self):
         print("ReceiverThread: Spouštím receiver thread")
         while self.running:
