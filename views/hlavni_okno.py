@@ -27,6 +27,7 @@ import os
 from models.rezervace import smaz_rezervace_starsi_nez
 from models.settings import get_settings
 from chat.chat_widget import ChatWidget
+import json  # Přidejte tento import
 
 # Smazání rezervací starších než nastavený počet dní
 smaz_rezervace_starsi_nez(get_settings("days_to_keep"))
@@ -234,17 +235,12 @@ class HlavniOkno(QMainWindow):
         self.ordinace_layout.setContentsMargins(5, 5, 5, 5)
         self.ordinace_layout.setSpacing(10)  # Přidání spacing mezi sloupci
         
-        # Inicializace chatu - ale nepřidávaj ho do layoutu ještě
-        name, ok = QInputDialog.getText(self, "Uživatel", "Zadej jméno do chatu:")
-        if not ok or not name:
-            name = "Uživatel"
-        self.chat = ChatWidget(username=name, server_host='127.0.0.1')
+        # Inicializace chatu pomocí konfigurace
+        self.setup_chat()
         
         # Nastavení velikosti chatu
         self.chat.setMinimumWidth(300)
-        self.chat.setMaximumWidth(450)  # Trochu větší maximální šířka
-        # Odstranění pevné výšky - nechte chat růst s oknem
-        # self.chat.setMinimumHeight(600)  # Odstraňte tento řádek
+        self.chat.setMaximumWidth(450)
         
         # Nastavení size policy pro lepší chování
         from PySide6.QtWidgets import QSizePolicy
@@ -1025,3 +1021,31 @@ class HlavniOkno(QMainWindow):
                 self.show()
                 self.raise_()
                 self.activateWindow()
+
+
+    def setup_chat(self):
+        """Nastavení chat widgetu"""
+        # Načtení konfigurace
+        config_path = os.path.join("chat", "chat_config.json")
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            server_ip = config.get("server_ip", "127.0.0.1")
+            server_port = config.get("server_port", 12345)
+            username = config.get("username", "Uživatel")
+        except:
+            server_ip = "127.0.0.1"
+            server_port = 12345
+            username = "Uživatel"
+        
+        # Pro klienty použijte IP serveru (ne 0.0.0.0)
+        if server_ip == "0.0.0.0":
+            server_ip = "127.0.0.1"  # Klient se připojí na localhost
+        
+        # Pokud je uživatelské jméno defaultní, zeptej se
+        if username == "Uživatel":
+            name, ok = QInputDialog.getText(self, "Uživatel", "Zadej jméno do chatu:")
+            if ok and name:
+                username = name
+                
+        self.chat = ChatWidget(username=username, server_host=server_ip, server_port=server_port)

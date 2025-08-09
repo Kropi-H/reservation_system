@@ -25,17 +25,14 @@ class ReceiverThread(QThread):
             try:
                 print("ReceiverThread: Čekám na data...")
                 data = self.sock.recv(1024)
-                
                 if not data:
                     print("ReceiverThread: Žádná data - spojení ukončeno")
                     self.connection_lost.emit()
                     break
-                
                 message = data.decode('utf-8', errors='ignore')
                 print(f"ReceiverThread: Přijata zpráva: '{message}' (délka: {len(message)})")
                 self.message_received.emit(message)
                 print("ReceiverThread: Signal message_received emitted")
-                
             except socket.error as e:
                 print(f"ReceiverThread: Socket error: {e}")
                 if self.running:
@@ -43,9 +40,7 @@ class ReceiverThread(QThread):
                 break
             except Exception as e:
                 print(f"ReceiverThread: Unexpected error: {e}")
-                logging.error(f"Receiver thread error: {e}")
                 break
-        
         print("ReceiverThread: Končím receiver thread")
 
     def stop(self):
@@ -267,7 +262,6 @@ class ChatWidget(QWidget):
         msg = self.message_input.text().strip()
         if msg and self.sock:
             try:
-                # Použijeme stejný formát jako chat_client_gui.py
                 full_msg = f"{self.username}: {msg}"
                 print(f"ChatWidget: Odesílám zprávu: {full_msg}")
                 self.sock.sendall(full_msg.encode('utf-8'))
