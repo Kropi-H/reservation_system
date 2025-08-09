@@ -1038,14 +1038,18 @@ class HlavniOkno(QMainWindow):
             server_port = 12345
             username = "Uživatel"
         
-        # Pro klienty použijte IP serveru (ne 0.0.0.0)
+        # ZMĚNA: Pro klienty použijte IP serveru
         if server_ip == "0.0.0.0":
-            server_ip = "127.0.0.1"  # Klient se připojí na localhost
-        
+            # Pokud je server na 0.0.0.0, klient se připojí na localhost
+            client_ip = "127.0.0.1"
+        else:
+            # Jinak použij nastavenou IP
+            client_ip = server_ip
+            
         # Pokud je uživatelské jméno defaultní, zeptej se
         if username == "Uživatel":
             name, ok = QInputDialog.getText(self, "Uživatel", "Zadej jméno do chatu:")
             if ok and name:
                 username = name
                 
-        self.chat = ChatWidget(username=username, server_host=server_ip, server_port=server_port)
+        self.chat = ChatWidget(username=username, server_host=client_ip, server_port=server_port)
