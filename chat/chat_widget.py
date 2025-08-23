@@ -131,13 +131,17 @@ class ChatWidget(QWidget):
         """Načte konfiguraci z chat_config.json"""
         try:
             config_path = os.path.join(os.path.dirname(__file__), "chat_config.json")
+            print(f"ChatWidget: Načítám konfiguraci z {config_path}")
             with open(config_path, 'r', encoding='utf-8') as f:
                 self.config = json.load(f)
-        except:
+            print(f"ChatWidget: Konfigurace načtena: {self.config}")
+        except Exception as e:
+            print(f"ChatWidget: Chyba při načítání konfigurace: {e}")
             self.config = {
                 "mode": "client",
                 "auto_start_server": False
             }
+            print(f"ChatWidget: Použitá výchozí konfigurace: {self.config}")
 
     def try_connect(self):
         # Pokud je v konfiguraci režim "server", spusť server PŘED pokusem o připojení
@@ -160,6 +164,11 @@ class ChatWidget(QWidget):
             
         self.connection_attempts += 1
         print(f"ChatWidget: Pokus o připojení #{self.connection_attempts}")
+        
+        self._do_connect()
+    
+    def _do_connect(self):
+        """Skutečné připojení k serveru"""
         
         try:
             # Cleanup existing connections
@@ -248,6 +257,13 @@ class ChatWidget(QWidget):
             self.status_label.setText("Stav: Chyba při spouštění serveru")
 
     def try_connect_after_server_start(self):
+        self.connection_attempts = 0
+        self.max_attempts = 5
+        self.try_connect()
+
+    def try_connect_after_server_start(self):
+        """Pokusí se připojit po spuštění serveru"""
+        print("ChatWidget: Pokouším se připojit po spuštění serveru")
         self.connection_attempts = 0
         self.max_attempts = 5
         self.try_connect()
