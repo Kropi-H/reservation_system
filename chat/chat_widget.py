@@ -9,6 +9,7 @@ import logging
 import subprocess
 import sys
 import os
+import json
 
 class ReceiverThread(QThread):
     message_received = Signal(str)
@@ -66,6 +67,9 @@ class ChatWidget(QWidget):
         self.max_attempts = 3
         self.server_process = None
         self.server_started_by_me = False
+        
+        # Načtení konfigurace pro zjištění režimu
+        self.load_config()
 
         # UI prvky
         self.chat_area = QListWidget()
@@ -119,11 +123,32 @@ class ChatWidget(QWidget):
         self.reconnect_timer.timeout.connect(self.try_connect)
 
         self.disable_chat()
-        self.try_connect()
+        
+        # Zpožděné připojení - dá GUI čas na zobrazení
+        QTimer.singleShot(1000, self.try_connect)
+
+    def load_config(self):
+        """Načte konfiguraci z chat_config.json"""
+        try:
+            config_path = os.path.join(os.path.dirname(__file__), "chat_config.json")
+            with open(config_path, 'r', encoding='utf-8') as f:
+                self.config = json.load(f)
+        except:
+            self.config = {
+                "mode": "client",
+                "auto_start_server": False
+            }
 
     def try_connect(self):
+        # Pokud je v konfiguraci režim "server" a auto_start_server je True, spusť server
+        if (self.config.get("mode") == "server" and 
+            self.config.get("auto_start_server", False) and 
+            not self.server_started_by_me):
+            self.start_server()
+            return
+            
         if self.connection_attempts >= self.max_attempts:
-            if not self.server_started_by_me:
+            if not self.server_started_by_me and self.config.get("mode") != "server":
                 self.status_label.setText("Stav: Server nedostupný, spouštím vlastní...")
                 self.start_server()
                 return
@@ -166,7 +191,7 @@ class ChatWidget(QWidget):
 
             self.enable_chat()
             
-            if self.server_started_by_me:
+            if self.server_started_by_me or self.config.get("mode") == "server":
                 self.status_label.setText("Stav: Připojeno (vlastní server)")
             else:
                 self.status_label.setText("Stav: Připojeno")

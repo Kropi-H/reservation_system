@@ -21,6 +21,7 @@ from views.doctors_dialog import DoctorDialog
 from views.ordinace_dialog import OrdinaceDialog
 from views.database_setup_dialog import DatabaseSetupDialog
 from views.smaz_rezervace_po_xy_dialog import SmazRezervaceDialog
+from views.chat_config_dialog import ChatConfigDialog
 from functools import partial
 from controllers.data import basic_style
 import os
@@ -235,16 +236,9 @@ class HlavniOkno(QMainWindow):
         self.ordinace_layout.setContentsMargins(5, 5, 5, 5)
         self.ordinace_layout.setSpacing(10)  # Přidání spacing mezi sloupci
         
-        # Inicializace chatu pomocí konfigurace
-        self.setup_chat()
-        
-        # Nastavení velikosti chatu
-        self.chat.setMinimumWidth(300)
-        self.chat.setMaximumWidth(450)
-        
-        # Nastavení size policy pro lepší chování
-        from PySide6.QtWidgets import QSizePolicy
-        self.chat.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        # Chat widget - bude inicializován až při prvním použití
+        self.chat = None
+        self.chat_initialized = False
         
         layout.addWidget(self.ordinace_container)
         
@@ -316,7 +310,7 @@ class HlavniOkno(QMainWindow):
             
         # Přidání checkboxu pro chat
         chat_checkbox = QCheckBox("Chat")
-        chat_checkbox.setChecked(True)  # Chat defaultně viditelný
+        chat_checkbox.setChecked(False)  # Chat defaultně skrytý
         chat_checkbox.setStyleSheet("""
             QCheckBox {
                 font-weight: bold;
@@ -336,17 +330,69 @@ class HlavniOkno(QMainWindow):
         self.checkboxy_layout.addWidget(chat_checkbox)
         self.checkboxy["Chat"] = chat_checkbox
         
-        # Přidání chatu jako posledního sloupce
-        self.ordinace_layout.addWidget(self.chat)
+        # Chat nebude přidán do layoutu dokud není inicializován
         
         self.nacti_rezervace()
 
     def toggle_chat_visibility(self, checked):
         """Skryje nebo zobrazí chat podle stavu checkboxu."""
         if checked:
-            self.chat.show()
+            if not self.chat_initialized:
+                # Zobrazí konfigurační dialog při prvním zapnutí
+                self.show_chat_config()
+            else:
+                self.chat.show()
         else:
-            self.chat.hide()
+            if self.chat:
+                self.chat.hide()
+
+    def show_chat_config(self):
+        """Zobrazí dialog pro konfiguraci chatu"""
+        dialog = ChatConfigDialog(self)
+        if dialog.exec():
+            config = dialog.get_config()
+            self.initialize_chat(config)
+        else:
+            # Pokud uživatel zruší dialog, odškrtni checkbox
+            self.checkboxy["Chat"].setChecked(False)
+
+    def initialize_chat(self, config):
+        """Inicializuje chat widget s danou konfigurací"""
+        try:
+            # Určení IP pro klienta
+            server_ip = config.get("server_ip", "127.0.0.1")
+            if server_ip == "0.0.0.0":
+                client_ip = "127.0.0.1"
+            else:
+                client_ip = server_ip
+                
+            username = config.get("username", "Uživatel")
+            server_port = config.get("server_port", 12345)
+            
+            # Vytvoření chat widgetu
+            self.chat = ChatWidget(
+                username=username, 
+                server_host=client_ip, 
+                server_port=server_port
+            )
+            
+            # Nastavení velikosti chatu
+            self.chat.setMinimumWidth(300)
+            self.chat.setMaximumWidth(450)
+            
+            # Nastavení size policy pro lepší chování
+            from PySide6.QtWidgets import QSizePolicy
+            self.chat.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+            
+            # Přidání chatu do layoutu
+            self.ordinace_layout.addWidget(self.chat)
+            
+            self.chat_initialized = True
+            
+        except Exception as e:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Chyba", f"Nepodařilo se inicializovat chat:\n{str(e)}")
+            self.checkboxy["Chat"].setChecked(False)
 
     def toggle_tabulka_visibility(self, mistnost, checked):
         """Skryje nebo zobrazí tabulku podle stavu checkboxu."""
@@ -1023,33 +1069,9 @@ class HlavniOkno(QMainWindow):
                 self.activateWindow()
 
 
-    def setup_chat(self):
-        """Nastavení chat widgetu"""
-        # Načtení konfigurace
-        config_path = os.path.join("chat", "chat_config.json")
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-            server_ip = config.get("server_ip", "127.0.0.1")
-            server_port = config.get("server_port", 12345)
-            username = config.get("username", "Uživatel")
-        except:
-            server_ip = "127.0.0.1"
-            server_port = 12345
-            username = "Uživatel"
-        
-        # ZMĚNA: Pro klienty použijte IP serveru
-        if server_ip == "0.0.0.0":
-            # Pokud je server na 0.0.0.0, klient se připojí na localhost
-            client_ip = "127.0.0.1"
-        else:
-            # Jinak použij nastavenou IP
-            client_ip = server_ip
-            
-        # Pokud je uživatelské jméno defaultní, zeptej se
-        if username == "Uživatel":
-            name, ok = QInputDialog.getText(self, "Uživatel", "Zadej jméno do chatu:")
-            if ok and name:
-                username = name
-                
-        self.chat = ChatWidget(username=username, server_host=client_ip, server_port=server_port)
+    def closeEvent(self, event):
+        """Obsluha zavření aplikace"""
+        # Zavři chat pokud je inicializován
+        if self.chat_initialized and self.chat:
+            self.chat.close()
+        event.accept()

@@ -1,7 +1,7 @@
 {
-    "mode": "server",
-    "server_ip": "0.0.0.0",
+    "mode": "client",
+    "server_ip": "127.0.0.1",
     "server_port": 12345,
-    "auto_start_server": true,
-    "username": "Server"
+    "auto_start_server": false,
+    "username": "Honza"
 }
