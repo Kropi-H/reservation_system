@@ -60,10 +60,10 @@ class ChatServer:
                 print(f"PŘIJATA ZPRÁVA: '{decoded_message}'")
                 
                 # Extrahujeme jméno uživatele ze zpráv o připojení
-                if "*** " in decoded_message and " se připojil k chatu ***" in decoded_message:
-                    # Zpráva typu "*** Username se připojil k chatu ***"
+                if "*** " in decoded_message and " se připojil ve " in decoded_message and " ***" in decoded_message:
+                    # Zpráva typu "*** Username se připojil ve 14:30 ***"
                     start = decoded_message.find("*** ") + 4
-                    end = decoded_message.find(" se připojil k chatu ***")
+                    end = decoded_message.find(" se připojil ve ")
                     if start < end:
                         username = decoded_message[start:end]
                         self.client_names[client] = username
