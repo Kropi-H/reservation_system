@@ -296,30 +296,14 @@ class ChatWidget(QWidget):
         print("ChatWidget: Odesílám zprávu o připojení všem")
         connection_msg = f"*** {self.username} se připojil ve {datetime.now().strftime('%H:%M')} ***"
 
-        # Pošleme zprávu o připojení přes server všem klientům
-        if self.config.get("mode") == "server":
-            # Server zobrazí zprávu lokálně a zapamatuje si ji pro filtrování
-            self.show_message(connection_msg)
-            self.last_sent_message = connection_msg  # Zapamatuj si pro filtrování duplikátů
-            print(f"ChatWidget: Server zobrazil zprávu o připojení lokálně")
-            # Server broadcastuje zprávu o připojení ostatním klientům (ne sobě)
-            if self.chat_server:
-                print(f"ChatWidget: Server broadcastuje zprávu o připojení")
-                self.chat_server.broadcast_from_widget(connection_msg.encode('utf-8'), self.sock)
-        elif self.sock:
-            # Client pošle zprávu na server
-            print(f"ChatWidget: Client posílá zprávu o připojení na server")
+        # Všichni (server i client) posílají zprávy stejným způsobem
+        if self.sock:
+            print(f"ChatWidget: Posílám zprávu o připojení přes socket")
             self.sock.sendall(connection_msg.encode('utf-8'))
 
     def on_message_received(self, msg):
-        """Zpracuje přijatou zprávu s filtrováním duplikátů pro server"""
+        """Zpracuje přijatou zprávu"""
         print(f"ChatWidget: Přijata zpráva: '{msg}'")
-        
-        # Server filtruje své vlastní zprávy (už je zobrazil lokálně)
-        if self.config.get("mode") == "server" and msg == self.last_sent_message:
-            print(f"ChatWidget: Server přeskakuje duplikát vlastní zprávy")
-            return
-            
         self.show_message(msg)
 
     def show_message(self, msg):
@@ -358,18 +342,9 @@ class ChatWidget(QWidget):
                 full_msg = f"{datetime.now().strftime('%H:%M')} {self.username}:\n> {msg}"
                 print(f"ChatWidget: Odesílám zprávu: {full_msg}")
                 
-                # Server zobrazuje zprávu lokálně a broadcastuje ji OSTATNÍM
-                if self.config.get("mode") == "server":
-                    self.show_message(full_msg)
-                    self.last_sent_message = full_msg  # Zapamatuj si pro filtrování
-                    print(f"ChatWidget: Server zobrazil zprávu lokálně")
-                    # Server broadcastuje zprávu všem připojeným klientům (ne sobě)
-                    if self.chat_server:
-                        print(f"ChatWidget: Broadcastuji zprávu z server widgetu")
-                        self.chat_server.broadcast_from_widget(full_msg.encode('utf-8'), self.sock)
-                elif self.sock:
-                    # Client posílá zprávu na server a čeká na echo
-                    print(f"ChatWidget: Client posílá zprávu na server")
+                # Server a Client posílají zprávy stejným způsobem - přes socket
+                if self.sock:
+                    print(f"ChatWidget: Posílám zprávu přes socket")
                     self.sock.sendall(full_msg.encode('utf-8'))
                 else:
                     print(f"ChatWidget: Žádné spojení pro odeslání zprávy")
