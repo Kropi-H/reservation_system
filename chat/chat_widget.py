@@ -140,10 +140,8 @@ class ChatWidget(QWidget):
             }
 
     def try_connect(self):
-        # Pokud je v konfiguraci režim "server" a auto_start_server je True, spusť server
-        if (self.config.get("mode") == "server" and 
-            self.config.get("auto_start_server", False) and 
-            not self.server_started_by_me):
+        # Pokud je v konfiguraci režim "server", spusť server (pokud už není spuštěný)
+        if (self.config.get("mode") == "server" and not self.server_started_by_me):
             self.start_server()
             return
             
@@ -253,7 +251,7 @@ class ChatWidget(QWidget):
 
     def test_message_display(self):
         print("ChatWidget: Test - přidávám zprávu přímo do GUI")
-        self.show_message("TEST: Připojení úspěšné!")
+        self.show_message(f"*** {self.username} se připojil k chatu ***")
 
     def show_message(self, msg):
         print(f"ChatWidget: show_message volána s: '{msg}' (délka: {len(msg)})")
@@ -291,6 +289,10 @@ class ChatWidget(QWidget):
                 full_msg = f"{self.username}: {msg}"
                 print(f"ChatWidget: Odesílám zprávu: {full_msg}")
                 self.sock.sendall(full_msg.encode('utf-8'))
+                
+                # Zobrazení vlastní zprávy lokálně
+                self.show_message(full_msg)
+                
                 self.message_input.clear()
             except Exception as e:
                 print(f"ChatWidget: Chyba při odesílání: {e}")

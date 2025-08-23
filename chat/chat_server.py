@@ -78,6 +78,11 @@ class ChatServer:
         print(f"Počet příjemců: {len(self.clients)}")
         disconnected_clients = []
         for i, client in enumerate(self.clients):
+            # Nepošli zprávu zpět odesílateli
+            if client == sender:
+                print(f"Přeskakuji odesílatele #{i}")
+                continue
+                
             print(f"Posílám zprávu klientovi #{i}")
             try:
                 client.send(message)

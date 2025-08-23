@@ -110,6 +110,7 @@ class ChatConfigDialog(QDialog):
             self.server_ip_input.setText("0.0.0.0")
             self.server_ip_input.setEnabled(True)
             self.auto_start_checkbox.setEnabled(True)
+            self.auto_start_checkbox.setChecked(True)  # Automaticky zapni pro server režim
         else:
             if self.server_ip_input.text() == "0.0.0.0":
                 self.server_ip_input.setText("127.0.0.1")
