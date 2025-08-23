@@ -77,8 +77,13 @@ class ChatServer:
         print(f"Zpráva k odeslání: {message}")
         print(f"Počet příjemců: {len(self.clients)}")
         disconnected_clients = []
+        
         for i, client in enumerate(self.clients):
-            # POŠLI zprávu VŠEM včetně odesílatele (server musí vidět své zprávy)
+            # NEPOŠLI zprávu zpět odesílateli - odesílatel si ji už zobrazil lokálně
+            if client == sender:
+                print(f"Přeskakuji odesílatele #{i}")
+                continue
+                
             print(f"Posílám zprávu klientovi #{i}")
             try:
                 client.send(message)
@@ -86,6 +91,8 @@ class ChatServer:
             except Exception as e:
                 print(f"✗ Chyba při odesílání klientovi #{i}: {e}")
                 disconnected_clients.append(client)
+                
+        # Vyčištění odpojených klientů
         for client in disconnected_clients:
             if client in self.clients:
                 self.clients.remove(client)

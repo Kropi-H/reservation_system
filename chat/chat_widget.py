@@ -67,6 +67,7 @@ class ChatWidget(QWidget):
         self.max_attempts = 3
         self.server_process = None
         self.server_started_by_me = False
+        self.last_sent_message = None  # Sledování poslední odeslané zprávy
         
         # Načtení konfigurace pro zjištění režimu
         self.load_config()
@@ -307,12 +308,15 @@ class ChatWidget(QWidget):
             try:
                 full_msg = f"{self.username}: {msg}"
                 print(f"ChatWidget: Odesílám zprávu: {full_msg}")
+                
+                # Zobrazíme zprávu lokálně okamžitě
+                self.show_message(full_msg)
+                self.last_sent_message = full_msg  # Zapamatujeme si zprávu
+                
+                # Odešleme na server
                 self.sock.sendall(full_msg.encode('utf-8'))
-                
-                # NEBUDEME zobrazovat zprávu lokálně - dostaneme ji zpět od serveru
-                # Tím se vyhneme dvojitému zobrazení
-                
                 self.message_input.clear()
+                
             except Exception as e:
                 print(f"ChatWidget: Chyba při odesílání: {e}")
                 self.status_label.setText("Stav: Odeslání selhalo")
