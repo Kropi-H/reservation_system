@@ -99,16 +99,20 @@ class ChatServer:
                 pass
         print(f"=== BROADCAST END ===")
 
-    def broadcast_from_widget(self, message):
+    def broadcast_from_widget(self, message, sender_socket=None):
         """Broadcast zprávy z widgetu (server posílá zprávu)"""
         print(f"=== WIDGET BROADCAST START ===")
         print(f"Zpráva z widgetu: {message}")
         print(f"Počet příjemců: {len(self.clients)}")
         disconnected_clients = []
         
-        # Pošleme zprávu VŠEM klientům (server widget nepotřebuje echo)
+        # Pošleme zprávu POUZE ostatním klientům (ne server widgetu)
         for i, client in enumerate(self.clients):
-            print(f"Posílám zprávu z widgetu klientovi #{i}")
+            if client == sender_socket:
+                print(f"Přeskakuji server widget #{i}")
+                continue
+                
+            print(f"Posílám zprávu z widgetu ostatnímu klientovi #{i}")
             try:
                 client.send(message)
                 print(f"✓ Odesláno z widgetu klientovi #{i}")
