@@ -19,6 +19,7 @@ class ChatServer:
             self.port = 12345
             print(f"Použitá výchozí konfigurace: host={self.host}, port={self.port}")
         self.clients = []
+        self.client_names = {}  # Mapování socket -> username
         self.running = True
 
     def start(self):
@@ -57,6 +58,17 @@ class ChatServer:
                     break
                 decoded_message = message.decode('utf-8', errors='ignore')
                 print(f"PŘIJATA ZPRÁVA: '{decoded_message}'")
+                
+                # Extrahujeme jméno uživatele ze zpráv o připojení
+                if "*** " in decoded_message and " se připojil k chatu ***" in decoded_message:
+                    # Zpráva typu "*** Username se připojil k chatu ***"
+                    start = decoded_message.find("*** ") + 4
+                    end = decoded_message.find(" se připojil k chatu ***")
+                    if start < end:
+                        username = decoded_message[start:end]
+                        self.client_names[client] = username
+                        print(f"ULOŽENO JMÉNO: {username} pro klienta {client}")
+                
                 self.broadcast(message, client)
             except socket.error as e:
                 print(f"Socket error v handle_client: {e}")
@@ -64,17 +76,25 @@ class ChatServer:
             except Exception as e:
                 print(f"Neočekávaná chyba v handle_client: {e}")
                 break
+        # Získáme jméno odpojeného klienta
+        username = self.client_names.get(client, "Neznámý uživatel")
+        
         if client in self.clients:
             self.clients.remove(client)
+        
+        # Vyčistíme jméno z mapování
+        if client in self.client_names:
+            del self.client_names[client]
+            
         try:
             client.close()
         except:
             pass
-        print(f"KLIENT ODPOJEN. Zbývá: {len(self.clients)}")
+        print(f"KLIENT ODPOJEN: {username}. Zbývá: {len(self.clients)}")
         
         # Pošleme zprávu o odpojení všem ostatním klientům
         if len(self.clients) > 0:
-            disconnect_msg = f"*** Uživatel se odpojil z chatu ***"
+            disconnect_msg = f"*** {username} se odpojil z chatu ***"
             self.broadcast_disconnect_message(disconnect_msg.encode('utf-8'))
 
     def broadcast_disconnect_message(self, message):
@@ -123,6 +143,8 @@ class ChatServer:
         for client in disconnected_clients:
             if client in self.clients:
                 self.clients.remove(client)
+            if client in self.client_names:
+                del self.client_names[client]
             try:
                 client.close()
             except:
