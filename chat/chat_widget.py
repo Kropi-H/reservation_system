@@ -294,8 +294,8 @@ class ChatWidget(QWidget):
 
     def test_message_display(self):
         print("ChatWidget: Odesílám zprávu o připojení všem")
-        connection_msg = f"*** {self.username} se připojil k chatu ***"
-        
+        connection_msg = f"*** {self.username} se připojil ve {datetime.now().strftime('%H:%M')} ***"
+
         # Pošleme zprávu o připojení přes server všem klientům
         if self.config.get("mode") == "server":
             # Server zobrazí zprávu lokálně a zapamatuje si ji pro filtrování
