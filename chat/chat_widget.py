@@ -140,9 +140,12 @@ class ChatWidget(QWidget):
             }
 
     def try_connect(self):
-        # Pokud je v konfiguraci režim "server", spusť server (pokud už není spuštěný)
+        # Pokud je v konfiguraci režim "server", spusť server PŘED pokusem o připojení
         if (self.config.get("mode") == "server" and not self.server_started_by_me):
+            print("ChatWidget: Režim server - spouštím server před připojením")
             self.start_server()
+            # Po spuštění serveru počkej a pak se pokus připojit
+            QTimer.singleShot(3000, self.try_connect_after_server_start)
             return
             
         if self.connection_attempts >= self.max_attempts:
@@ -290,8 +293,8 @@ class ChatWidget(QWidget):
                 print(f"ChatWidget: Odesílám zprávu: {full_msg}")
                 self.sock.sendall(full_msg.encode('utf-8'))
                 
-                # Zobrazení vlastní zprávy lokálně
-                self.show_message(full_msg)
+                # NEBUDEME zobrazovat zprávu lokálně - dostaneme ji zpět od serveru
+                # Tím se vyhneme dvojitému zobrazení
                 
                 self.message_input.clear()
             except Exception as e:
