@@ -298,12 +298,14 @@ class ChatWidget(QWidget):
         
         # Pošleme zprávu o připojení přes server všem klientům
         if self.config.get("mode") == "server":
-            # Server broadcastuje zprávu o připojení všem klientům
+            # Server zobrazí zprávu lokálně a zapamatuje si ji pro filtrování
+            self.show_message(connection_msg)
+            self.last_sent_message = connection_msg  # Zapamatuj si pro filtrování duplikátů
+            print(f"ChatWidget: Server zobrazil zprávu o připojení lokálně")
+            # Server broadcastuje zprávu o připojení ostatním klientům (ne sobě)
             if self.chat_server:
                 print(f"ChatWidget: Server broadcastuje zprávu o připojení")
                 self.chat_server.broadcast_from_widget(connection_msg.encode('utf-8'), self.sock)
-            # Server si také zobrazí zprávu lokálně
-            self.show_message(connection_msg)
         elif self.sock:
             # Client pošle zprávu na server
             print(f"ChatWidget: Client posílá zprávu o připojení na server")
