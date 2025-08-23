@@ -293,8 +293,21 @@ class ChatWidget(QWidget):
         self._do_connect()
 
     def test_message_display(self):
-        print("ChatWidget: Test - přidávám zprávu přímo do GUI")
-        self.show_message(f"*** {self.username} se připojil k chatu ***")
+        print("ChatWidget: Odesílám zprávu o připojení všem")
+        connection_msg = f"*** {self.username} se připojil k chatu ***"
+        
+        # Pošleme zprávu o připojení přes server všem klientům
+        if self.config.get("mode") == "server":
+            # Server broadcastuje zprávu o připojení všem klientům
+            if self.chat_server:
+                print(f"ChatWidget: Server broadcastuje zprávu o připojení")
+                self.chat_server.broadcast_from_widget(connection_msg.encode('utf-8'), self.sock)
+            # Server si také zobrazí zprávu lokálně
+            self.show_message(connection_msg)
+        elif self.sock:
+            # Client pošle zprávu na server
+            print(f"ChatWidget: Client posílá zprávu o připojení na server")
+            self.sock.sendall(connection_msg.encode('utf-8'))
 
     def on_message_received(self, msg):
         """Zpracuje přijatou zprávu s filtrováním duplikátů pro server"""
@@ -340,7 +353,7 @@ class ChatWidget(QWidget):
         msg = self.message_input.text().strip()
         if msg:
             try:
-                full_msg = f"{self.username}: {msg}"
+                full_msg = f"{datetime.now().strftime('%H:%M')} {self.username}:\n> {msg}"
                 print(f"ChatWidget: Odesílám zprávu: {full_msg}")
                 
                 # Server zobrazuje zprávu lokálně a broadcastuje ji OSTATNÍM

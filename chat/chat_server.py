@@ -71,6 +71,36 @@ class ChatServer:
         except:
             pass
         print(f"KLIENT ODPOJEN. Zbývá: {len(self.clients)}")
+        
+        # Pošleme zprávu o odpojení všem ostatním klientům
+        if len(self.clients) > 0:
+            disconnect_msg = f"*** Uživatel se odpojil z chatu ***"
+            self.broadcast_disconnect_message(disconnect_msg.encode('utf-8'))
+
+    def broadcast_disconnect_message(self, message):
+        """Pošle zprávu o odpojení všem klientům"""
+        print(f"=== DISCONNECT BROADCAST START ===")
+        print(f"Zpráva o odpojení: {message}")
+        disconnected_clients = []
+        
+        for i, client in enumerate(self.clients):
+            print(f"Posílám zprávu o odpojení klientovi #{i}")
+            try:
+                client.send(message)
+                print(f"✓ Zpráva o odpojení odeslána klientovi #{i}")
+            except Exception as e:
+                print(f"✗ Chyba při odesílání zprávy o odpojení klientovi #{i}: {e}")
+                disconnected_clients.append(client)
+        
+        # Vyčištění odpojených klientů
+        for client in disconnected_clients:
+            if client in self.clients:
+                self.clients.remove(client)
+            try:
+                client.close()
+            except:
+                pass
+        print(f"=== DISCONNECT BROADCAST END ===")
 
     def broadcast(self, message, sender):
         print(f"=== BROADCAST START ===")
