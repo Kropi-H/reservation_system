@@ -67,6 +67,7 @@ class ChatWidget(QWidget):
         self.max_attempts = 3
         self.server_process = None
         self.server_started_by_me = False
+        self.chat_server = None  # Reference na interní server
         self.last_sent_message = None  # Sledování poslední odeslané zprávy
         
         # Načtení konfigurace pro zjištění režimu
@@ -145,13 +146,28 @@ class ChatWidget(QWidget):
             print(f"ChatWidget: Použitá výchozí konfigurace: {self.config}")
 
     def try_connect(self):
-        # Pokud je v konfiguraci režim "server", spusť server PŘED pokusem o připojení
-        if (self.config.get("mode") == "server" and not self.server_started_by_me):
-            print("ChatWidget: Režim server - spouštím server před připojením")
-            self.start_server()
-            # Po spuštění serveru počkej a pak se pokus připojit
-            QTimer.singleShot(3000, self.try_connect_after_server_start)
-            return
+        # Pokud je v konfiguraci režim "server", spusť POUZE server, NEPŘIPOJUJ se
+        if self.config.get("mode") == "server":
+            if not self.server_started_by_me:
+                print("ChatWidget: Režim server - spouštím pouze server, nepřipojuji se")
+                self.start_server()
+                # Server se nepřipojuje - pouze čeká na klienty
+                self.enable_chat()
+                self.status_label.setText("Stav: Server běží, čeká na klienty")
+                self.status_label.setStyleSheet("""
+                    QLabel {
+                        background-color: #d4edda;
+                        color: #155724;
+                        padding: 5px;
+                        border: 1px solid #c3e6cb;
+                        border-radius: 3px;
+                        font-weight: bold;
+                    }
+                """)
+                return
+            else:
+                # Server už běží
+                return
             
         if self.connection_attempts >= self.max_attempts:
             if not self.server_started_by_me and self.config.get("mode") != "server":
@@ -232,11 +248,25 @@ class ChatWidget(QWidget):
                 self.reconnect_timer.start()
 
     def start_server(self):
-        """Spustí chat server jako samostatný proces."""
+        """Spustí chat server - buď jako subprocess nebo interně."""
         if self.server_started_by_me:
             return
             
         try:
+            # Pokud je config mode == "server", spustí interní server
+            if self.config.get("mode") == "server":
+                print("ChatWidget: Spouštím interní server")
+                from .chat_server import ChatServer
+                self.chat_server = ChatServer()
+                # Spustíme server v threadu
+                import threading
+                server_thread = threading.Thread(target=self.chat_server.start, daemon=True)
+                server_thread.start()
+                self.server_started_by_me = True
+                print("ChatWidget: Interní server spuštěn")
+                return
+            
+            # Jinak spustíme externí server proces
             script_dir = os.path.dirname(os.path.abspath(__file__))
             server_script = os.path.join(script_dir, "chat_server.py")
             
@@ -254,13 +284,8 @@ class ChatWidget(QWidget):
             QTimer.singleShot(3000, self.try_connect_after_server_start)
             
         except Exception as e:
-            logging.error(f"Nepodařilo se spustit server: {e}")
+            print(f"ChatWidget: Nepodařilo se spustit server: {e}")
             self.status_label.setText("Stav: Chyba při spouštění serveru")
-
-    def try_connect_after_server_start(self):
-        self.connection_attempts = 0
-        self.max_attempts = 5
-        self.try_connect()
 
     def try_connect_after_server_start(self):
         """Pokusí se připojit po spuštění serveru"""
@@ -304,17 +329,27 @@ class ChatWidget(QWidget):
 
     def send_message(self):
         msg = self.message_input.text().strip()
-        if msg and self.sock:
+        if msg:
             try:
                 full_msg = f"{self.username}: {msg}"
                 print(f"ChatWidget: Odesílám zprávu: {full_msg}")
                 
-                # Zobrazíme zprávu lokálně okamžitě
-                self.show_message(full_msg)
-                self.last_sent_message = full_msg  # Zapamatujeme si zprávu
+                # Server zobrazuje zprávu lokálně a broadcastuje ji
+                if self.config.get("mode") == "server":
+                    self.show_message(full_msg)
+                    print(f"ChatWidget: Server zobrazil zprávu lokálně")
+                    # Server broadcastuje zprávu všem připojeným klientům
+                    if self.chat_server:
+                        print(f"ChatWidget: Broadcastuji zprávu z server widgetu")
+                        self.chat_server.broadcast_from_widget(full_msg.encode('utf-8'))
+                elif self.sock:
+                    # Client posílá zprávu na server a čeká na echo
+                    print(f"ChatWidget: Client posílá zprávu na server")
+                    self.sock.sendall(full_msg.encode('utf-8'))
+                else:
+                    print(f"ChatWidget: Žádné spojení pro odeslání zprávy")
+                    return
                 
-                # Odešleme na server
-                self.sock.sendall(full_msg.encode('utf-8'))
                 self.message_input.clear()
                 
             except Exception as e:

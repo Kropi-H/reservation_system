@@ -78,12 +78,9 @@ class ChatServer:
         print(f"Počet příjemců: {len(self.clients)}")
         disconnected_clients = []
         
+        # Pošleme zprávu VŠEM klientům (včetně odesílatele)
+        # protože server a client jsou různé instance aplikace
         for i, client in enumerate(self.clients):
-            # NEPOŠLI zprávu zpět odesílateli - odesílatel si ji už zobrazil lokálně
-            if client == sender:
-                print(f"Přeskakuji odesílatele #{i}")
-                continue
-                
             print(f"Posílám zprávu klientovi #{i}")
             try:
                 client.send(message)
@@ -101,6 +98,33 @@ class ChatServer:
             except:
                 pass
         print(f"=== BROADCAST END ===")
+
+    def broadcast_from_widget(self, message):
+        """Broadcast zprávy z widgetu (server posílá zprávu)"""
+        print(f"=== WIDGET BROADCAST START ===")
+        print(f"Zpráva z widgetu: {message}")
+        print(f"Počet příjemců: {len(self.clients)}")
+        disconnected_clients = []
+        
+        # Pošleme zprávu VŠEM klientům (server widget nepotřebuje echo)
+        for i, client in enumerate(self.clients):
+            print(f"Posílám zprávu z widgetu klientovi #{i}")
+            try:
+                client.send(message)
+                print(f"✓ Odesláno z widgetu klientovi #{i}")
+            except Exception as e:
+                print(f"✗ Chyba při odesílání z widgetu klientovi #{i}: {e}")
+                disconnected_clients.append(client)
+                
+        # Vyčištění odpojených klientů
+        for client in disconnected_clients:
+            if client in self.clients:
+                self.clients.remove(client)
+            try:
+                client.close()
+            except:
+                pass
+        print(f"=== WIDGET BROADCAST END ===")
 
     def stop(self):
         self.running = False
