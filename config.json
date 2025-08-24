@@ -1,4 +1,12 @@
 {
   "database_path": "C:/Users/kropa/PycharmProjects/reservation_system/veterina.db",
-  "last_directory": "C:/Users/kropa/PycharmProjects/reservation_system"
+  "last_directory": "C:/Users/kropa/PycharmProjects/reservation_system",
+  "database_config": {
+    "host": "localhost",
+    "port": 5432,
+    "database": "veterina",
+    "user": "postgres",
+    "password": "motodevka25"
+  },
+  "database_type": "postgresql"
 }

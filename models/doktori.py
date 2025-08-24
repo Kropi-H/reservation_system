@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from models.databaze import get_connection
 
 
@@ -21,7 +21,7 @@ def remove_doctor(doktor_id):
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute('''
-            DELETE FROM Doktori WHERE doktor_id = ?
+            DELETE FROM Doktori WHERE doktor_id = %s
         ''', (doktor_id,))
         conn.commit()
         
@@ -31,7 +31,7 @@ def add_doctor(data):
         cur = conn.cursor()
         cur.execute('''
             INSERT INTO Doktori (jmeno, prijmeni, specializace, isActive, color)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
         ''', (data["jmeno"], data["prijmeni"], data["specializace"], int(data["isActive"]), data["color"]))
         conn.commit()
         
@@ -40,7 +40,7 @@ def get_doctor_by_id(doktor_id):
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute('''
-            SELECT * FROM Doktori WHERE doktor_id = ?
+            SELECT * FROM Doktori WHERE doktor_id = %s
         ''', (doktor_id,))
         row = cur.fetchone()
         return row if row else None
@@ -51,8 +51,8 @@ def update_doctor(data, doktor_id):
         cur = conn.cursor()
         cur.execute('''
             UPDATE Doktori
-            SET jmeno = ?, prijmeni = ?, specializace = ?, isActive = ?, color = ?
-            WHERE doktor_id = ?
+            SET jmeno = %s, prijmeni = %s, specializace = %s, isActive = %s, color = %s
+            WHERE doktor_id = %s
         ''', (data["jmeno"], data["prijmeni"], data["specializace"], data["isActive"], data["color"], doktor_id))
         conn.commit()
 
@@ -62,7 +62,7 @@ def get_doktor_id(doktor):
         cur = conn.cursor()
         cur.execute('''
             SELECT doktor_id FROM Doktori
-            WHERE jmeno = ? AND prijmeni = ?
+            WHERE jmeno = %s AND prijmeni = %s
         ''', (
              doktor.split()[0],
              doktor.split(maxsplit=1)[1] if len(doktor.split()) > 1 else "",
@@ -75,7 +75,7 @@ def get_doktor_isactive_by_color(barva):
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute('''
-            SELECT isActive FROM Doktori WHERE color = ?
+            SELECT isActive FROM Doktori WHERE color = %s
         ''', (barva,))
         row = cur.fetchone()
         return row[0]
@@ -87,7 +87,7 @@ def get_ordinace_id(nazev):
         cur = conn.cursor()
         cur.execute('''
             SELECT ordinace_id FROM Ordinace
-            WHERE nazev = ?
+            WHERE nazev = %s
         ''', (nazev,))
         row = cur.fetchone()
         return row[0] if row else None
@@ -99,7 +99,7 @@ def get_doctor_work_times(doktor_id):
         cur.execute('''
         SELECT datum, prace_od, prace_do, ordinace_id
         FROM Doktori_Ordinacni_Cas
-        WHERE doktor_id = ?
+        WHERE doktor_id = %s
         ''', (doktor_id,))
         return cur.fetchall()
 
@@ -113,7 +113,7 @@ def vloz_ordinacni_cas(doktor, datum, prace_od, prace_do, nazev_ordinace):
         cur = conn.cursor()
         cur.execute('''
             INSERT INTO Doktori_Ordinacni_Cas (doktor_id, datum, prace_od, prace_do, ordinace_id)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
         ''', (doktor_id, datum, prace_od, prace_do, ordinace_id))
         conn.commit()
 
@@ -122,7 +122,7 @@ def get_doktor_jmeno_podle_barvy(barva):
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute('''
-            SELECT doktor_id FROM Doktori WHERE color = ?
+            SELECT doktor_id FROM Doktori WHERE color = %s
         ''', (barva,))
         row = cur.fetchone()
         if row:
@@ -144,7 +144,7 @@ def get_doktor_color(doktor):
         cur = conn.cursor()
         cur.execute('''
             SELECT color FROM Doktori
-            WHERE jmeno = ? AND prijmeni = ?
+            WHERE jmeno = %s AND prijmeni = %s
         ''', (
              doktor.split()[0],
              doktor.split(maxsplit=1)[1] if len(doktor.split()) > 1 else "",
@@ -164,6 +164,12 @@ def uloz_nebo_uprav_ordinacni_cas(novy_doktor, barvy_puvodnich, datum, prace_od,
     if novy_doktor_id is None or ordinace_id is None:
         raise ValueError("Doktor nebo ordinace nenalezena.")
 
+    # Ensure datum is properly formatted as string for PostgreSQL
+    if isinstance(datum, date):
+        datum_str = datum.strftime('%Y-%m-%d')
+    else:
+        datum_str = str(datum)
+
     prace_od_dt = datetime.strptime(prace_od, "%H:%M")
     prace_do_dt = datetime.strptime(prace_do, "%H:%M")
     # print(f"Nový záznam: {novy_doktor}, [{prace_od}, {prace_do}]")
@@ -177,8 +183,8 @@ def uloz_nebo_uprav_ordinacni_cas(novy_doktor, barvy_puvodnich, datum, prace_od,
               puvodni_doktor_id = get_doktor_jmeno_podle_barvy(barva)
               cur.execute('''
                   SELECT work_id, prace_od, prace_do FROM Doktori_Ordinacni_Cas
-                  WHERE doktor_id = ? AND datum = ? AND ordinace_id = ?
-              ''', (puvodni_doktor_id, datum, ordinace_id))
+                  WHERE doktor_id = %s AND datum = %s AND ordinace_id = %s
+              ''', (puvodni_doktor_id, datum_str, ordinace_id))
               rows = cur.fetchall()
 
               # print(f"původní záznam: {rows}")
@@ -190,38 +196,38 @@ def uloz_nebo_uprav_ordinacni_cas(novy_doktor, barvy_puvodnich, datum, prace_od,
                   # Nový úsek zcela překrývá starý
                   if prace_od_dt <= exist_od_dt and prace_do_dt >= exist_do_dt:
                       # print("Nový úsek zcela překrývá starý")
-                      cur.execute('DELETE FROM Doktori_Ordinacni_Cas WHERE work_id = ?', (zaznam_id,))
+                      cur.execute('DELETE FROM Doktori_Ordinacni_Cas WHERE work_id = %s', (zaznam_id,))
                       conn.commit()
                   # Nový úsek překrývá začátek starého
                   elif prace_od_dt <= exist_od_dt < prace_do_dt < exist_do_dt:
                       #print("Nový úsek překrývá začátek starého")
                       exist_do_dt = time_anchores[time_anchores.index(prace_do)+1]
-                      cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_od = ? WHERE work_id = ?', (exist_do_dt, zaznam_id))
+                      cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_od = ? WHERE work_id = %s', (exist_do_dt, zaznam_id))
                       conn.commit()
                   # Nový úsek překrývá konec starého
                   elif exist_od_dt < prace_od_dt <= exist_do_dt <= prace_do_dt:
                       # print("Nový úsek překrývá konec starého")
                       exist_do_dt = time_anchores[time_anchores.index(exist_do)-1]
-                      cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_do = ? WHERE work_id = ?', (exist_do_dt, zaznam_id))
+                      cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_do = ? WHERE work_id = %s', (exist_do_dt, zaznam_id))
                       conn.commit()
                   # Nový úsek je uvnitř starého (rozdělení na dva)
                   elif exist_od_dt < prace_od_dt and prace_do_dt < exist_do_dt:
                       # print("Nový úsek je uvnitř starého a rozdělí ho na dva")
                       exist_do_dt = time_anchores[time_anchores.index(prace_od)-1]
                       exist_new_od_dt = time_anchores[time_anchores.index(prace_od)+1]
-                      cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_do = ? WHERE work_id = ?', (exist_do_dt, zaznam_id))
+                      cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_do = %s WHERE work_id = %s', (exist_do_dt, zaznam_id))
                       cur.execute('''
                           INSERT INTO Doktori_Ordinacni_Cas (doktor_id, datum, prace_od, prace_do, ordinace_id)
-                          VALUES (?, ?, ?, ?, ?)
-                      ''', (puvodni_doktor_id, datum, exist_new_od_dt, exist_do, ordinace_id))
+                          VALUES (%s, %s, %s, %s, %s)
+                      ''', (puvodni_doktor_id, datum_str, exist_new_od_dt, exist_do, ordinace_id))
                       conn.commit()
                                     
                 # 2. Přidej nový úsek novému doktorovi a slouč navazující
         cur.execute('''
             SELECT prace_od, prace_do FROM Doktori_Ordinacni_Cas
-            WHERE doktor_id = ? AND datum = ? AND ordinace_id = ?
+            WHERE doktor_id = %s AND datum = %s AND ordinace_id = %s
             ORDER BY prace_od
-        ''', (novy_doktor_id, datum, ordinace_id))
+        ''', (novy_doktor_id, datum_str, ordinace_id))
         intervals = []
         for od, do in cur.fetchall():
             od_dt = datetime.strptime(od, "%H:%M")
@@ -258,15 +264,15 @@ def uloz_nebo_uprav_ordinacni_cas(novy_doktor, barvy_puvodnich, datum, prace_od,
 
         cur.execute('''
             DELETE FROM Doktori_Ordinacni_Cas
-            WHERE doktor_id = ? AND datum = ? AND ordinace_id = ?
-        ''', (novy_doktor_id, datum, ordinace_id))
+            WHERE doktor_id = %s AND datum = %s AND ordinace_id = %s
+        ''', (novy_doktor_id, datum_str, ordinace_id))
         for od, do in merged:
             cur.execute('''
                 INSERT INTO Doktori_Ordinacni_Cas (doktor_id, datum, prace_od, prace_do, ordinace_id)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s)
             ''', (
                 novy_doktor_id,
-                datum,
+                datum_str,
                 od.strftime("%H:%M"),
                 do.strftime("%H:%M"),
                 ordinace_id
@@ -278,6 +284,13 @@ def uprav_ordinacni_cas(barvy_puvodnich, datum, prace_od, prace_do, nazev_ordina
     
     """Upraví ordinacni čas pro daného doktora."""
     ordinace_id = get_ordinace_id(nazev_ordinace)
+    
+    # Ensure datum is properly formatted as string for PostgreSQL
+    if isinstance(datum, date):
+        datum_str = datum.strftime('%Y-%m-%d')
+    else:
+        datum_str = str(datum)
+        
     prace_od_dt = datetime.strptime(prace_od, "%H:%M")
     prace_do_dt = datetime.strptime(prace_do, "%H:%M")
     
@@ -290,8 +303,8 @@ def uprav_ordinacni_cas(barvy_puvodnich, datum, prace_od, prace_do, nazev_ordina
                   doktor_id = get_doktor_jmeno_podle_barvy(barva)
                   cur.execute('''
                       SELECT work_id, prace_od, prace_do FROM Doktori_Ordinacni_Cas
-                      WHERE doktor_id = ? AND datum = ? AND ordinace_id = ?
-                  ''', (doktor_id, datum, ordinace_id))
+                      WHERE doktor_id = %s AND datum = %s AND ordinace_id = %s
+                  ''', (doktor_id, datum_str, ordinace_id))
                   zaznamy = cur.fetchall()
 
                   # print(f"Záznamy ordinačních časů: {zaznamy}")
@@ -303,19 +316,19 @@ def uprav_ordinacni_cas(barvy_puvodnich, datum, prace_od, prace_do, nazev_ordina
                       # Nový úsek zcela překrývá starý
                       if prace_od_dt <= exist_od_dt and prace_do_dt >= exist_do_dt:
                           # print("Nový úsek zcela překrývá starý")
-                          cur.execute('DELETE FROM Doktori_Ordinacni_Cas WHERE work_id = ?', (zaznam_id,))
+                          cur.execute('DELETE FROM Doktori_Ordinacni_Cas WHERE work_id = %s', (zaznam_id,))
                           conn.commit()
                       # Nový úsek překrývá začátek starého
                       elif prace_od_dt <= exist_od_dt <= prace_do_dt <= exist_do_dt:
                           # print("Nový úsek překrývá začátek starého")
                           exist_do_dt = time_anchores[time_anchores.index(prace_do)+1]
-                          cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_od = ? WHERE work_id = ?', (exist_do_dt, zaznam_id))
+                          cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_od = ? WHERE work_id = %s', (exist_do_dt, zaznam_id))
                           conn.commit()
                       # Nový úsek překrývá konec starého
                       elif exist_od_dt < prace_od_dt <= exist_do_dt <= prace_do_dt:
                           # print("Nový úsek překrývá konec starého")
                           exist_do_dt = time_anchores[time_anchores.index(prace_od)-1]
-                          cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_do = ? WHERE work_id = ?', (exist_do_dt, zaznam_id))
+                          cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_do = %s WHERE work_id = %s', (exist_do_dt, zaznam_id))
                           conn.commit()
                           
                       # Nový úsek je uvnitř starého (rozdělení na dva)
@@ -323,11 +336,11 @@ def uprav_ordinacni_cas(barvy_puvodnich, datum, prace_od, prace_do, nazev_ordina
                           # print("Nový úsek je uvnitř starého a rozdělí ho na dva")
                           exist_do_dt = time_anchores[time_anchores.index(prace_od)-1]
                           exist_new_od_dt = time_anchores[time_anchores.index(prace_od)+1]
-                          cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_do = ? WHERE work_id = ?', (exist_do_dt, zaznam_id))
+                          cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_do = %s WHERE work_id = %s', (exist_do_dt, zaznam_id))
                           cur.execute('''
                               INSERT INTO Doktori_Ordinacni_Cas (doktor_id, datum, prace_od, prace_do, ordinace_id)
-                              VALUES (?, ?, ?, ?, ?)
-                          ''', (doktor_id, datum, exist_new_od_dt, exist_do, ordinace_id))
+                              VALUES (%s, %s, %s, %s, %s)
+                          ''', (doktor_id, datum_str, exist_new_od_dt, exist_do, ordinace_id))
                           conn.commit()
 
 
@@ -351,7 +364,7 @@ def ziskej_rozvrh_doktoru_dne(den_v_tydnu):
         FROM Doktori_Ordinacni_Cas
         INNER JOIN Doktori ON Doktori_Ordinacni_Cas.doktor_id = Doktori.doktor_id
         INNER JOIN Ordinace ON Doktori_Ordinacni_Cas.ordinace_id = Ordinace.ordinace_id
-        WHERE Doktori_Ordinacni_Cas.datum = ?
+        WHERE Doktori_Ordinacni_Cas.datum = %s
         ORDER BY Doktori_Ordinacni_Cas.prace_od
         ''', (den_v_tydnu,))
         return cur.fetchall()
@@ -361,6 +374,6 @@ def remove_all_ordinacni_cas(ordinace_id):
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute('''
-            DELETE FROM Doktori_Ordinacni_Cas WHERE ordinace_id = ?
+            DELETE FROM Doktori_Ordinacni_Cas WHERE ordinace_id = %s
         ''', (ordinace_id,))
         conn.commit()

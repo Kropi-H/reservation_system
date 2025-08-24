@@ -1,109 +1,128 @@
-import sqlite3
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import os
-from config import get_database_path_from_config, save_database_path_to_config
+from config import get_database_config, get_database_type, test_database_connection
+
+# Přidání connection pooling
+try:
+    from models.connection_pool import PooledConnection, _connection_pool
+    USE_POOL = True
+except ImportError:
+    USE_POOL = False
+    print("Connection pool není dostupný, používá se standardní připojení")
 
 # Určení kořenového adresáře projektu
-# models/databaze.py -> models/ -> project_root/
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-DB = get_database_path_from_config()
-
 def get_connection():
-    conn = sqlite3.connect(DB)
-    conn.execute("PRAGMA foreign_keys = ON;")
-    return conn
+    """Získá připojení k PostgreSQL databázi."""
+    if USE_POOL:
+        try:
+            return PooledConnection()
+        except Exception as e:
+            print(f"Chyba při použití connection pool, fallback na standardní připojení: {e}")
+    
+    # Fallback na standardní připojení
+    config = get_database_config()
+    if not config:
+        raise Exception("PostgreSQL databáze není nakonfigurována. Spusťte nastavení databáze.")
+    
+    try:
+        conn = psycopg2.connect(**config)
+        return conn
+    except Exception as e:
+        raise Exception(f"Nepodařilo se připojit k PostgreSQL databázi: {e}")
 
 def set_database_path(path):
-    """Nastaví cestu k databázi."""
-    global DB
-    # Pokud je path relativní, převeď na absolutní vzhledem k PROJECT_ROOT
-    if not os.path.isabs(path):
-        path = os.path.join(PROJECT_ROOT, path)
-    DB = path
-    save_database_path_to_config(path)
+    """Zachováno pro zpětnou kompatibilitu - pro PostgreSQL se nepoužívá."""
+    print("Varování: set_database_path se nepoužívá pro PostgreSQL")
 
 def get_database_path():
-    """Vrátí aktuální cestu k databázi."""
-    return DB
+    """Zachováno pro zpětnou kompatibilitu - vrací connection string."""
+    config = get_database_config()
+    if config:
+        return f"postgresql://{config['user']}@{config['host']}:{config['port']}/{config['database']}"
+    return None
 
 def database_exists():
-    """Zkontroluje, zda databáze existuje."""
-    return DB and os.path.exists(DB)
+    """Zkontroluje, zda je PostgreSQL databáze dostupná."""
+    return test_database_connection()
 
 def inicializuj_databazi():
-    """Vytvoří tabulky Doktori, Ordinace, Pacienti a Rezervace, pokud neexistují."""
+    """Vytvoří tabulky v PostgreSQL databázi, pokud neexistují."""
     with get_connection() as conn:
         cur = conn.cursor()
-        # 1) Doktoři
+        
+        # 1) Doktoři - PostgreSQL syntaxe
         cur.execute('''
         CREATE TABLE IF NOT EXISTS Doktori (
-            doktor_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-            jmeno         TEXT    NOT NULL,
-            prijmeni      TEXT    NOT NULL,
-            specializace  TEXT,
-            isActive      INTEGER,
-            color         TEXT
+            doktor_id     SERIAL PRIMARY KEY,
+            jmeno         VARCHAR(100) NOT NULL,
+            prijmeni      VARCHAR(100) NOT NULL,
+            specializace  VARCHAR(200),
+            isActive      INTEGER DEFAULT 1,
+            color         VARCHAR(20)
         );
         ''')
 
         # 2) Ordinace
         cur.execute('''
         CREATE TABLE IF NOT EXISTS Ordinace (
-            ordinace_id   INTEGER PRIMARY KEY AUTOINCREMENT,
-            nazev         TEXT    NOT NULL UNIQUE,
+            ordinace_id   SERIAL PRIMARY KEY,
+            nazev         VARCHAR(100) NOT NULL UNIQUE,
             patro         INTEGER,
             popis         TEXT
         );
         ''')
-        cur.execute('''
-        select count(*) from Ordinace
-        ''')
+        
+        cur.execute('SELECT COUNT(*) FROM Ordinace')
         if cur.fetchone()[0] == 0:
-          cur.execute('''
-          INSERT INTO Ordinace (nazev, patro, popis)
-          VALUES ('Ordinace 1', 1, 'Hlavní ordinace');
-          ''')
+            cur.execute('''
+            INSERT INTO Ordinace (nazev, patro, popis)
+            VALUES ('Ordinace 1', 1, 'Hlavní ordinace');
+            ''')
         
         # 3) Pacienti
         cur.execute('''
         CREATE TABLE IF NOT EXISTS Pacienti (
-            pacient_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-            jmeno_zvirete   TEXT    NOT NULL,
-            druh            TEXT    NOT NULL,
-            majitel_jmeno   TEXT,
-            majitel_telefon TEXT,
-            poznamka       TEXT
+            pacient_id      SERIAL PRIMARY KEY,
+            jmeno_zvirete   VARCHAR(100) NOT NULL,
+            druh            VARCHAR(100) NOT NULL,
+            majitel_jmeno   VARCHAR(100),
+            majitel_telefon VARCHAR(20),
+            poznamka        TEXT
         );
         ''')
 
         # 4) Rezervace
         cur.execute('''
         CREATE TABLE IF NOT EXISTS Rezervace (
-            rezervace_id   INTEGER PRIMARY KEY AUTOINCREMENT,
-            pacient_id     INTEGER    NOT NULL,
-            doktor_id      INTEGER    NOT NULL,
-            ordinace_id    INTEGER    NOT NULL,
-            termin         DATETIME   NOT NULL,
-            cas_od         TEXT       NOT NULL,
-            cas_do         TEXT       NOT NULL,
+            rezervace_id   SERIAL PRIMARY KEY,
+            pacient_id     INTEGER NOT NULL,
+            doktor_id      INTEGER NOT NULL,
+            ordinace_id    INTEGER NOT NULL,
+            termin         DATE NOT NULL,
+            cas_od         TIME NOT NULL,
+            cas_do         TIME NOT NULL,
+            created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(pacient_id) REFERENCES Pacienti(pacient_id)
                 ON DELETE CASCADE,
             FOREIGN KEY(doktor_id)  REFERENCES Doktori(doktor_id)
                 ON DELETE RESTRICT,
-            FOREIGN KEY(ordinace_id)REFERENCES Ordinace(ordinace_id)
+            FOREIGN KEY(ordinace_id) REFERENCES Ordinace(ordinace_id)
                 ON DELETE RESTRICT
         );
         ''')
         
-        # 5) Ordinacni cas doktora
+        # 5) Ordinační čas doktora
         cur.execute('''
         CREATE TABLE IF NOT EXISTS Doktori_Ordinacni_Cas (
-            work_id             INTEGER PRIMARY KEY AUTOINCREMENT,
-            doktor_id      INTEGER    NOT NULL,
-            datum          TEXT       NOT NULL,  -- nesmí chybět
-            prace_od       TEXT       NOT NULL,  -- formát HH:MM (např. '08:00')
-            prace_do       TEXT       NOT NULL,  -- formát HH:MM (např. '12:00')
-            ordinace_id    INTEGER    NOT NULL,
+            work_id        SERIAL PRIMARY KEY,
+            doktor_id      INTEGER NOT NULL,
+            datum          DATE NOT NULL,
+            prace_od       TIME NOT NULL,
+            prace_do       TIME NOT NULL,
+            ordinace_id    INTEGER NOT NULL,
             FOREIGN KEY(doktor_id) REFERENCES Doktori(doktor_id)
                 ON DELETE CASCADE,
             FOREIGN KEY(ordinace_id) REFERENCES Ordinace(ordinace_id)
@@ -114,29 +133,44 @@ def inicializuj_databazi():
         # 6) Uživatelé
         cur.execute('''
         CREATE TABLE IF NOT EXISTS Users (
-            user_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-            username     TEXT    NOT NULL UNIQUE,
-            password     TEXT    NOT NULL,
-            user_role    TEXT    NOT NULL
+            user_id      SERIAL PRIMARY KEY,
+            username     VARCHAR(50) NOT NULL UNIQUE,
+            password     VARCHAR(255) NOT NULL,
+            user_role    VARCHAR(20) NOT NULL
         );
         ''')
                 
         # 7) Nastavení
         cur.execute('''
         CREATE TABLE IF NOT EXISTS Settings (
-            setting_id   INTEGER PRIMARY KEY AUTOINCREMENT,
-            setting_name TEXT    NOT NULL UNIQUE,
-            setting_value TEXT    NOT NULL
+            setting_id    SERIAL PRIMARY KEY,
+            setting_name  VARCHAR(50) NOT NULL UNIQUE,
+            setting_value TEXT NOT NULL
         );
         ''')
-        cur.execute('''
-        select count(*) from Settings
-        ''')
+        
+        cur.execute('SELECT COUNT(*) FROM Settings')
         if cur.fetchone()[0] == 0:
-          cur.execute('''
-          INSERT INTO Settings (setting_name, setting_value)
-          VALUES ('days_to_keep', '0');
-          ''')
+            cur.execute('''
+            INSERT INTO Settings (setting_name, setting_value)
+            VALUES ('days_to_keep', '0');
+            ''')
+
+        # Vytvoření indexů pro výkon
+        cur.execute('''
+        CREATE INDEX IF NOT EXISTS idx_rezervace_termin_cas 
+        ON Rezervace(termin, cas_od);
+        ''')
+        
+        cur.execute('''
+        CREATE INDEX IF NOT EXISTS idx_rezervace_doktor 
+        ON Rezervace(doktor_id);
+        ''')
+        
+        cur.execute('''
+        CREATE INDEX IF NOT EXISTS idx_doktori_ordinacni_cas_datum 
+        ON Doktori_Ordinacni_Cas(datum, doktor_id);
+        ''')
 
         conn.commit()
         
@@ -145,76 +179,106 @@ def get_or_create(cur, table, unique_cols, data_cols):
     """
     Zkusí najít záznam podle unique_cols (tuple sloupců).
     Pokud neexistuje, vloží nový.
-    Vrátí id (lastrowid nebo existující id).
+    Vrátí id (SERIAL primary key).
     """
-    # WHERE jmeno=? AND prijmeni=? …
-    where_clause = " AND ".join(f"{col}=?" for col in unique_cols)
-    params_where  = tuple(data_cols[col] for col in unique_cols)
+    # PostgreSQL používá %s místo ?
+    where_clause = " AND ".join(f"{col}=%s" for col in unique_cols)
+    params_where = tuple(data_cols[col] for col in unique_cols)
+    
+    # Určení primary key názvu podle tabulky
+    pk_mapping = {
+        "Doktori": "doktor_id",
+        "Ordinace": "ordinace_id", 
+        "Pacienti": "pacient_id",
+        "Rezervace": "rezervace_id",
+        "Doktori_Ordinacni_Cas": "work_id",
+        "Users": "user_id",
+        "Settings": "setting_id"
+    }
+    primary_key = pk_mapping.get(table, f"{table.lower()}_id")
+    
     cur.execute(
-        f"SELECT rowid FROM {table} WHERE {where_clause}",
+        f"SELECT {primary_key} FROM {table} WHERE {where_clause}",
         params_where
     )
     row = cur.fetchone()
     if row:
         return row[0]
 
-    # Vloží nový záznam
-    cols  = ", ".join(data_cols.keys())
-    vals  = ", ".join("?" for _ in data_cols)
+    # Vloží nový záznam s RETURNING clause
+    cols = ", ".join(data_cols.keys())
+    vals = ", ".join("%s" for _ in data_cols)
     params = tuple(data_cols.values())
+    
     cur.execute(
-        f"INSERT INTO {table} ({cols}) VALUES ({vals})",
+        f"INSERT INTO {table} ({cols}) VALUES ({vals}) RETURNING {primary_key}",
         params
     )
-    return cur.lastrowid
+    return cur.fetchone()[0]
 
 def get_doktori():
-    """Vrátí seznam všech doktorů."""
+    """Vrátí seznam všech aktivních doktorů."""
     with get_connection() as conn:
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute('''
-        SELECT doktor_id, jmeno, prijmeni,isActive ,specializace, color
+        SELECT doktor_id, jmeno, prijmeni, isActive, specializace, color
         FROM Doktori
         WHERE isActive = 1
+        ORDER BY jmeno, prijmeni
         ''')
         return cur.fetchall()
     
 def get_ordinace():
     """Vrátí seznam všech ordinací."""
     with get_connection() as conn:
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute('''
         SELECT ordinace_id, nazev 
         FROM Ordinace
+        ORDER BY nazev
         ''')
         return cur.fetchall()
 
 def get_user_by_username(username):
+    """Najde uživatele podle username."""
     with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT username, password, user_role FROM Users WHERE username = ?", (username,))
-        row = c.fetchone()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute(
+            "SELECT username, password, user_role FROM Users WHERE username = %s", 
+            (username,)
+        )
+        row = cur.fetchone()
         if row:
-            return {'username': row[0], 'password_hash': row[1], 'role': row[2]}
+            return {
+                'username': row['username'], 
+                'password_hash': row['password'], 
+                'role': row['user_role']
+            }
         return None
-      
-# Na konci souboru místo `if not DB:`
-if not DB:
-    DB = os.path.join(PROJECT_ROOT, "veterina.db")
-
-# Vždy zkontroluj, zda databáze existuje a je inicializovaná
-if not os.path.exists(DB):
-    print(f"Vytvářím databázi: {DB}")
-    inicializuj_databazi()
-else:
-    # Zkontroluj, zda má tabulky
+# Kontrola a inicializace PostgreSQL databáze při importu
+config = get_database_config()
+if config and test_database_connection():
     try:
+        # Zkontroluj, zda má databáze správné tabulky
         with get_connection() as conn:
             cur = conn.cursor()
-            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='Doktori'")
+            cur.execute("""
+                SELECT table_name FROM information_schema.tables 
+                WHERE table_schema = 'public' AND table_name = 'doktori'
+            """)
             if not cur.fetchone():
-                print("Databáze existuje, ale chybí tabulky. Inicializuji...")
+                print("PostgreSQL databáze je připojena, ale chybí tabulky. Inicializuji...")
                 inicializuj_databazi()
+            else:
+                print("PostgreSQL databáze je připravena k použití.")
     except Exception as e:
-        print(f"Chyba při kontrole databáze: {e}")
-        inicializuj_databazi()
+        print(f"Chyba při kontrole PostgreSQL databáze: {e}")
+elif config:
+    print("⚠️  Konfigurace PostgreSQL databáze existuje, ale připojení se nezdařilo.")
+    print("   Zkontrolujte, zda je PostgreSQL server spuštěn a dostupný.")
+    print(f"   Host: {config.get('host', 'N/A')}")
+    print(f"   Port: {config.get('port', 'N/A')}")
+    print(f"   Database: {config.get('database', 'N/A')}")
+else:
+    print("⚠️  PostgreSQL databáze není nakonfigurována.")
+    print("   Spusťte aplikaci a projděte nastavením databáze.")

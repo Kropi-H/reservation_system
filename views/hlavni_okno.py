@@ -35,14 +35,12 @@ smaz_rezervace_starsi_nez(get_settings("days_to_keep"))
 
 
 def get_ordinace_list():
-    ordinace = get_all_ordinace()
-    # Vytvoř seznam unikátních názvů ordinací
-    nazvy = []
-    for i in ordinace:
-        nazev = f"{i[1]}"
-        if nazev not in nazvy:
-            nazvy.append(nazev)
-    return nazvy
+    """Optimalizovaná funkce pro získání seznamu názvů ordinací."""
+    from models.databaze import get_connection
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('SELECT DISTINCT nazev FROM Ordinace ORDER BY nazev')
+        return [row[0] for row in cur.fetchall()]
 
 class HlavniOkno(QMainWindow):
     def __init__(self):
@@ -229,12 +227,18 @@ class HlavniOkno(QMainWindow):
         
         # Vytvoření pevného kontejneru pro ordinace a chat
         self.ordinace_container = QWidget()
-        # Odstranění pevné výšky kontejneru
-        # self.ordinace_container.setMinimumHeight(1000)  # Odstraňte tento řádek
+        # Nastavíme minimální výšku kontejneru pro zachování layoutu
+        self.ordinace_container.setMinimumHeight(600)
         
         self.ordinace_layout = QHBoxLayout(self.ordinace_container)
         self.ordinace_layout.setContentsMargins(5, 5, 5, 5)
         self.ordinace_layout.setSpacing(10)  # Přidání spacing mezi sloupci
+        
+        # Přidáme neviditelný spacer widget pro zachování layoutu
+        self.layout_spacer = QWidget()
+        self.layout_spacer.setMinimumHeight(500)
+        self.layout_spacer.setVisible(False)  # Defaultně skrytý
+        self.ordinace_layout.addWidget(self.layout_spacer)
         
         # Chat widget - bude inicializován až při prvním použití
         self.chat = None
@@ -250,23 +254,37 @@ class HlavniOkno(QMainWindow):
     def aktualizuj_tabulku_ordinaci_layout(self):
         ordinace = get_ordinace_list()   
         
-        # Vymaž staré checkboxy ze status baru
+        # Zachováme chat checkbox před mazáním
+        chat_checkbox_state = None
+        chat_checkbox_ref = None
+        if "Chat" in self.checkboxy:
+            chat_checkbox_ref = self.checkboxy["Chat"]
+            chat_checkbox_state = chat_checkbox_ref.isChecked()
+        
+        # Vymaž staré checkboxy ze status baru (kromě chatu)
         while self.checkboxy_layout.count():
             item = self.checkboxy_layout.takeAt(0)
             widget = item.widget()
-            if widget is not None:
+            if widget is not None and widget != chat_checkbox_ref:
                 widget.deleteLater()
         
-        # Odstraň všechny widgety z layoutu (včetně chatu)
+        # Odstraň všechny widgety z layoutu (kromě chatu a spaceru)
         while self.ordinace_layout.count():
             item = self.ordinace_layout.takeAt(0)
             widget = item.widget()
-            if widget is not None and widget != self.chat:  # Neodstraňuj chat widget
+            if widget is not None and widget != self.chat and widget != getattr(self, 'layout_spacer', None):
                 widget.deleteLater()
     
         # Nyní můžeš bezpečně přidávat nové tabulky
         self.tabulky.clear()
-        self.checkboxy.clear()
+        # Vyčisti checkboxy, ale zachovej chat
+        ordinace_checkboxy = {k: v for k, v in self.checkboxy.items() if k != "Chat"}
+        for checkbox in ordinace_checkboxy.values():
+            checkbox.deleteLater()
+        if chat_checkbox_ref:
+            self.checkboxy = {"Chat": chat_checkbox_ref}
+        else:
+            self.checkboxy.clear()
         
         for mistnost in ordinace:
             # Vytvoření checkboxu pro status bar
@@ -308,27 +326,31 @@ class HlavniOkno(QMainWindow):
             self.ordinace_layout.addWidget(tabulka)
             self.tabulky[mistnost] = tabulka
             
-        # Přidání checkboxu pro chat
-        chat_checkbox = QCheckBox("Chat")
-        chat_checkbox.setChecked(False)  # Chat defaultně skrytý
-        chat_checkbox.setStyleSheet("""
-            QCheckBox {
-                font-weight: bold;
-                font-size: 12px;
-                padding: 2px 4px;
-                background-color: #e8f5e8;
-                border-radius: 3px;
-                margin: 1px;
-                color: #2e7d32;
-            }
-            QCheckBox::indicator {
-                width: 16px;
-                height: 16px;
-            }
-        """)
-        chat_checkbox.toggled.connect(self.toggle_chat_visibility)
-        self.checkboxy_layout.addWidget(chat_checkbox)
-        self.checkboxy["Chat"] = chat_checkbox
+        # Přidání checkboxu pro chat (pouze pokud ještě neexistuje)
+        if "Chat" not in self.checkboxy:
+            chat_checkbox = QCheckBox("Chat")
+            chat_checkbox.setChecked(False)  # Chat defaultně skrytý
+            chat_checkbox.setStyleSheet("""
+                QCheckBox {
+                    font-weight: bold;
+                    font-size: 12px;
+                    padding: 2px 4px;
+                    background-color: #e8f5e8;
+                    border-radius: 3px;
+                    margin: 1px;
+                    color: #2e7d32;
+                }
+                QCheckBox::indicator {
+                    width: 16px;
+                    height: 16px;
+                }
+            """)
+            chat_checkbox.toggled.connect(self.toggle_chat_visibility)
+            self.checkboxy["Chat"] = chat_checkbox
+        
+        # Přidej chat checkbox zpět do layoutu
+        if "Chat" in self.checkboxy:
+            self.checkboxy_layout.addWidget(self.checkboxy["Chat"])
         
         # Chat nebude přidán do layoutu dokud není inicializován
         
@@ -345,6 +367,9 @@ class HlavniOkno(QMainWindow):
         else:
             if self.chat:
                 self.chat.hide()
+        
+        # Aktualizujeme layout spacer
+        self.update_layout_spacer()
 
     def show_chat_config(self):
         """Zobrazí dialog pro konfiguraci chatu"""
@@ -355,6 +380,7 @@ class HlavniOkno(QMainWindow):
         else:
             # Pokud uživatel zruší dialog, odškrtni checkbox
             self.checkboxy["Chat"].setChecked(False)
+            self.update_layout_spacer()  # Aktualizujeme spacer
 
     def initialize_chat(self, config):
         """Inicializuje chat widget s danou konfigurací"""
@@ -402,6 +428,35 @@ class HlavniOkno(QMainWindow):
                 tabulka.show()
             else:
                 tabulka.hide()
+        
+        # Zkontrolujeme, zda je potřeba zobrazit layout spacer
+        self.update_layout_spacer()
+    
+    def update_layout_spacer(self):
+        """Aktualizuje viditelnost layout spaceru podle stavu všech widgetů"""
+        # Zkontrolujeme, zda spacer stále existuje
+        if not hasattr(self, 'layout_spacer') or self.layout_spacer is None:
+            return
+            
+        # Zkontrolujeme, zda je alespoň jedna tabulka nebo chat viditelný
+        any_visible = False
+        
+        # Zkontrolujeme tabulky ordinací
+        for mistnost, checkbox in self.checkboxy.items():
+            if mistnost != "Chat" and checkbox.isChecked():
+                any_visible = True
+                break
+        
+        # Zkontrolujeme chat
+        if not any_visible and "Chat" in self.checkboxy and self.checkboxy["Chat"].isChecked():
+            any_visible = True
+        
+        # Pokud nic není viditelné, zobrazíme spacer pro zachování layoutu
+        try:
+            self.layout_spacer.setVisible(not any_visible)
+        except RuntimeError:
+            # Widget byl již smazán, ignorujeme
+            pass
     
     def add_logo(self):
         # Logo vlevo
@@ -424,10 +479,22 @@ class HlavniOkno(QMainWindow):
               widget.deleteLater()
       # Přidej nové štítky podle aktuálních dat
       for doktor in get_doktori():
-          if doktor[3] == 1:  # Pouze aktivní doktor
-              jmeno = f"{doktor[1]}\n{doktor[2]}"
-              barva = doktor[5].strip()
-              label = QLabel(jmeno)
+          # Handle both dictionary (PostgreSQL) and tuple (SQLite) formats
+          if isinstance(doktor, dict):
+              is_active = doktor['isactive']  # PostgreSQL converts to lowercase
+              jmeno = doktor['jmeno']
+              prijmeni = doktor['prijmeni']
+              barva = doktor['color']
+          else:
+              is_active = doktor[3]
+              jmeno = doktor[1]
+              prijmeni = doktor[2]
+              barva = doktor[5]
+              
+          if is_active == 1:  # Pouze aktivní doktor
+              jmeno_display = f"{jmeno}\n{prijmeni}"
+              barva = barva.strip()
+              label = QLabel(jmeno_display)
               label.setStyleSheet(f"""
                   background-color: {barva};
                   color: #222;
@@ -620,6 +687,16 @@ class HlavniOkno(QMainWindow):
         datum = self.kalendar.date().toPython()
         # print(f"Barvy doktorů:{barvy_puvodnich}, Datum: {datum}, Čas od: {vybrane_casy[0]}, Čas do: {vybrane_casy[-1]}, Ordinace: {mistnost}")
         # print(vybrane_casy)
+        
+        # Check if there are selected times before proceeding
+        if not vybrane_casy:
+            self.status_bar.showMessage("Žádné časy nejsou vybrané.")
+            return
+            
+        if not barvy_puvodnich:
+            self.status_bar.showMessage("Žádný doktor není vybrán.")
+            return
+            
         uprav_ordinacni_cas(barvy_puvodnich=barvy_puvodnich, datum=datum, prace_od=vybrane_casy[0], prace_do=vybrane_casy[-1], nazev_ordinace=mistnost)
         self.status_bar.showMessage("Plánování uloženo. Pokračuj v plánování ordinací, nebo jej ukonči.")
         # Vypnutí výběru a odstranění tlačítka
@@ -732,7 +809,15 @@ class HlavniOkno(QMainWindow):
             # ...původní logika pro otevření existující rezervace...
             rezervace = ziskej_rezervace_dne(datum.strftime("%Y-%m-%d"))
             for r in rezervace:
-                rez_cas = datetime.strptime(f"{r[0]} {r[10]}", "%Y-%m-%d %H:%M")
+                # Handle both datetime object (PostgreSQL) and string (SQLite) formats for r[0]
+                if isinstance(r[0], datetime):
+                    # PostgreSQL returns datetime objects
+                    datum_str = r[0].strftime("%Y-%m-%d")
+                else:
+                    # SQLite returns strings
+                    datum_str = str(r[0])
+                    
+                rez_cas = datetime.strptime(f"{datum_str} {r[10]}", "%Y-%m-%d %H:%M")
                 if r[8] == mistnost and slot_start <= rez_cas < slot_start + slot:
                     self.formular = FormularRezervace(self, rezervace_data=r)
                     self.formular.show()
@@ -762,8 +847,18 @@ class HlavniOkno(QMainWindow):
       # Zmapuj rezervace podle ordinace
       mapovane = {i: [] for i in ordinace}
       for r in rezervace:
-          cas_od = datetime.strptime(f"{r[0]} {r[10]}", "%Y-%m-%d %H:%M")
-          cas_do = datetime.strptime(f"{r[0]} {r[11]}", "%Y-%m-%d %H:%M")
+          # Handle both datetime object (PostgreSQL) and string (SQLite) formats for r[0]
+          if isinstance(r[0], datetime):
+              # PostgreSQL returns datetime objects
+              datum_str = r[0].strftime("%Y-%m-%d")
+          else:
+              # SQLite returns strings
+              datum_str = str(r[0])
+              
+          # Combine date and time properly
+          cas_od = datetime.strptime(f"{datum_str} {r[10]}", "%Y-%m-%d %H:%M")
+          cas_do = datetime.strptime(f"{datum_str} {r[11]}", "%Y-%m-%d %H:%M")
+          
           id = r[1]
           doktor = r[2]
           doktor_color = r[3]

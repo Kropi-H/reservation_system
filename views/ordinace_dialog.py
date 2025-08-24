@@ -68,18 +68,26 @@ class OrdinaceDialog(QDialog):
         ordinace = get_all_ordinace()
         for ord in ordinace:
             hbox = QHBoxLayout()
-            label = QLabel(f"{ord[1]}")
+            # Handle both dictionary (PostgreSQL) and tuple (SQLite) formats
+            if isinstance(ord, dict):
+                ordinace_id = ord['ordinace_id']
+                nazev = ord['nazev']
+            else:
+                ordinace_id = ord[0]
+                nazev = ord[1]
+            
+            label = QLabel(f"{nazev}")
             label.setStyleSheet("font-weight: bold; font-size: 14px;")
             hbox.addWidget(label)                        
 
             remove_button = QPushButton("Odebrat")
             remove_button.setObjectName("remove_ordinace")
             remove_button.setStyleSheet(f"background-color: {basic_button_color['remove_button_color']};")
-            remove_button.clicked.connect(partial(self.remove_ordinace, ord[0], ord[1]))
+            remove_button.clicked.connect(partial(self.remove_ordinace, ordinace_id, nazev))
             update_button = QPushButton("Upravit")
             update_button.setObjectName("update_ordinace")
             update_button.setStyleSheet(f"background-color: {basic_button_color['update_button_color']};")
-            update_button.clicked.connect(partial(self.update_ordinace, ord[0]))
+            update_button.clicked.connect(partial(self.update_ordinace, ordinace_id))
 
             hbox.addWidget(remove_button)
             hbox.addWidget(update_button)
@@ -152,12 +160,18 @@ class OrdinaceDialog(QDialog):
     def update_ordinace(self, ordinace_id):
         # Najděte aktuální roli ordinace
         all_ordinace = get_all_ordinace()
-        ordinace = next((u for u in all_ordinace if u[0] == ordinace_id), None)
+        ordinace = next((u for u in all_ordinace if (u['ordinace_id'] if isinstance(u, dict) else u[0]) == ordinace_id), None)
         if not ordinace:
             if self.parent_window:
                 self.parent_window.status_bar.showMessage("Ordinace nenalezena.")
             return
-        ordinace_id = ordinace[0]
+        
+        # Handle both dictionary (PostgreSQL) and tuple (SQLite) formats
+        if isinstance(ordinace, dict):
+            ordinace_id = ordinace['ordinace_id']
+        else:
+            ordinace_id = ordinace[0]
+            
         dialog = EditOrdinaceDialog(ordinace_id)
         if dialog.exec() == QDialog.Accepted:
             data = dialog.get_data()

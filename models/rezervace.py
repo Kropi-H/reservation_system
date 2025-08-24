@@ -46,12 +46,14 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
             """
             INSERT INTO Rezervace
             (pacient_id, doktor_id, ordinace_id, termin, cas_od, cas_do)
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING rezervace_id
             """,
             (pac_id, doc_id, ord_id, termin, cas_od, cas_do)
         )
 
-        return cur.lastrowid  # id nově vzniklé rezervace
+        result = cur.fetchone()
+        return result[0] if result else None  # id nově vzniklé rezervace
 
 def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, termin, cas_od, cas_do, mistnost):
     """
@@ -61,7 +63,7 @@ def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_paci
         cur = conn.cursor()
 
         # Najdeme stávající pacient_id pro tuto rezervaci
-        cur.execute('SELECT pacient_id FROM Rezervace WHERE rezervace_id = ?', (rezervace_id,))
+        cur.execute('SELECT pacient_id FROM Rezervace WHERE rezervace_id = %s', (rezervace_id,))
         row = cur.fetchone()
         if not row:
             return False  # Rezervace neexistuje
@@ -82,8 +84,8 @@ def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_paci
         # 2) Aktualizujeme existujícího pacienta místo vytváření nového
         cur.execute('''
             UPDATE Pacienti
-            SET jmeno_zvirete = ?, druh = ?, majitel_jmeno = ?, majitel_telefon = ?, poznamka = ?
-            WHERE pacient_id = ?
+            SET jmeno_zvirete = %s, druh = %s, majitel_jmeno = %s, majitel_telefon = %s, poznamka = %s
+            WHERE pacient_id = %s
         ''', (pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, note, existing_pacient_id))
 
         # 3) Ordinace
@@ -98,8 +100,8 @@ def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_paci
         cur.execute(
             """
             UPDATE Rezervace
-            SET doktor_id = ?, ordinace_id = ?, termin = ?, cas_od = ?, cas_do = ?
-            WHERE rezervace_id = ?
+            SET doktor_id = %s, ordinace_id = %s, termin = %s, cas_od = %s, cas_do = %s
+            WHERE rezervace_id = %s
             """,
             (doc_id, ord_id, termin, cas_od, cas_do, rezervace_id)
         )
@@ -120,7 +122,7 @@ def rezervace_pro_ordinaci(ordinace_id):
             Ordinace.nazev AS Ordinace
         FROM Rezervace
         INNER JOIN Ordinace ON Rezervace.ordinace_id = Ordinace.ordinace_id
-        WHERE Rezervace.ordinace_id = ?
+        WHERE Rezervace.ordinace_id = %s
         ORDER BY Rezervace.termin
         ''', (ordinace_id,))
         result = cur.fetchall()
@@ -152,8 +154,8 @@ def ziskej_rezervace_dne(datum_str):
         INNER JOIN Doktori ON Rezervace.doktor_id = Doktori.doktor_id
         INNER JOIN Pacienti ON Rezervace.pacient_id = Pacienti.pacient_id
         INNER JOIN Ordinace ON Rezervace.ordinace_id = Ordinace.ordinace_id
-        WHERE DATE(Rezervace.termin) = ?
-        ORDER BY Rezervace.termin
+        WHERE Rezervace.termin = %s
+        ORDER BY Rezervace.cas_od
         ''', (datum_str,))
         return cur.fetchall()
 
@@ -164,7 +166,7 @@ def odstran_rezervaci(rezervace_id):
     with get_connection() as conn:
         cur = conn.cursor()
         # Zjistíme pacient_id pro tuto rezervaci
-        cur.execute('SELECT pacient_id FROM Rezervace WHERE rezervace_id = ?', (rezervace_id,))
+        cur.execute('SELECT pacient_id FROM Rezervace WHERE rezervace_id = %s', (rezervace_id,))
         row = cur.fetchone()
         if not row:
             return False  # Rezervace neexistuje
@@ -172,17 +174,17 @@ def odstran_rezervaci(rezervace_id):
         
         cur.execute('''
         DELETE FROM Rezervace
-        WHERE rezervace_id = ?
+        WHERE rezervace_id = %s
         ''', (rezervace_id,))
         deleted = cur.rowcount > 0  # True pokud byl záznam odstraněn
         
         if deleted:
             # Zjistíme, zda má pacient ještě nějakou rezervaci
-            cur.execute('SELECT COUNT(*) FROM Rezervace WHERE pacient_id = ?', (pacient_id,))
+            cur.execute('SELECT COUNT(*) FROM Rezervace WHERE pacient_id = %s', (pacient_id,))
             count = cur.fetchone()[0]
             if count == 0:
                 # Smažeme pacienta
-                cur.execute('DELETE FROM Pacienti WHERE pacient_id = ?', (pacient_id,))
+                cur.execute('DELETE FROM Pacienti WHERE pacient_id = %s', (pacient_id,))
         conn.commit()
         
 def remove_all_older_rezervations_for_ordinaci(ordinace_id):
@@ -193,7 +195,7 @@ def remove_all_older_rezervations_for_ordinaci(ordinace_id):
         cur = conn.cursor()
         cur.execute('''
         DELETE FROM Rezervace
-        WHERE ordinace_id = ? 
+        WHERE ordinace_id = %s 
         ''', (ordinace_id,))
         return cur.rowcount > 0  # True pokud byly záznamy odstraněny
     
@@ -223,7 +225,7 @@ def smaz_rezervace_starsi_nez(pocet_dni):
         cur.execute('''
         SELECT DISTINCT pacient_id 
         FROM Rezervace 
-        WHERE DATE(termin) < ?
+        WHERE DATE(termin) < %s
         ''', (datum_hranice_str,))
         
         pacienti_ke_smazani = [row[0] for row in cur.fetchall()]
@@ -231,7 +233,7 @@ def smaz_rezervace_starsi_nez(pocet_dni):
         # Smažeme staré rezervace
         cur.execute('''
         DELETE FROM Rezervace 
-        WHERE DATE(termin) < ?
+        WHERE DATE(termin) < %s
         ''', (datum_hranice_str,))
         
         pocet_smazanych = cur.rowcount
@@ -239,12 +241,12 @@ def smaz_rezervace_starsi_nez(pocet_dni):
         # Zkontrolujeme, kteří pacienti už nemají žádné rezervace
         for pacient_id in pacienti_ke_smazani:
             cur.execute('''
-            SELECT COUNT(*) FROM Rezervace WHERE pacient_id = ?
+            SELECT COUNT(*) FROM Rezervace WHERE pacient_id = %s
             ''', (pacient_id,))
             
             if cur.fetchone()[0] == 0:
                 # Pacient nemá žádné rezervace, smažeme ho
-                cur.execute('DELETE FROM Pacienti WHERE pacient_id = ?', (pacient_id,))
+                cur.execute('DELETE FROM Pacienti WHERE pacient_id = %s', (pacient_id,))
         
         conn.commit()
         
@@ -255,7 +257,7 @@ def kontrola_prekryvani_rezervaci(termin, cas_od, cas_do, mistnost, rezervace_id
         cur = conn.cursor()
         
         # Získáme ID ordinace
-        cur.execute('SELECT ordinace_id FROM Ordinace WHERE nazev = ?', (mistnost,))
+        cur.execute('SELECT ordinace_id FROM Ordinace WHERE nazev = %s', (mistnost,))
         result = cur.fetchone()
         if not result:
             return True, f"Ordinace '{mistnost}' neexistuje."
@@ -266,13 +268,13 @@ def kontrola_prekryvani_rezervaci(termin, cas_od, cas_do, mistnost, rezervace_id
         if rezervace_id:
             query = '''
                 SELECT rezervace_id, cas_od, cas_do FROM Rezervace
-                WHERE ordinace_id = ? AND termin = ? AND rezervace_id != ?
+                WHERE ordinace_id = %s AND termin = %s AND rezervace_id != %s
             '''
             params = (ordinace_id, termin, rezervace_id)
         else:
             query = '''
                 SELECT rezervace_id, cas_od, cas_do FROM Rezervace
-                WHERE ordinace_id = ? AND termin = ?
+                WHERE ordinace_id = %s AND termin = %s
             '''
             params = (ordinace_id, termin)
         

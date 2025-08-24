@@ -64,23 +64,30 @@ class FormularRezervace(QWidget):
 
         # Předvyplnění dat pokud jsou k dispozici
         if rezervace_data:
-          # Předpoklad: rezervace_data = (cas, id, doktor, doktor_color, pacient, majitel, kontakt, druh, mistnost, poznamka)
+          # Předpoklad: rezervace_data = (cas, id, doktor, doktor_color, pacient, majitel, kontakt, druh, mistnost, poznamka, cas_od, cas_do)
           self.pacient_jmeno_input.setText(rezervace_data[4])
           self.pacient_druh_input.setText(rezervace_data[7])
           self.majitel_input.setText(rezervace_data[5])
           self.kontakt_majitel_input.setText(rezervace_data[6])
-          idx = self.doktor_input.findText(rezervace_data[2]) # index 2 je doktor (jméno)self.delka_rezervace_input.setText(rezervace_data[11]) # index 11 je délka rezervace
+          idx = self.doktor_input.findText(rezervace_data[2]) # index 2 je doktor (jméno)
           if idx != -1:
               self.doktor_input.setCurrentIndex(idx)
           self.note_input.setPlainText(rezervace_data[9])
-          dt = QDateTime.fromString(f"{rezervace_data[0]} {rezervace_data[10]}", "yyyy-MM-dd HH:mm")
+          
+          # Handle both datetime object (PostgreSQL) and string (SQLite) formats for rezervace_data[0]
+          if hasattr(rezervace_data[0], 'strftime'):  # datetime object
+              datum_str = rezervace_data[0].strftime("%Y-%m-%d")
+          else:
+              datum_str = str(rezervace_data[0])
+          
+          dt = QDateTime.fromString(f"{datum_str} {rezervace_data[10]}", "yyyy-MM-dd HH:mm")
           if dt.isValid():
               # self.cas_input.setDateTime(dt)
               self.datum_input.setDate(dt.date())
               self.cas_od_input.setCurrentText(dt.time().toString("HH:mm"))
               # Naplnění možností pro čas do na základě času od
               self.aktualizuj_delku_rezervace()
-          # Nastavení délky rezervace (času do)
+          # Nastavení délky rezervace (času do) - cas_do je na indexu 11
           if len(rezervace_data) > 11 and rezervace_data[11]:
               self.delka_rezervace_input.setCurrentText(rezervace_data[11])    
           idx2 = self.mistnost_input.findText(rezervace_data[8])
@@ -148,11 +155,23 @@ class FormularRezervace(QWidget):
 
     def get_doctors(self):
         doktori = get_doktori()
-        return [ f"{i[1]} {i[2]}" for i in doktori]
+        # Handle both dictionary (PostgreSQL) and tuple (SQLite) formats
+        if doktori and isinstance(doktori[0], dict):
+            # PostgreSQL format - use dictionary keys
+            return [f"{i['jmeno']} {i['prijmeni']}" for i in doktori]
+        else:
+            # SQLite format - use index access
+            return [f"{i[1]} {i[2]}" for i in doktori]
 
     def get_ordinace_list(self):
         ordinace = get_ordinace()
-        return [ f"{i[1]}" for i in ordinace]
+        # Handle both dictionary (PostgreSQL) and tuple (SQLite) formats
+        if ordinace and isinstance(ordinace[0], dict):
+            # PostgreSQL format - use dictionary keys
+            return [f"{i['nazev']}" for i in ordinace]
+        else:
+            # SQLite format - use index access
+            return [f"{i[1]}" for i in ordinace]
     
     def vytvor_cas_layout(self):
         """Vytvoří layout pro čas od-do"""

@@ -12,18 +12,28 @@ class EditOrdinaceDialog(QDialog):
         self.setStyleSheet(basic_style)
         self.ordinace = get_ordinace_by_id(ordinace_id)  # Assuming this function retrieves a doctor's details by ID
 
+        # Handle both dictionary (PostgreSQL) and tuple (SQLite) formats
+        if isinstance(self.ordinace, dict):
+            nazev = self.ordinace['nazev']
+            patro = self.ordinace['patro']
+            popis = self.ordinace['popis']
+        else:
+            nazev = self.ordinace[1]
+            patro = self.ordinace[2]
+            popis = self.ordinace[3]
+
         layout.addWidget(QLabel("Název ordinace:"))
-        self.ordinace_nazev = QLineEdit(self.ordinace[1])
+        self.ordinace_nazev = QLineEdit(nazev)
         layout.addWidget(self.ordinace_nazev)
         
         layout.addWidget(QLabel("Patro:"))
         self.ordinace_patro = QComboBox()
         self.ordinace_patro.addItems(["0", "1"])
-        self.ordinace_patro.setCurrentText(str(self.ordinace[2]))
+        self.ordinace_patro.setCurrentText(str(patro))
         layout.addWidget(self.ordinace_patro)
         
         layout.addWidget(QLabel("Popis:"))
-        self.popis_ordinace = QLineEdit(self.ordinace[3])
+        self.popis_ordinace = QLineEdit(popis)
         layout.addWidget(self.popis_ordinace)
         
 
