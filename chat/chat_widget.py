@@ -346,11 +346,6 @@ class ChatWidget(QWidget):
                 if self.sock:
                     print(f"ChatWidget: Posílám zprávu přes socket")
                     self.sock.sendall(full_msg.encode('utf-8'))
-                    
-                    # V server módu musíme zprávu přidat i lokálně, protože server ji nevrací odesílateli
-                    if self.config.get("mode") == "server":
-                        print(f"ChatWidget: Přidávám vlastní zprávu do UI (server mód)")
-                        self.show_message(full_msg)
                 else:
                     print(f"ChatWidget: Žádné spojení pro odeslání zprávy")
                     return
