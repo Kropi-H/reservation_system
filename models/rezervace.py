@@ -231,6 +231,7 @@ def odstran_rezervaci(rezervace_id):
                 # Smažeme pacienta
                 cur.execute('DELETE FROM Pacienti WHERE pacient_id = %s', (pacient_id,))
         conn.commit()
+        return deleted  # Vrátíme True pokud byla rezervace úspěšně odstraněna
         
 def remove_all_older_rezervations_for_ordinaci(ordinace_id):
     """
