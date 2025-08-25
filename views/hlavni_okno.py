@@ -14,12 +14,14 @@ from views.login_dialog import LoginDialog
 from controllers.data import table_grey_strip, vaccination_color, pause_color
 # from controllers.rezervace_controller import uloz_rezervaci
 from models.databaze import get_doktori, set_database_path, inicializuj_databazi
+from config import test_database_connection
 from views.vyber_doktora_dialog import VyberDoktoraDialog
 from views.planovani_ordinaci_dialog import PlanovaniOrdinaciDialog
 from views.users_dialog import UsersDialog
 from views.doctors_dialog import DoctorDialog
 from views.ordinace_dialog import OrdinaceDialog
 from views.database_setup_dialog import DatabaseSetupDialog
+from views.postgresql_setup_dialog import PostgreSQLSetupDialog
 from views.smaz_rezervace_po_xy_dialog import SmazRezervaceDialog
 from views.chat_config_dialog import ChatConfigDialog
 from functools import partial
@@ -1020,51 +1022,48 @@ class HlavniOkno(QMainWindow):
       #print("Rezervace načtené z databáze:", rezervace)
     
     def change_database(self):
-        """Zobrazí dialog pro změnu databáze."""
+        """Zobrazí dialog pro změnu PostgreSQL databáze."""
         
         reply = QMessageBox.question(
             self,
             "Změna databáze",
-            "Opravdu chcete změnit databázi? Všechny neuložené změny budou ztraceny.",
+            "Opravdu chcete změnit konfiguraci PostgreSQL databáze?\n"
+            "Aplikace se připojí k nové databázi po uložení nastavení.",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
         
         if reply == QMessageBox.Yes:
-            dialog = DatabaseSetupDialog(self)
+            dialog = PostgreSQLSetupDialog(self)
             result = dialog.exec()
             
-            if result == DatabaseSetupDialog.Accepted:
-                new_path = dialog.get_database_path()
-                set_database_path(new_path)
-                
-                try:
-                    # Pokud byla vybrána nová databáze, inicializuj ji
-                    if not os.path.exists(new_path):
-                        inicializuj_databazi()
-                        QMessageBox.information(
-                            self,
-                            "Úspěch", 
-                            f"Nová databáze byla úspěšně vytvořena: {new_path}"
-                        )
-                    else:
-                        # Existující databáze - zkontroluj a případně aktualizuj strukturu
-                        inicializuj_databazi()
-                        QMessageBox.information(
-                            self,
-                            "Úspěch", 
-                            f"Databáze byla úspěšně změněna na: {new_path}"
-                        )
-                    
-                    # Restartuj zobrazení
-                    self.aktualizuj_tabulku_ordinaci_layout()
-                    self.aktualizuj_doktori_layout()
-                    
-                except Exception as e:
-                    QMessageBox.critical(
+            if result == PostgreSQLSetupDialog.Accepted:
+                if dialog.is_connection_successful():
+                    QMessageBox.information(
                         self,
-                        "Chyba",
-                        f"Nepodařilo se připojit k databázi: {str(e)}"
+                        "Úspěch", 
+                        "Konfigurace PostgreSQL databáze byla úspěšně změněna.\n"
+                        "Připojení k nové databázi je funkční."
+                    )
+                    
+                    # Aktualizuj zobrazení s novou databází
+                    try:
+                        self.aktualizuj_tabulku_ordinaci_layout()
+                        self.aktualizuj_doktori_layout()
+                        self.nacti_rezervace()
+                    except Exception as e:
+                        QMessageBox.warning(
+                            self,
+                            "Upozornění",
+                            f"Databáze byla změněna, ale došlo k chybě při aktualizaci zobrazení:\n{str(e)}\n\n"
+                            "Doporučujeme restartovat aplikaci."
+                        )
+                else:
+                    QMessageBox.warning(
+                        self,
+                        "Upozornění",
+                        "Konfigurace byla uložena, ale test připojení selhal.\n"
+                        "Zkontrolujte nastavení a zkuste to znovu."
                     )
       
     def nastaveni_smazani_dat(self):

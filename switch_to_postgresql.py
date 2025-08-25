@@ -13,7 +13,7 @@ def switch_to_postgresql():
         
         # Nastavení PostgreSQL konfigurace
         postgresql_config = {
-            "host": "192.168.0.118",
+            "host": "localhost",
             "port": 5432,
             "database": "veterina",
             "user": "postgres",

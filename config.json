@@ -1,12 +1,41 @@
 {
-  "database_path": "C:/Users/kropa/PycharmProjects/reservation_system/veterina.db",
-  "last_directory": "C:/Users/kropa/PycharmProjects/reservation_system",
+  "database_type": "postgresql",
   "database_config": {
-    "host": "localhost",
+    "host": "192.168.0.118",
     "port": 5432,
     "database": "veterina",
     "user": "postgres",
     "password": "motodevka25"
   },
-  "database_type": "postgresql"
+  "network_configs": {
+    "localhost": {
+      "host": "localhost",
+      "port": 5432,
+      "database": "veterina",
+      "user": "postgres",
+      "password": "motodevka25"
+    },
+    "server": {
+      "host": "192.168.0.118",
+      "port": 5432,
+      "database": "veterina",
+      "user": "postgres",
+      "password": "motodevka25"
+    },
+    "192.168.0.118_server": {
+      "host": "192.168.0.118",
+      "port": 5432,
+      "database": "veterina",
+      "user": "postgres",
+      "password": "motodevka25"
+    },
+    "current_connection": {
+      "host": "192.168.0.118",
+      "port": 5432,
+      "database": "veterina",
+      "user": "postgres",
+      "password": "motodevka25"
+    }
+  },
+  "active_network_config": "current_connection"
 }
