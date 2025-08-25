@@ -1,5 +1,14 @@
 from models.databaze import get_connection, get_or_create
 from datetime import datetime, timedelta
+
+# Import pro database notifikace (pouze pokud je dostupný)
+try:
+    from models.database_listener import notify_database_change
+    NOTIFICATIONS_ENABLED = True
+except ImportError:
+    NOTIFICATIONS_ENABLED = False
+    def notify_database_change(*args, **kwargs):
+        pass  # No-op pokud není dostupný
                     
 def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, termin, cas_od, cas_do, mistnost):
     """
@@ -53,7 +62,22 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
         )
 
         result = cur.fetchone()
-        return result[0] if result else None  # id nově vzniklé rezervace
+        rezervace_id = result[0] if result else None
+        
+        # Pošli notifikaci o nové rezervaci
+        if rezervace_id and NOTIFICATIONS_ENABLED:
+            notify_database_change('reservation', 'INSERT', {
+                'id': rezervace_id,
+                'pacient_jmeno': pacient_jmeno,
+                'majitel_pacienta': majitel_pacienta,
+                'doktor': doktor,
+                'termin': str(termin),
+                'cas_od': str(cas_od),
+                'cas_do': str(cas_do),
+                'mistnost': mistnost
+            })
+        
+        return rezervace_id  # id nově vzniklé rezervace
 
 def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, termin, cas_od, cas_do, mistnost):
     """
@@ -106,7 +130,22 @@ def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_paci
             (doc_id, ord_id, termin, cas_od, cas_do, rezervace_id)
         )
 
-        return cur.rowcount > 0  # True pokud byl záznam upraven
+        updated = cur.rowcount > 0  # True pokud byl záznam upraven
+        
+        # Pošli notifikaci o úpravě rezervace
+        if updated and NOTIFICATIONS_ENABLED:
+            notify_database_change('reservation', 'UPDATE', {
+                'id': rezervace_id,
+                'pacient_jmeno': pacient_jmeno,
+                'majitel_pacienta': majitel_pacienta,
+                'doktor': doktor,
+                'termin': str(termin),
+                'cas_od': str(cas_od),
+                'cas_do': str(cas_do),
+                'mistnost': mistnost
+            })
+
+        return updated
 
 def rezervace_pro_ordinaci(ordinace_id):
     """
@@ -177,6 +216,12 @@ def odstran_rezervaci(rezervace_id):
         WHERE rezervace_id = %s
         ''', (rezervace_id,))
         deleted = cur.rowcount > 0  # True pokud byl záznam odstraněn
+        
+        # Pošli notifikaci o smazání rezervace
+        if deleted and NOTIFICATIONS_ENABLED:
+            notify_database_change('reservation', 'DELETE', {
+                'id': rezervace_id
+            })
         
         if deleted:
             # Zjistíme, zda má pacient ještě nějakou rezervaci

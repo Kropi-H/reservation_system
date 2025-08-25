@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QLabel,
                                QTableWidgetItem, QMenuBar, QMenu, QMainWindow, QAbstractItemView,
                                QSystemTrayIcon, QCheckBox, QInputDialog, QTabWidget)
 from PySide6.QtCore import QDate, QLocale, QTimer, Qt
-from PySide6.QtGui import QColor, QPixmap, QAction, QFont, QIcon
+from PySide6.QtGui import QColor, QPixmap, QAction, QFont, QIcon, QShortcut, QKeySequence
 from views.formular_rezervace import FormularRezervace
 from models.rezervace import ziskej_rezervace_dne
 from datetime import datetime, timedelta
@@ -53,6 +53,9 @@ class HlavniOkno(QMainWindow):
         layout = QVBoxLayout()    
         self.logged_in_user = None
         self.logged_in_user_role = None
+        
+        # Inicializace pro případné budoucí rozšíření
+        # Real-time synchronizace momentálně zakázána kvůli stabilitě
         
         self.logo_layout = QHBoxLayout()
         self.add_logo()
@@ -250,6 +253,9 @@ class HlavniOkno(QMainWindow):
         
         self.aktualizuj_tabulku_ordinaci_layout()
         self.nacti_rezervace()
+        
+        # Nastavení auto-refresh pro synchronizaci více instancí
+        self.setup_auto_refresh()
         
         self.setCentralWidget(central_widget)
         
@@ -1165,7 +1171,55 @@ class HlavniOkno(QMainWindow):
 
     def closeEvent(self, event):
         """Obsluha zavření aplikace"""
+        # Zastavení auto-refresh timeru
+        if hasattr(self, 'refresh_timer'):
+            self.refresh_timer.stop()
+        
         # Zavři chat pokud je inicializován
         if self.chat_initialized and self.chat:
             self.chat.close()
         event.accept()
+
+    def setup_auto_refresh(self):
+        """Nastaví automatické obnovování dat pro synchronizaci více instancí."""
+        # Timer pro automatické obnovení každých 30 sekund
+        self.refresh_timer = QTimer()
+        self.refresh_timer.timeout.connect(self.auto_refresh_data)
+        self.refresh_timer.start(30000)  # 30 sekund
+        
+        # Klávesová zkratka F5 pro manuální obnovení
+        refresh_shortcut = QShortcut(QKeySequence("F5"), self)
+        refresh_shortcut.activated.connect(self.manual_refresh_data)
+        
+        # Klávesová zkratka Ctrl+R pro rychlé manuální obnovení
+        refresh_shortcut_ctrl = QShortcut(QKeySequence("Ctrl+R"), self)
+        refresh_shortcut_ctrl.activated.connect(self.manual_refresh_data)
+        
+        print("🔄 Auto-refresh nastaven (30s interval, F5/Ctrl+R pro manuální)")
+
+    def auto_refresh_data(self):
+        """Automatické obnovení dat."""
+        try:
+            print("🔄 Auto-refresh dat...")
+            self.nacti_rezervace()
+            # Pouze při potřebě aktualizovat i ostatní komponenty:
+            # self.aktualizuj_doktori_layout()
+            # self.aktualizuj_tabulku_ordinaci_layout()
+        except Exception as e:
+            print(f"⚠️ Chyba při auto-refresh: {e}")
+
+    def manual_refresh_data(self):
+        """Manuální obnovení dat (F5 nebo Ctrl+R)."""
+        try:
+            print("🔄 Manuální refresh dat (F5/Ctrl+R)...")
+            self.nacti_rezervace()
+            self.aktualizuj_doktori_layout()
+            self.aktualizuj_tabulku_ordinaci_layout()
+            
+            # Zobraz krátké potvrzení
+            if hasattr(self, 'status_bar'):
+                self.status_bar.showMessage("✅ Data obnovena", 2000)
+        except Exception as e:
+            print(f"⚠️ Chyba při manuálním refresh: {e}")
+            if hasattr(self, 'status_bar'):
+                self.status_bar.showMessage(f"❌ Chyba při obnovení: {e}", 5000)
