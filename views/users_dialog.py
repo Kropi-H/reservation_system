@@ -55,6 +55,9 @@ class UsersDialog(QDialog):
 
 
     def load_users(self):
+        # Aktualizujeme seznam uživatelů před zobrazením
+        self.all_users = get_all_users()
+        
         # Odstraňte starý scroll area, pokud existuje
         if self.scroll is not None:
             self.layout.removeWidget(self.scroll)

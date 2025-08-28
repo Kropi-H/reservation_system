@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QHBoxLayout, QVBoxLa
 from PySide6.QtCore import Qt
 from views.add_doctor_dialog import AddDoctorDialog
 from views.edit_doctor_dialog import EditDoctorDialog
-from models.doktori import get_all_doctors, update_doctor, remove_doctor, add_doctor, get_all_doctors_colors, get_doctor_by_id
+from models.doktori import get_all_doctors, update_doctor, add_doctor, get_all_doctors_colors, get_doctor_by_id, check_doctor_reservations
 from functools import partial
 from controllers.data import basic_button_color, basic_button_style, q_header_view_style, basic_style
 
@@ -68,7 +68,12 @@ class DoctorDialog(QDialog):
             label.setStyleSheet("font-weight: bold; font-size: 14px;")
             
             # Indikátor aktivního stavu
-            is_active = int(doctor[4]) == 1
+            # Ošetření None hodnoty pro is_active sloupec
+            is_active_value = doctor[4]
+            if is_active_value is None:
+                is_active = True  # Výchozí hodnota pokud je NULL
+            else:
+                is_active = int(is_active_value) == 1
             active_indicator = QFrame()
             active_indicator.setFixedSize(24, 24)
             active_indicator.setStyleSheet(f"""
@@ -120,15 +125,76 @@ class DoctorDialog(QDialog):
                   self.parent_window.status_bar.showMessage(f"Chyba při přidávání doktora: {e}")
     
     def remove_doctor(self, doctor_id, username):
-        if QMessageBox.question(self, "Odebrat doktora", f"Opravdu chcete odebrat doktora {username}?", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+        # Nejdříve zkontrolujeme rezervace
+        try:
+            reservation_count = check_doctor_reservations(doctor_id)
+            
+            if reservation_count > 0:
+                # Doktor má rezervace - nabídneme možnosti
+                msg = QMessageBox(self)
+                msg.setWindowTitle("Doktor má rezervace")
+                msg.setText(f"Doktor {username} má {reservation_count} aktivních rezervací.")
+                msg.setInformativeText("Vyberte možnost:")
+                
+                # Přidáme tlačítka
+                deactivate_btn = msg.addButton("Deaktivovat doktora", QMessageBox.ActionRole)
+                cancel_btn = msg.addButton("Zrušit", QMessageBox.RejectRole)
+                
+                msg.exec_()
+                
+                if msg.clickedButton() == deactivate_btn:
+                    # Deaktivujeme doktora místo odstranění
+                    try:
+                        self.deactivate_doctor(doctor_id, username)
+                    except Exception as e:
+                        QMessageBox.critical(self, "Chyba", f"Chyba při deaktivaci doktora: {e}")
+                # Jinak se nic neděje (Cancel)
+                return
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Chyba", f"Chyba při kontrole rezervací: {e}")
+            return
+        
+        # Doktor nemá rezervace - můžeme ho odstranit
+        if QMessageBox.question(self, "Odebrat doktora", 
+                               f"Opravdu chcete odebrat doktora {username}?", 
+                               QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
             try:
-                remove_doctor(doctor_id, username)
-                #QMessageBox.information(self, "Úspěch", result)
+                # Import funkce z modelu s jiným názvem pro vyhnuti konfliktu
+                from models.doktori import remove_doctor as remove_doctor_from_db
+                remove_doctor_from_db(doctor_id)
                 self.load_doctors()
                 if self.parent_window:
-                    self.parent_window.status_bar.showMessage(f"Uživatel {username} byl odebrán.")
+                    self.parent_window.status_bar.showMessage(f"Doktor {username} byl odstraněn.")
             except Exception as e:
                 QMessageBox.critical(self, "Chyba", f"Chyba při odstraňování doktora: {e}")
+
+    def deactivate_doctor(self, doctor_id, username):
+        """Deaktivuje doktora místo odstranění."""
+        try:
+            from models.doktori import update_doctor as update_doctor_in_db, get_doctor_by_id
+            
+            # Nejdříve získáme aktuální data doktora
+            doctor_data = get_doctor_by_id(doctor_id)
+            if not doctor_data:
+                raise ValueError("Doktor nebyl nalezen.")
+            
+            # Připravíme kompletní data s aktualizovaným isActive
+            update_data = {
+                'jmeno': doctor_data[1],         # jmeno
+                'prijmeni': doctor_data[2],      # prijmeni
+                'specializace': doctor_data[3],  # specializace
+                'isActive': 0,                   # deaktivujeme
+                'color': doctor_data[5]          # color
+            }
+            
+            # Poznámka: update_doctor očekává (data, doktor_id)
+            update_doctor_in_db(update_data, doctor_id)
+            self.load_doctors()
+            if self.parent_window:
+                self.parent_window.status_bar.showMessage(f"Doktor {username} byl deaktivován.")
+        except Exception as e:
+            raise e
 
     def update_doctor(self, doctor_id):
         # Najděte aktuální roli doktora

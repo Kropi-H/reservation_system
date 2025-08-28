@@ -15,10 +15,10 @@ def insert_admin_user(u_name, password, u_role="admin"):
       conn.commit()
 
 def get_all_users():
-  with get_connection():
-    cur = get_connection().cursor()
-    cur.execute('SELECT * FROM Users')
-    return cur.fetchall()  # Returns a list of tuples with user data
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('SELECT * FROM Users')
+        return cur.fetchall()  # Returns a list of tuples with user data
 
 
 def get_user_by_id(user_id):

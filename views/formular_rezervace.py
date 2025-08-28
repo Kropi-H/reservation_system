@@ -69,9 +69,26 @@ class FormularRezervace(QWidget):
           self.pacient_druh_input.setText(rezervace_data[7])
           self.majitel_input.setText(rezervace_data[5])
           self.kontakt_majitel_input.setText(rezervace_data[6])
-          idx = self.doktor_input.findText(rezervace_data[2]) # index 2 je doktor (jméno)
+          
+          # Kontrola a nastavení doktora
+          doktor_z_rezervace = rezervace_data[2]
+          doktor_normalized = ' '.join(doktor_z_rezervace.split())  # Normalizace mezer
+          
+          # Pokusíme se najít přesnou shodu
+          idx = self.doktor_input.findText(doktor_z_rezervace)
+          
+          # Pokud nenajdeme přesnou shodu, zkusíme normalizovanou shodu
+          if idx == -1:
+              for i in range(self.doktor_input.count()):
+                  doctor_name = self.doktor_input.itemText(i)
+                  doctor_name_normalized = ' '.join(doctor_name.split())
+                  if doctor_name_normalized.lower() == doktor_normalized.lower():
+                      idx = i
+                      break
+          
           if idx != -1:
               self.doktor_input.setCurrentIndex(idx)
+          
           self.note_input.setPlainText(rezervace_data[9])
           
           # Handle both datetime object (PostgreSQL) and string (SQLite) formats for rezervace_data[0]
@@ -158,10 +175,10 @@ class FormularRezervace(QWidget):
         # Handle both dictionary (PostgreSQL) and tuple (SQLite) formats
         if doktori and isinstance(doktori[0], dict):
             # PostgreSQL format - use dictionary keys
-            return [f"{i['jmeno']} {i['prijmeni']}" for i in doktori]
+            return [' '.join(f"{i['jmeno']} {i['prijmeni']}".split()) for i in doktori]
         else:
             # SQLite format - use index access
-            return [f"{i[1]} {i[2]}" for i in doktori]
+            return [' '.join(f"{i[1]} {i[2]}".split()) for i in doktori]
 
     def get_ordinace_list(self):
         ordinace = get_ordinace()

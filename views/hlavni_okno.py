@@ -54,6 +54,9 @@ class HlavniOkno(QMainWindow):
         self.logged_in_user = None
         self.logged_in_user_role = None
         
+        # Flag pro detekci aktivního plánování ordinačních časů
+        self.is_planning_active = False
+        
         # Inicializace pro případné budoucí rozšíření
         # Real-time synchronizace momentálně zakázána kvůli stabilitě
         
@@ -501,7 +504,7 @@ class HlavniOkno(QMainWindow):
               
           if is_active == 1:  # Pouze aktivní doktor
               jmeno_display = f"{jmeno}\n{prijmeni}"
-              barva = barva.strip()
+              barva = barva.strip() if barva else "#CCCCCC"  # Výchozí barva pro NULL
               label = QLabel(jmeno_display)
               label.setStyleSheet(f"""
                   background-color: {barva};
@@ -628,6 +631,8 @@ class HlavniOkno(QMainWindow):
         self.plan_menu = QMenu("Plánování ordinací", self)
         dialog = PlanovaniOrdinaciDialog(self)
         if dialog.exec():
+          self.is_planning_active = True  # Nastavit flag - pozastavit auto-refresh
+          print("📋 Plánování ordinačních časů spuštěno - auto-refresh pozastaven")
           self.povol_vyber_casu()
           self.menu_bar.addMenu(self.plan_menu)
           self.menu_bar.removeAction(self.user_menu.menuAction())  # Odstranění Plánování z menu
@@ -714,6 +719,8 @@ class HlavniOkno(QMainWindow):
         
     def zrus_planovani(self):
         # Zrušení plánování a odstranění tlačítka
+        self.is_planning_active = False  # Obnovit auto-refresh
+        print("✅ Plánování ordinačních časů ukončeno - auto-refresh obnoven")
         self.status_bar.showMessage("Ukončeno plánování ordinací.")
         self.menu_bar.removeAction(self.plan_menu.menuAction())  # Odstranění Plánování z menu
         self.update_user_menu() # Přidat user menu zpět
@@ -748,10 +755,10 @@ class HlavniOkno(QMainWindow):
         dialog = VyberDoktoraDialog(self)
         if dialog.exec():
             new_reservace_doktor = dialog.get_selected()
+            
             # Uložení do databáze
             datum = self.kalendar.date().toPython()
-            # print(f"Nový doktor:{new_reservace_doktor}, Starý doktor/doktoři: {match_doctor_colors}, {datum}, {vybrane_casy[0]}, {vybrane_casy[-1]}, {mistnost}")
-            # print(vybrane_casy)
+            
             uloz_nebo_uprav_ordinacni_cas(new_reservace_doktor, match_doctor_colors ,datum, vybrane_casy[0],vybrane_casy[-1], mistnost)
             self.status_bar.showMessage("Plánování uloženo. Pokračuj v plánování ordinací, nebo jej ukonči.")
         # Vypnutí výběru a odstranění tlačítka
@@ -932,7 +939,8 @@ class HlavniOkno(QMainWindow):
                       od = datetime.strptime(r[4], "%H:%M").time()
                       do = datetime.strptime(r[5], "%H:%M").time()
                       if od <= cas.time() <= do:
-                        if get_doktor_isactive_by_color(r[2]) == 1:
+                        doktor_active = get_doktor_isactive_by_color(r[2])
+                        if doktor_active == 1:
                           doktor_bg_color = r[2].strip()
                           doktor_jmeno = r[1]
                           break
@@ -1200,6 +1208,11 @@ class HlavniOkno(QMainWindow):
     def auto_refresh_data(self):
         """Automatické obnovení dat."""
         try:
+            # Přeskočit auto-refresh pokud probíhá plánování ordinačních časů
+            if self.is_planning_active:
+                print("⏸️ Auto-refresh pozastaven - probíhá plánování ordinačních časů")
+                return
+                
             print("🔄 Auto-refresh dat...")
             self.nacti_rezervace()
             # Pouze při potřebě aktualizovat i ostatní komponenty:

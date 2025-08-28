@@ -7,12 +7,13 @@ class VyberDoktoraDialog(QDialog):
         super().__init__(parent)
         # Handle both dictionary (PostgreSQL) and tuple (SQLite) formats
         doktori_data = get_doktori()
+        
         if doktori_data and isinstance(doktori_data[0], dict):
-            # PostgreSQL format - use dictionary keys
-            self.doktori = [f"{d['jmeno']} {d['prijmeni']}" for d in doktori_data]
+            # PostgreSQL format - use dictionary keys with whitespace normalization
+            self.doktori = [' '.join(f"{d['jmeno']} {d['prijmeni']}".split()) for d in doktori_data]
         else:
-            # SQLite format - use index access
-            self.doktori = [f"{d[1]} {d[2]}" for d in doktori_data]
+            # SQLite format - use index access with whitespace normalization
+            self.doktori = [' '.join(f"{d[1]} {d[2]}".split()) for d in doktori_data]
             
         self.setWindowTitle("Výběr doktora")
         layout = QVBoxLayout(self)

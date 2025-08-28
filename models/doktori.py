@@ -12,18 +12,9 @@ def get_all_doctors():
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute('''
-            SELECT * FROM Doktori
+            SELECT * FROM Doktori ORDER BY jmeno, prijmeni
         ''')
         return cur.fetchall()
-      
-def remove_doctor(doktor_id):
-    """Odstraní doktora podle jeho ID."""
-    with get_connection() as conn:
-        cur = conn.cursor()
-        cur.execute('''
-            DELETE FROM Doktori WHERE doktor_id = %s
-        ''', (doktor_id,))
-        conn.commit()
         
 def add_doctor(data):
     """Přidá nového doktora do databáze."""
@@ -58,16 +49,34 @@ def update_doctor(data, doktor_id):
 
 def get_doktor_id(doktor):
     """Vrátí doktor_id podle jména a příjmení."""
+    # Normalize whitespace - remove extra spaces
+    doktor_normalized = ' '.join(doktor.split())
+    
     with get_connection() as conn:
         cur = conn.cursor()
+        # First try exact match with normalized input
         cur.execute('''
             SELECT doktor_id FROM Doktori
             WHERE jmeno = %s AND prijmeni = %s
         ''', (
-             doktor.split()[0],
-             doktor.split(maxsplit=1)[1] if len(doktor.split()) > 1 else "",
+             doktor_normalized.split()[0],
+             doktor_normalized.split(maxsplit=1)[1] if len(doktor_normalized.split()) > 1 else "",
               ))
         row = cur.fetchone()
+        
+        # If not found, try fuzzy search by normalizing database values
+        if not row:
+            cur.execute('''
+                SELECT doktor_id, jmeno, prijmeni FROM Doktori
+            ''')
+            all_doctors = cur.fetchall()
+            
+            for doc_id, jmeno, prijmeni in all_doctors:
+                # Normalize database name the same way
+                db_name_normalized = ' '.join(f"{jmeno} {prijmeni}".split())
+                if db_name_normalized.lower() == doktor_normalized.lower():
+                    return doc_id
+        
         return row[0] if row else None
 
 def get_doktor_isactive_by_color(barva):
@@ -78,7 +87,7 @@ def get_doktor_isactive_by_color(barva):
             SELECT isActive FROM Doktori WHERE color = %s
         ''', (barva,))
         row = cur.fetchone()
-        return row[0]
+        return row[0] if row else None
 
 
 def get_ordinace_id(nazev):
@@ -158,11 +167,16 @@ def uloz_nebo_uprav_ordinacni_cas(novy_doktor, barvy_puvodnich, datum, prace_od,
     Úseky původních doktorů, které se překrývají, se rozdělí/zkrátí/smažou.
     Nový úsek se vloží novému doktorovi a sloučí s navazujícími.
     """
+    
+    # Normalize inputs - remove extra whitespace
+    novy_doktor_normalized = ' '.join(novy_doktor.split())
+    nazev_ordinace_normalized = nazev_ordinace.strip()
 
-    novy_doktor_id = get_doktor_id(novy_doktor)
-    ordinace_id = get_ordinace_id(nazev_ordinace)
+    novy_doktor_id = get_doktor_id(novy_doktor_normalized)
+    ordinace_id = get_ordinace_id(nazev_ordinace_normalized)
+    
     if novy_doktor_id is None or ordinace_id is None:
-        raise ValueError("Doktor nebo ordinace nenalezena.")
+        raise ValueError(f"Doktor '{novy_doktor}' nebo ordinace '{nazev_ordinace}' nenalezena.")
 
     # Ensure datum is properly formatted as string for PostgreSQL
     if isinstance(datum, date):
@@ -202,13 +216,13 @@ def uloz_nebo_uprav_ordinacni_cas(novy_doktor, barvy_puvodnich, datum, prace_od,
                   elif prace_od_dt <= exist_od_dt < prace_do_dt < exist_do_dt:
                       #print("Nový úsek překrývá začátek starého")
                       exist_do_dt = time_anchores[time_anchores.index(prace_do)+1]
-                      cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_od = ? WHERE work_id = %s', (exist_do_dt, zaznam_id))
+                      cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_od = %s WHERE work_id = %s', (exist_do_dt, zaznam_id))
                       conn.commit()
                   # Nový úsek překrývá konec starého
                   elif exist_od_dt < prace_od_dt <= exist_do_dt <= prace_do_dt:
                       # print("Nový úsek překrývá konec starého")
                       exist_do_dt = time_anchores[time_anchores.index(exist_do)-1]
-                      cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_do = ? WHERE work_id = %s', (exist_do_dt, zaznam_id))
+                      cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_do = %s WHERE work_id = %s', (exist_do_dt, zaznam_id))
                       conn.commit()
                   # Nový úsek je uvnitř starého (rozdělení na dva)
                   elif exist_od_dt < prace_od_dt and prace_do_dt < exist_do_dt:
@@ -322,7 +336,7 @@ def uprav_ordinacni_cas(barvy_puvodnich, datum, prace_od, prace_do, nazev_ordina
                       elif prace_od_dt <= exist_od_dt <= prace_do_dt <= exist_do_dt:
                           # print("Nový úsek překrývá začátek starého")
                           exist_do_dt = time_anchores[time_anchores.index(prace_do)+1]
-                          cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_od = ? WHERE work_id = %s', (exist_do_dt, zaznam_id))
+                          cur.execute('UPDATE Doktori_Ordinacni_Cas SET prace_od = %s WHERE work_id = %s', (exist_do_dt, zaznam_id))
                           conn.commit()
                       # Nový úsek překrývá konec starého
                       elif exist_od_dt < prace_od_dt <= exist_do_dt <= prace_do_dt:
@@ -376,4 +390,35 @@ def remove_all_ordinacni_cas(ordinace_id):
         cur.execute('''
             DELETE FROM Doktori_Ordinacni_Cas WHERE ordinace_id = %s
         ''', (ordinace_id,))
+        conn.commit()
+
+
+def check_doctor_reservations(doktor_id):
+    """Zkontroluje, zda má doktor nějaké rezervace."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT COUNT(*) FROM Rezervace WHERE doktor_id = %s
+        ''', (doktor_id,))
+        count = cur.fetchone()[0]
+        return count > 0
+
+
+def deactivate_doctor(doktor_id):
+    """Deaktivuje doktora místo smazání."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+            UPDATE Doktori SET isActive = FALSE WHERE doktor_id = %s
+        ''', (doktor_id,))
+        conn.commit()
+
+
+def remove_doctor(doktor_id):
+    """Odstraní doktora z databáze - pouze pokud nemá rezervace."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+            DELETE FROM Doktori WHERE doktor_id = %s
+        ''', (doktor_id,))
         conn.commit()

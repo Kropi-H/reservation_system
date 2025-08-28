@@ -49,7 +49,21 @@ class ConnectionPool:
     def close_all_connections(self):
         if self._pool:
             self._pool.closeall()
-            self._pool = None
+            print("Všechna připojení v poolu zavřena")
+    
+    def reset_pool(self):
+        """Restartuje connection pool - uzavře všechna připojení a vytvoří nový pool."""
+        if self._pool:
+            try:
+                self._pool.closeall()
+                print("Starý connection pool uzavřen")
+            except Exception as e:
+                print(f"Chyba při zavírání starého poolu: {e}")
+            finally:
+                self._pool = None
+        
+        # Vytvoří nový pool při dalším požadavku
+        print("Connection pool bude obnoven při dalším použití")
 
 # Singleton instance
 _connection_pool = ConnectionPool()
@@ -93,6 +107,11 @@ class PooledConnection:
     def rollback(self):
         if self.conn:
             self.conn.rollback()
+
+def reset_connection_pool():
+    """Restartuje connection pool - užitečné při problémech s připojeními."""
+    global _connection_pool
+    _connection_pool.reset_pool()
     
     def close(self):
         if self.conn:
