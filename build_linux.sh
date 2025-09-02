@@ -32,11 +32,8 @@ pip install pyinstaller
 
 # Build binary
 echo "🔨 Builduji Linux binary..."
-# Poznámka: --icon není podporováno na Linuxu, ikona se nastavuje přes desktop integration
-pyinstaller --onefile --name "ReservationSystem" \
-    --add-data="assets:assets" \
-    --add-data="pictures:pictures" \
-    main.py
+# Použijeme .spec soubor, který automaticky detekuje platformu a nastavuje ikony správně
+pyinstaller ReservationSystem.spec
 
 # Zkontroluj výsledek
 if [ -f "dist/ReservationSystem" ]; then
