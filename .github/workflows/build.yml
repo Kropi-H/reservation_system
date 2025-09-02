@@ -29,7 +29,7 @@ jobs:
         pyinstaller --onefile --noconsole --name "ReservationSystem" --icon="pictures/karakal_logo_grey.ico" --add-data="assets;assets" --add-data="pictures;pictures" main.py
     
     - name: Upload Windows artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ReservationSystem-Windows
         path: dist/ReservationSystem.exe
@@ -66,7 +66,7 @@ jobs:
         pyinstaller --onefile --windowed --name "ReservationSystem" --icon="pictures/karakal_logo_grey.icns" --add-data="assets:assets" --add-data="pictures:pictures" main.py
     
     - name: Upload macOS artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ReservationSystem-macOS
         path: dist/ReservationSystem.app
@@ -97,7 +97,7 @@ jobs:
         pyinstaller --onefile --name "ReservationSystem" --add-data="assets:assets" --add-data="pictures:pictures" main.py
     
     - name: Upload Linux artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ReservationSystem-Linux
         path: dist/ReservationSystem
