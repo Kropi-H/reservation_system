@@ -36,6 +36,12 @@ def check_database_connection():
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
+    # Nastavení názvu aplikace pro macOS
+    app.setApplicationName("ReservationSystem")
+    app.setApplicationDisplayName("Reservation System")
+    app.setOrganizationName("Veterinární ordinace")
+    app.setOrganizationDomain("veterina.local")
+    
     # Kontrola a konfigurace databáze
     if not check_database_connection():
         QMessageBox.critical(

@@ -102,20 +102,26 @@ class HlavniOkno(QMainWindow):
             # Na macOS se menu automaticky přesouvá do systémového menu baru
             self.menu_bar.setNativeMenuBar(True)
             
-            # Pro macOS vytvořme správnou menu strukturu
-            # Hlavní menu aplikace
-            app_menu = self.menu_bar.addMenu("ReservationSystem")
+            # Pro macOS musíme vytvořit menu trochu jinak
+            # Nejprve vytvořme hlavní aplikační akci
             self.login_action = QAction("Přihlášení", self)
             self.login_action.triggered.connect(self.show_login_dialog)
+            
+            # Vytvoříme menu "ReservationSystem" 
+            app_menu = self.menu_bar.addMenu("ReservationSystem")
             app_menu.addAction(self.login_action)
             
-            # Přidáme také do Edit menu pro lepší přístupnost
-            edit_menu = self.menu_bar.addMenu("Úpravy")
-            edit_login_action = QAction("Přihlášení", self)
-            edit_login_action.triggered.connect(self.show_login_dialog)
-            edit_menu.addAction(edit_login_action)
+            # Přidáme separator a Quit akci pro správné macOS chování
+            app_menu.addSeparator()
+            quit_action = QAction("Ukončit ReservationSystem", self)
+            quit_action.setShortcut("Cmd+Q")
+            quit_action.triggered.connect(self.close)
+            app_menu.addAction(quit_action)
             
-            print("🍎 macOS menu struktura vytvořena")
+            # Vytvoříme také Edit menu pro konzistenci s macOS
+            edit_menu = self.menu_bar.addMenu("Upravit")
+            
+            print("🍎 macOS menu struktura vytvořena - hledejte 'ReservationSystem' v horní liště")
             
         else:
             print(f"🖥️ Konfiguruji menu pro {current_os}...")
