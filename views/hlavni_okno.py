@@ -101,14 +101,30 @@ class HlavniOkno(QMainWindow):
             print("🍎 Konfiguruji menu pro macOS...")
             # Na macOS se menu automaticky přesouvá do systémového menu baru
             self.menu_bar.setNativeMenuBar(True)
+            
+            # Pro macOS vytvořme správnou menu strukturu
+            # Hlavní menu aplikace
+            app_menu = self.menu_bar.addMenu("ReservationSystem")
+            self.login_action = QAction("Přihlášení", self)
+            self.login_action.triggered.connect(self.show_login_dialog)
+            app_menu.addAction(self.login_action)
+            
+            # Přidáme také do Edit menu pro lepší přístupnost
+            edit_menu = self.menu_bar.addMenu("Úpravy")
+            edit_login_action = QAction("Přihlášení", self)
+            edit_login_action.triggered.connect(self.show_login_dialog)
+            edit_menu.addAction(edit_login_action)
+            
+            print("🍎 macOS menu struktura vytvořena")
+            
         else:
             print(f"🖥️ Konfiguruji menu pro {current_os}...")
             # Pro ostatní platformy ponecháme menu v okně
             self.menu_bar.setNativeMenuBar(False)
-        
-        self.login_action = QAction("Přihlášení", self)
-        self.login_action.triggered.connect(self.show_login_dialog)
-        self.menu_bar.addAction(self.login_action)
+            
+            self.login_action = QAction("Přihlášení", self)
+            self.login_action.triggered.connect(self.show_login_dialog)
+            self.menu_bar.addAction(self.login_action)
         
         print(f"📋 Menu akce 'Přihlášení' přidána")
         
@@ -613,9 +629,25 @@ class HlavniOkno(QMainWindow):
             self.logged_in_user = username
             self.logged_in_user_role = role
             self.status_bar.showMessage(f"Přihlášený uživatel: {username}")
-            self.login_action.setText("Odhlásit")
-            self.login_action.triggered.disconnect()
-            self.login_action.triggered.connect(self.logout_user)
+            
+            # Aktualizace login akce - musíme správně detekovat platformu
+            import platform
+            if platform.system() == "Darwin":  # macOS
+                # Na macOS máme akce v různých menu, najdeme je a aktualizujeme
+                for action in self.menu_bar.actions():
+                    if action.menu():
+                        for sub_action in action.menu().actions():
+                            if sub_action.text() == "Přihlášení":
+                                sub_action.setText("Odhlásit")
+                                sub_action.triggered.disconnect()
+                                sub_action.triggered.connect(self.logout_user)
+                print("🍎 macOS menu akce aktualizovány")
+            else:
+                # Pro ostatní platformy
+                self.login_action.setText("Odhlásit")
+                self.login_action.triggered.disconnect()
+                self.login_action.triggered.connect(self.logout_user)
+            
             self.update_user_menu()  # <-- Přidat/aktualizovat podmenu
             print(f"✅ Uživatel {username} s rolí {role} přihlášen")
 
@@ -648,9 +680,24 @@ class HlavniOkno(QMainWindow):
             self.database_action = None
         
         self.status_bar.showMessage("Nepřihlášen")
-        self.login_action.setText("Přihlášení")
-        self.login_action.triggered.disconnect()
-        self.login_action.triggered.connect(self.show_login_dialog)
+        
+        # Aktualizace login akce - musíme správně detekovat platformu
+        import platform
+        if platform.system() == "Darwin":  # macOS
+            # Na macOS máme akce v různých menu, najdeme je a aktualizujeme
+            for action in self.menu_bar.actions():
+                if action.menu():
+                    for sub_action in action.menu().actions():
+                        if sub_action.text() == "Odhlásit":
+                            sub_action.setText("Přihlášení")
+                            sub_action.triggered.disconnect()
+                            sub_action.triggered.connect(self.show_login_dialog)
+            print("🍎 macOS menu akce pro odhlášení aktualizovány")
+        else:
+            # Pro ostatní platformy
+            self.login_action.setText("Přihlášení")
+            self.login_action.triggered.disconnect()
+            self.login_action.triggered.connect(self.show_login_dialog)
         
     def update_user_menu(self):
         """Aktualizuje menu pro uživatele podle jeho role."""
