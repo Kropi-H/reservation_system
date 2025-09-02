@@ -72,7 +72,7 @@ jobs:
         path: dist/ReservationSystem.app
 
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04  # Starší Ubuntu pro lepší kompatibilitu
     steps:
     - uses: actions/checkout@v3
     
@@ -96,8 +96,52 @@ jobs:
       run: |
         pyinstaller --onefile --name "ReservationSystem" --add-data="assets:assets" --add-data="pictures:pictures" main.py
     
-    - name: Upload Linux artifact
+    - name: Build AppImage (better compatibility)
+      run: |
+        # Download AppImageTool
+        wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+        chmod +x appimagetool-x86_64.AppImage
+        
+        # Create AppDir structure
+        mkdir -p ReservationSystem.AppDir/usr/bin
+        mkdir -p ReservationSystem.AppDir/usr/share/applications
+        mkdir -p ReservationSystem.AppDir/usr/share/icons/hicolor/256x256/apps
+        
+        # Copy binary and icon
+        cp dist/ReservationSystem ReservationSystem.AppDir/usr/bin/
+        cp pictures/karakal_logo_grey.png ReservationSystem.AppDir/usr/share/icons/hicolor/256x256/apps/ReservationSystem.png
+        
+        # Create desktop file
+        cat > ReservationSystem.AppDir/ReservationSystem.desktop << 'EOF'
+        [Desktop Entry]
+        Type=Application
+        Name=Reservation System
+        Exec=ReservationSystem
+        Icon=ReservationSystem
+        Categories=Office;Database;
+        Comment=Veterinary Reservation System
+        EOF
+        
+        # Create AppRun
+        cat > ReservationSystem.AppDir/AppRun << 'EOF'
+        #!/bin/bash
+        SELF=$(readlink -f "$0")
+        HERE=${SELF%/*}
+        exec "${HERE}/usr/bin/ReservationSystem" "$@"
+        EOF
+        chmod +x ReservationSystem.AppDir/AppRun
+        
+        # Build AppImage
+        ./appimagetool-x86_64.AppImage ReservationSystem.AppDir ReservationSystem-x86_64.AppImage
+    
+    - name: Upload Linux binary
       uses: actions/upload-artifact@v4
       with:
-        name: ReservationSystem-Linux
+        name: ReservationSystem-Linux-Binary
         path: dist/ReservationSystem
+    
+    - name: Upload Linux AppImage
+      uses: actions/upload-artifact@v4
+      with:
+        name: ReservationSystem-Linux-AppImage
+        path: ReservationSystem-x86_64.AppImage

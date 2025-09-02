@@ -188,14 +188,46 @@ cp ReservationSystem-x86_64.AppImage ~/.local/bin/
 
 ### ⚠️ Řešení problémů Linux
 ```bash
-# Pokud chybí Qt knihovny
-sudo apt install libxcb-xinerama0 libxcb1 libx11-6 libxrandr2 libxss1 libxcursor1 libxdamage1 libxfixes3 libxcomposite1 libxi6 libxtst6 libgl1-mesa-glx
+# ❌ GLIBC chyba: "GLIBC_2.38 not found"
+# Problém: GitHub Actions Ubuntu má novější GLIBC než váš Linux Mint
+
+# ŘEŠENÍ 1: Použij Python variantu (nejspolehlivější)
+git clone https://github.com/Kropi-H/reservation_system.git
+cd reservation_system
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python main.py
+
+# ŘEŠENÍ 2: Stáhni AppImage místo binary
+# AppImage má lepší kompatibilitu napříč distribucemi
+chmod +x ReservationSystem-x86_64.AppImage
+./ReservationSystem-x86_64.AppImage
+
+# Pokud chybí Qt knihovny (druhý nejčastější problém)
+sudo apt update
+sudo apt install -y libxcb-xinerama0 libxcb1 libx11-6 libxrandr2 libxss1 libxcursor1 libxdamage1 libxfixes3 libxcomposite1 libxi6 libxtst6 libgl1-mesa-glx
 
 # Pokud chybí audio knihovny (pro Qt)
-sudo apt install libasound2 libpulse0
+sudo apt install -y libasound2 libpulse0
 
 # Pokud nefunguje systémová integrace
-sudo apt install libfuse2
+sudo apt install -y libfuse2
+
+# Pro Linux Mint specificky:
+sudo apt install -y libglib2.0-0 libfontconfig1 libxrender1 libnss3 libatk-bridge2.0-0 libdrm2 libgbm1
+
+# Spuštění s debug informacemi:
+QT_DEBUG_PLUGINS=1 ./ReservationSystem
+
+# Diagnóza chybějících knihoven:
+ldd ReservationSystem | grep "not found"
+
+# Zkontroluj GLIBC verzi:
+ldd --version
+
+# Správná oprávnění (ne 777!):
+chmod +x ReservationSystem
 ```
 
 ---
@@ -297,11 +329,25 @@ sudo xattr -rd com.apple.quarantine dist/ReservationSystem.app
 
 ## 🔄 AUTOMATIZACE BUILDŮ
 
+### ☁️ GitHub Actions (doporučeno)
+
+Pro automatické buildy všech platforem současně máme připravený GitHub Actions workflow:
+
+**Umístění:** `.github/workflows/build.yml`
+
+**Jak použít:**
+1. Push kód na GitHub: `git push origin master`
+2. GitHub automaticky builduje Windows, macOS, Linux
+3. Stáhni hotové soubory z **Actions** → **Artifacts**
+
+**Manuální spuštění:**
+- GitHub repo → **Actions** → **Multi-Platform Build** → **Run workflow**
+
 ### Windows batch script
 ```batch
 @echo off
 echo Building Windows executable...
-pyinstaller --onefile --noconsole --name "ReservationSystem" main.py
+& "C:/Program Files/Python38/python.exe" -m PyInstaller --onefile --noconsole --name "ReservationSystem" --icon="pictures\karakal_logo_grey.ico" --add-data="assets;assets" --add-data="pictures;pictures" main.py
 echo Build complete: dist\ReservationSystem.exe
 pause
 ```
