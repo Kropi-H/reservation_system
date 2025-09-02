@@ -1,17 +1,17 @@
 # 🏥 Rezervační systém veteriny
 
-[![Build Status](https://github.com/Kropi-H/reservation_system/workflows/Multi-Platform%20Build/badge.svg)](https://github.com/Kropi-H/reservation_system/actions)
-
 Kompletní rezervační systém pro veterinární ordinace s podporou více platforem, real-time synchronizací a chat funkcionalitou.
 
 ## 🚀 Rychlý start
 
-### 📥 Stažení spouštěcích souborů
-- **Windows:** [ReservationSystem.exe](https://github.com/Kropi-H/reservation_system/actions) (~47MB)
-- **macOS:** [ReservationSystem.app](https://github.com/Kropi-H/reservation_system/actions) (~45MB) - [📋 Instalační návod](MACOS_INSTALLATION.md)
-- **Linux:** [ReservationSystem](https://github.com/Kropi-H/reservation_system/actions) (~40MB)
+### 📥 Spouštěcí soubory (lokální build doporučen)
+> ⚠️ **Poznámka:** Automatické GitHub Actions buildy jsou dočasně vypnuté kvůli problémům s logy. Doporučujeme lokální build.
 
-### 🔧 Vlastní build
+- **Windows:** Lokální build s `pyinstaller ReservationSystem.spec`
+- **macOS:** Použij [build_macos.sh](build_macos.sh) nebo [MACOS_INSTALLATION.md](MACOS_INSTALLATION.md)
+- **Linux:** Použij [build_linux.sh](build_linux.sh)
+
+### 🔧 Lokální build (doporučeno)
 - **Multi-platform:** [CROSS_PLATFORM_BUILD.md](CROSS_PLATFORM_BUILD.md) - kompletní návod
 - **macOS specificky:** [MACOS_INSTALLATION.md](MACOS_INSTALLATION.md) - detailní macOS guide
 - **Quick build:** `pyinstaller ReservationSystem.spec`

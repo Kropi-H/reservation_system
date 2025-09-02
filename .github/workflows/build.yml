@@ -1,11 +1,13 @@
 name: Multi-Platform Build
 
+# Workflow temporarily disabled - logos work only on local Windows builder
+# To re-enable, uncomment the triggers below
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-  workflow_dispatch:
+  # push:
+  #   branches: [ master ]
+  # pull_request:
+  #   branches: [ master ]
+  workflow_dispatch:  # Manual trigger only
 
 jobs:
   build-windows:

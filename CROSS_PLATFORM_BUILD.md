@@ -1,12 +1,14 @@
 # 🏗️ CROSS-PLATFORM BUILD - Návod na vytváření spouštěcích souborů
 
-## 📋 Rychlé odkazy
-- 🪟 **Windows**: Návod níže nebo [GitHub Actions](#github-actions-automatizace)
-- 🍎 **macOS**: Podrobný návod v [MACOS_INSTALLATION.md](MACOS_INSTALLATION.md)
-- 🐧 **Linux**: Návod níže nebo použij `build_linux.sh`
-- 🤖 **Automatizace**: [GitHub Actions](#github-actions-automatizace) - doporučeno
+> ⚠️ **Důležité:** GitHub Actions buildy jsou dočasně vypnuté kvůli problémům s logy. Používej lokální build!
 
-## 🎯 Unified Build System
+## 📋 Rychlé odkazy
+- 🪟 **Windows**: Lokální build (návod níže) - ✅ **DOPORUČENO**
+- 🍎 **macOS**: [build_macos.sh](build_macos.sh) nebo [MACOS_INSTALLATION.md](MACOS_INSTALLATION.md)
+- 🐧 **Linux**: [build_linux.sh](build_linux.sh) 
+- 🤖 **GitHub Actions**: Dočasně vypnuté
+
+## 🎯 Unified Build System (Lokální)
 ```powershell
 # POZNÁMKA: Virtuální prostředí s "python -m venv venv" může NEFUNGOVAT
 # na některých systémech. Doporučuje se použít plnou cestu k Pythonu:
