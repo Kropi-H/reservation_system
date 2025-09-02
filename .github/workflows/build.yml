@@ -84,7 +84,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt update
-        sudo apt install -y libxcb-xinerama0 libxcb1 libx11-6 libxrandr2 libxss1 libxcursor1 libxdamage1 libxfixes3 libxcomposite1 libxi6 libxtst6 libgl1-mesa-glx
+        sudo apt install -y libxcb-xinerama0 libxcb1 libx11-6 libxrandr2 libxss1 libxcursor1 libxdamage1 libxfixes3 libxcomposite1 libxi6 libxtst6 libgl1
     
     - name: Install Python dependencies
       run: |
