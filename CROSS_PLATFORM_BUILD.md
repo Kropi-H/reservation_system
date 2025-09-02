@@ -1,4 +1,12 @@
-# 🏗️ CROSS-PLATFORM BUILD - Návod na vytváření spouštěcí### ⚠️ Řešení problémů Windows
+# 🏗️ CROSS-PLATFORM BUILD - Návod na vytváření spouštěcích souborů
+
+## 📋 Rychlé odkazy
+- 🪟 **Windows**: Návod níže nebo [GitHub Actions](#github-actions-automatizace)
+- 🍎 **macOS**: Podrobný návod v [MACOS_INSTALLATION.md](MACOS_INSTALLATION.md)
+- 🐧 **Linux**: Návod níže nebo použij `build_linux.sh`
+- 🤖 **Automatizace**: [GitHub Actions](#github-actions-automatizace) - doporučeno
+
+## 🎯 Unified Build System
 ```powershell
 # POZNÁMKA: Virtuální prostředí s "python -m venv venv" může NEFUNGOVAT
 # na některých systémech. Doporučuje se použít plnou cestu k Pythonu:

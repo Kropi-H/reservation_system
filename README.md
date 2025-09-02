@@ -7,18 +7,14 @@ Kompletní rezervační systém pro veterinární ordinace s podporou více plat
 ## 🚀 Rychlý start
 
 ### 📥 Stažení spouštěcích souborů
-- **Windows:** [ReservationSystem.exe](https://github.com/Kropi-H/reservation_system/actions) (~45MB)
-- **macOS:** [ReservationSystem.app](https://github.com/Kropi-H/reservation_system/actions) (~50MB)  
+- **Windows:** [ReservationSystem.exe](https://github.com/Kropi-H/reservation_system/actions) (~47MB)
+- **macOS:** [ReservationSystem.app](https://github.com/Kropi-H/reservation_system/actions) (~45MB) - [📋 Instalační návod](MACOS_INSTALLATION.md)
 - **Linux:** [ReservationSystem](https://github.com/Kropi-H/reservation_system/actions) (~40MB)
 
 ### 🔧 Vlastní build
-```bash
-# Clone repository
-git clone https://github.com/Kropi-H/reservation_system.git
-cd reservation_system
-
-# Install dependencies
-pip install -r requirements.txt
+- **Multi-platform:** [CROSS_PLATFORM_BUILD.md](CROSS_PLATFORM_BUILD.md) - kompletní návod
+- **macOS specificky:** [MACOS_INSTALLATION.md](MACOS_INSTALLATION.md) - detailní macOS guide
+- **Quick build:** `pyinstaller ReservationSystem.spec`
 
 # Run aplikace
 python main.py
