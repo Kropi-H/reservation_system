@@ -197,8 +197,8 @@ class HlavniOkno(QMainWindow):
         stredni_layout.setSpacing(10)
 
         self.btn_predchozi = QPushButton("<")
-        self.btn_predchozi.setFixedWidth(40)
-        self.btn_predchozi.setStyleSheet("font-size: 20px;")
+        self.btn_predchozi.setFixedWidth(35)  # Menší tlačítka
+        self.btn_predchozi.setStyleSheet("font-size: 18px;")
         self.btn_predchozi.clicked.connect(self.predchozi_den)
 
         self.kalendar = QDateEdit()
@@ -206,10 +206,10 @@ class HlavniOkno(QMainWindow):
         self.kalendar.setCalendarPopup(True)
         self.kalendar.setStyleSheet("""
             QDateEdit {
-                font-size: 22px;
-                min-width: 200px;
+                font-size: 20px;
+                min-width: 180px;
                 qproperty-alignment: AlignCenter;
-                padding: 4px 10px;
+                padding: 4px 8px;
             }
         """)
         self.kalendar.dateChanged.connect(self.nacti_rezervace)
@@ -217,8 +217,8 @@ class HlavniOkno(QMainWindow):
         self.aktualizuj_format_kalendare(self.kalendar.date())
 
         self.btn_nasledujici = QPushButton(">")
-        self.btn_nasledujici.setFixedWidth(40)
-        self.btn_nasledujici.setStyleSheet("font-size: 20px;")
+        self.btn_nasledujici.setFixedWidth(35)  # Menší tlačítka
+        self.btn_nasledujici.setStyleSheet("font-size: 18px;")
         self.btn_nasledujici.clicked.connect(self.nasledujici_den)
 
         stredni_layout.addWidget(self.btn_predchozi)
@@ -231,17 +231,18 @@ class HlavniOkno(QMainWindow):
         horni_radek.addWidget(stredni_widget, alignment=Qt.AlignHCenter)
         #horni_radek.addStretch()
         
-        # Legenda informace vpravo
+        # Legenda informace vpravo - kompaktnější pro menší obrazovky
         def legenda_stylesheet(color):
             return f"""
                 background-color: {color};
                 color: #222;
                 border-radius: 2px;
-                min-width: 80px;
+                min-width: 60px;
                 qproperty-alignment: AlignCenter;
-                padding: 2px 4px;
-                margin-right: 6px;
+                padding: 2px 3px;
+                margin-right: 4px;
                 font-weight: bold;
+                font-size: 12px;
             """
         self.legenda_info = QHBoxLayout()
         legenda_vakcinace = QLabel("Vakcinace")
@@ -256,9 +257,10 @@ class HlavniOkno(QMainWindow):
         self.legenda_info.addStretch()
         
         
-        # Hodiny vpravo
+        # Hodiny vpravo - s responzivní velikostí
         self.clock_label = QLabel()
-        self.clock_label.setStyleSheet("font-size: 22px; font-weight: bold; min-width: 80px;")
+        # Začneme s menší velikostí pro lepší responzivitu
+        self.clock_label.setStyleSheet("font-size: 20px; font-weight: bold; min-width: 70px;")
         horni_radek.addWidget(self.clock_label, alignment=Qt.AlignRight)
 
         layout.addLayout(horni_radek)
@@ -300,6 +302,37 @@ class HlavniOkno(QMainWindow):
         self.setup_auto_refresh()
         
         self.setCentralWidget(central_widget)
+        
+        # Nastavení minimální velikosti pro lepší responzivitu
+        self.setMinimumSize(950, 600)  # Menší minimální velikost pro MacBook
+    
+    def resizeEvent(self, event):
+        """Jednoduchá responzivní úprava bez rozbíjení layoutu"""
+        super().resizeEvent(event)
+        
+        # Pouze pro velmi malé okna upravíme fonty
+        if self.width() < 1200:
+            # Menší fonty pro úsporu místa
+            self.clock_label.setStyleSheet("font-size: 18px; font-weight: bold; min-width: 60px;")
+            self.kalendar.setStyleSheet("""
+                QDateEdit {
+                    font-size: 18px;
+                    min-width: 160px;
+                    qproperty-alignment: AlignCenter;
+                    padding: 3px 6px;
+                }
+            """)
+        else:
+            # Původní velikosti pro větší okna
+            self.clock_label.setStyleSheet("font-size: 20px; font-weight: bold; min-width: 70px;")
+            self.kalendar.setStyleSheet("""
+                QDateEdit {
+                    font-size: 20px;
+                    min-width: 180px;
+                    qproperty-alignment: AlignCenter;
+                    padding: 4px 8px;
+                }
+            """)
         
     def aktualizuj_tabulku_ordinaci_layout(self):
         ordinace = get_ordinace_list()   
