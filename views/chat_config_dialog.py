@@ -14,11 +14,55 @@ class ChatConfigDialog(QDialog):
         self.setFixedSize(400, 350)
         self.setModal(True)
         
-        # Načtení aktuální konfigurace
-        self.config_path = os.path.join(os.path.dirname(__file__), "../chat/chat_config.json")
+        # Určení cesty ke konfiguračnímu souboru
+        self.config_path = self.get_config_path()
         self.load_config()
         
         self.setup_ui()
+    
+    def get_config_path(self):
+        """Získá správnou cestu ke konfiguračnímu souboru podle prostředí a OS"""
+        import sys
+        import platform
+        
+        if getattr(sys, 'frozen', False):
+            # Produkční executable - použij OS-specifické umístění
+            system = platform.system().lower()
+            
+            if system == 'windows':
+                # Windows: AppData\Local
+                base_dir = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
+            elif system == 'darwin':  # macOS
+                # macOS: ~/Library/Application Support
+                base_dir = os.path.expanduser('~/Library/Application Support')
+            else:  # Linux a další Unix-like systémy
+                # Linux: ~/.config (XDG_CONFIG_HOME)
+                base_dir = os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config'))
+            
+            app_dir = os.path.join(base_dir, "ReservationSystem")
+            
+            # Vytvoř složku, pokud neexistuje
+            os.makedirs(app_dir, exist_ok=True)
+            
+            config_path = os.path.join(app_dir, "chat_config.json")
+            print(f"ChatConfigDialog: PROD {platform.system()} - config v: {config_path}")
+            
+            # Backward kompatibilita - přesuň config z vedle executable
+            old_config = os.path.join(os.path.dirname(sys.executable), "chat_config.json")
+            if os.path.exists(old_config) and not os.path.exists(config_path):
+                try:
+                    import shutil
+                    shutil.move(old_config, config_path)
+                    print(f"ChatConfigDialog: Přesunut config z {old_config} do {config_path}")
+                except Exception as e:
+                    print(f"ChatConfigDialog: Chyba při přesunu: {e}")
+        else:
+            # Vývojové prostředí - původní lokace
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            config_path = os.path.join(script_dir, "../chat/chat_config.json")
+            print(f"ChatConfigDialog: DEV režim - config v: {config_path}")
+        
+        return config_path
         
     def load_config(self):
         """Načte konfiguraci z chat_config.json"""
@@ -90,12 +134,30 @@ class ChatConfigDialog(QDialog):
         # Tlačítka
         buttons_layout = QHBoxLayout()
         
+        self.reset_button = QPushButton("Resetovat chat")
+        self.reset_button.clicked.connect(self.reset_chat)
+        self.reset_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ff9800;
+                color: white;
+                font-weight: bold;
+                padding: 8px 16px;
+                border: none;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #f57c00;
+            }
+        """)
+        
         self.ok_button = QPushButton("OK")
         self.ok_button.clicked.connect(self.accept_config)
         
         self.cancel_button = QPushButton("Zrušit")
         self.cancel_button.clicked.connect(self.reject)
         
+        buttons_layout.addWidget(self.reset_button)
+        buttons_layout.addStretch()
         buttons_layout.addWidget(self.ok_button)
         buttons_layout.addWidget(self.cancel_button)
         
@@ -146,6 +208,25 @@ class ChatConfigDialog(QDialog):
             
         except Exception as e:
             QMessageBox.critical(self, "Chyba", f"Nepodařilo se uložit konfiguraci:\n{str(e)}")
+    
+    def reset_chat(self):
+        """Resetuje aktuální chat"""
+        reply = QMessageBox.question(
+            self, 
+            "Resetovat chat",
+            "Opravdu chcete resetovat chat? Tím se zavře stávající připojení a vymaže se historie zpráv.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            # Získej referenci na hlavní okno
+            main_window = self.parent()
+            if main_window and hasattr(main_window, 'reset_chat'):
+                main_window.reset_chat()
+                QMessageBox.information(self, "Chat resetován", "Chat byl úspěšně resetován.")
+            else:
+                QMessageBox.warning(self, "Chyba", "Nepodařilo se najít hlavní okno pro reset chatu.")
     
     def get_config(self):
         """Vrátí uloženou konfiguraci"""

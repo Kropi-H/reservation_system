@@ -272,6 +272,14 @@ class HlavniOkno(QMainWindow):
             chat_checkbox_ref = self.checkboxy["Chat"]
             chat_checkbox_state = chat_checkbox_ref.isChecked()
         
+        # Zachováme chat widget před mazáním layoutu
+        chat_widget_ref = None
+        if hasattr(self, 'chat') and self.chat:
+            chat_widget_ref = self.chat
+            # Dočasně odebereme chat z layoutu
+            if self.ordinace_layout.indexOf(self.chat) != -1:
+                self.ordinace_layout.removeWidget(self.chat)
+        
         # Vymaž staré checkboxy ze status baru (kromě chatu)
         while self.checkboxy_layout.count():
             item = self.checkboxy_layout.takeAt(0)
@@ -283,7 +291,7 @@ class HlavniOkno(QMainWindow):
         while self.ordinace_layout.count():
             item = self.ordinace_layout.takeAt(0)
             widget = item.widget()
-            if widget is not None and widget != self.chat and widget != getattr(self, 'layout_spacer', None):
+            if widget is not None and widget != chat_widget_ref and widget != getattr(self, 'layout_spacer', None):
                 widget.deleteLater()
     
         # Nyní můžeš bezpečně přidávat nové tabulky
@@ -357,13 +365,23 @@ class HlavniOkno(QMainWindow):
                 }
             """)
             chat_checkbox.toggled.connect(self.toggle_chat_visibility)
+            
+            # Přidání možnosti konfigurace při dvojkliku na checkbox
+            chat_checkbox.mouseDoubleClickEvent = self.chat_checkbox_double_click
+            
             self.checkboxy["Chat"] = chat_checkbox
         
         # Přidej chat checkbox zpět do layoutu
         if "Chat" in self.checkboxy:
             self.checkboxy_layout.addWidget(self.checkboxy["Chat"])
         
-        # Chat nebude přidán do layoutu dokud není inicializován
+        # Přidej chat widget zpět do layoutu pokud byl inicializován a měl by být viditelný
+        if chat_widget_ref and chat_checkbox_state:
+            self.ordinace_layout.addWidget(chat_widget_ref)
+            chat_widget_ref.show()
+        elif chat_widget_ref:
+            # Chat widget existuje ale neměl by být viditelný
+            chat_widget_ref.hide()
         
         self.nacti_rezervace()
 
@@ -374,6 +392,11 @@ class HlavniOkno(QMainWindow):
                 # Zobrazí konfigurační dialog při prvním zapnutí
                 self.show_chat_config()
             else:
+                # Pokud je chat již inicializován, ale není v layoutu, přidej ho
+                if self.chat not in [self.ordinace_layout.itemAt(i).widget() 
+                                   for i in range(self.ordinace_layout.count()) 
+                                   if self.ordinace_layout.itemAt(i).widget()]:
+                    self.ordinace_layout.addWidget(self.chat)
                 self.chat.show()
         else:
             if self.chat:
@@ -387,10 +410,16 @@ class HlavniOkno(QMainWindow):
         dialog = ChatConfigDialog(self)
         if dialog.exec():
             config = dialog.get_config()
+            
+            # Pokud chat už existuje, zničíme ho před vytvořením nového
+            if self.chat_initialized:
+                self.destroy_chat()
+            
             self.initialize_chat(config)
         else:
-            # Pokud uživatel zruší dialog, odškrtni checkbox
-            self.checkboxy["Chat"].setChecked(False)
+            # Pokud uživatel zruší dialog a chat neexistuje, odškrtni checkbox
+            if not self.chat_initialized:
+                self.checkboxy["Chat"].setChecked(False)
             self.update_layout_spacer()  # Aktualizujeme spacer
 
     def initialize_chat(self, config):
@@ -421,10 +450,23 @@ class HlavniOkno(QMainWindow):
             from PySide6.QtWidgets import QSizePolicy
             self.chat.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
             
+            # Nastavení rámečku pro lepší vizuální oddělení
+            self.chat.setStyleSheet("""
+                ChatWidget {
+                    border: 2px solid #ccc;
+                    border-radius: 8px;
+                    background-color: #f9f9f9;
+                    margin: 2px;
+                }
+            """)
+            
             # Přidání chatu do layoutu
             self.ordinace_layout.addWidget(self.chat)
             
             self.chat_initialized = True
+            
+            # Aktualizujeme checkbox
+            self.checkboxy["Chat"].setChecked(True)
             
         except Exception as e:
             from PySide6.QtWidgets import QMessageBox
@@ -604,6 +646,9 @@ class HlavniOkno(QMainWindow):
         self.database_days_deletion_setting = QAction("Nastavení smazání dat", self)
         self.database_days_deletion_setting.triggered.connect(self.nastaveni_smazani_dat)
 
+        self.reset_chat_action = QAction("Resetovat chat", self)
+        self.reset_chat_action.triggered.connect(self.reset_chat)
+
         # Pokud bylo vytvořeno user_menu, přidej ho do menu_bar a akce
         if self.user_menu:
             self.menu_bar.addMenu(self.user_menu)
@@ -614,6 +659,7 @@ class HlavniOkno(QMainWindow):
             self.user_menu.addAction(self.doctors_section)
             self.user_menu.addAction(self.surgery_section)
             self.user_menu.addAction(self.database_days_deletion_setting)
+            self.user_menu.addAction(self.reset_chat_action)
 
     def sekce_ordinace(self):
         dialog = OrdinaceDialog(self)
@@ -1185,7 +1231,46 @@ class HlavniOkno(QMainWindow):
         
         # Zavři chat pokud je inicializován
         if self.chat_initialized and self.chat:
-            self.chat.close()
+            try:
+                self.chat.close()
+            except Exception as e:
+                print(f"Chyba při zavírání chatu: {e}")
+        
+        event.accept()
+
+    def destroy_chat(self):
+        """Kompletně zničí chat widget a resetuje stav"""
+        if self.chat_initialized and self.chat:
+            try:
+                # Odebere chat z layoutu
+                if self.ordinace_layout.indexOf(self.chat) != -1:
+                    self.ordinace_layout.removeWidget(self.chat)
+                
+                # Zavře a smaže chat widget
+                self.chat.close()
+                self.chat.deleteLater()
+                self.chat = None
+                self.chat_initialized = False
+                
+                # Odškrtne checkbox
+                if "Chat" in self.checkboxy:
+                    self.checkboxy["Chat"].setChecked(False)
+                
+                # Aktualizuje layout spacer
+                self.update_layout_spacer()
+                
+            except Exception as e:
+                print(f"Chyba při ničení chatu: {e}")
+
+    def reset_chat(self):
+        """Resetuje chat - užitečné pro změnu konfigurace"""
+        self.destroy_chat()
+        # Chat bude znovu inicializován při dalším zapnutí checkboxu
+
+    def chat_checkbox_double_click(self, event):
+        """Obsluha dvojkliku na chat checkbox - otevře konfiguraci"""
+        self.show_chat_config()
+        # Zabrání standardnímu chování checkboxu
         event.accept()
 
     def setup_auto_refresh(self):

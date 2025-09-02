@@ -1,9 +1,49 @@
 import json
 import os
+import sys
 import psycopg2
 from typing import Dict, Any, Optional
 
-CONFIG_FILE = "config.json"
+def get_config_file_path():
+    """Získá správnou cestu ke konfiguračnímu souboru podle prostředí a OS"""
+    if getattr(sys, 'frozen', False):
+        # Produkční executable - použij OS-specifické umístění
+        import platform
+        system = platform.system().lower()
+        
+        if system == 'windows':
+            # Windows: AppData\Local
+            base_dir = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
+        elif system == 'darwin':  # macOS
+            # macOS: ~/Library/Application Support
+            base_dir = os.path.expanduser('~/Library/Application Support')
+        else:  # Linux a další Unix-like systémy
+            # Linux: ~/.config (XDG_CONFIG_HOME)
+            base_dir = os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config'))
+        
+        app_dir = os.path.join(base_dir, "ReservationSystem")
+        
+        # Vytvoř složku, pokud neexistuje
+        os.makedirs(app_dir, exist_ok=True)
+        
+        config_path = os.path.join(app_dir, "config.json")
+        
+        # Backward kompatibilita - přesuň config z vedle executable
+        old_config = os.path.join(os.path.dirname(sys.executable), "config.json")
+        if os.path.exists(old_config) and not os.path.exists(config_path):
+            try:
+                import shutil
+                shutil.move(old_config, config_path)
+                print(f"Config: Přesunut config z {old_config} do {config_path}")
+            except Exception as e:
+                print(f"Config: Chyba při přesunu: {e}")
+    else:
+        # Vývojové prostředí - původní lokace
+        config_path = "config.json"
+    
+    return config_path
+
+CONFIG_FILE = get_config_file_path()
 
 def load_config():
     """Načte konfiguraci z config.json souboru."""

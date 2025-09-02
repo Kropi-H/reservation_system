@@ -85,6 +85,20 @@ class ChatWidget(QWidget):
         self.retry_button = QPushButton("Zkusit znovu připojit")
         self.status_label = QLabel("Stav: Nepřipojeno")
         
+        # Přidání titulku chatu
+        self.title_label = QLabel("💬 Chat")
+        self.title_label.setStyleSheet("""
+            QLabel {
+                background-color: #2e7d32;
+                color: white;
+                padding: 8px;
+                font-weight: bold;
+                font-size: 14px;
+                border-radius: 6px 6px 0 0;
+                margin: 0;
+            }
+        """)
+        
         # Styling
         self.status_label.setStyleSheet("""
             QLabel {
@@ -102,6 +116,7 @@ class ChatWidget(QWidget):
 
         # Layout
         layout = QVBoxLayout()
+        layout.addWidget(self.title_label)
         layout.addWidget(self.status_label)
         layout.addWidget(self.chat_area, 1)
         
@@ -133,11 +148,22 @@ class ChatWidget(QWidget):
     def load_config(self):
         """Načte konfiguraci z chat_config.json"""
         try:
-            config_path = os.path.join(os.path.dirname(__file__), "chat_config.json")
+            config_path = self.get_config_path()
             print(f"ChatWidget: Načítám konfiguraci z {config_path}")
             with open(config_path, 'r', encoding='utf-8') as f:
                 self.config = json.load(f)
             print(f"ChatWidget: Konfigurace načtena: {self.config}")
+            
+            # Aktualizace parametrů připojení z konfigurace
+            if "server_ip" in self.config:
+                self.server_host = self.config["server_ip"]
+            if "server_port" in self.config:
+                self.server_port = self.config["server_port"]
+            if "username" in self.config:
+                self.username = self.config["username"]
+                
+            print(f"ChatWidget: Použité připojení: {self.server_host}:{self.server_port}, user: {self.username}")
+            
         except Exception as e:
             print(f"ChatWidget: Chyba při načítání konfigurace: {e}")
             self.config = {
@@ -145,6 +171,49 @@ class ChatWidget(QWidget):
                 "auto_start_server": False
             }
             print(f"ChatWidget: Použitá výchozí konfigurace: {self.config}")
+    
+    def get_config_path(self):
+        """Získá správnou cestu ke konfiguračnímu souboru podle prostředí a OS"""
+        import sys
+        import platform
+        
+        if getattr(sys, 'frozen', False):
+            # Produkční executable - použij OS-specifické umístění
+            system = platform.system().lower()
+            
+            if system == 'windows':
+                # Windows: AppData\Local
+                base_dir = os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))
+            elif system == 'darwin':  # macOS
+                # macOS: ~/Library/Application Support
+                base_dir = os.path.expanduser('~/Library/Application Support')
+            else:  # Linux a další Unix-like systémy
+                # Linux: ~/.config (XDG_CONFIG_HOME)
+                base_dir = os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config'))
+            
+            app_dir = os.path.join(base_dir, "ReservationSystem")
+            
+            # Vytvoř složku, pokud neexistuje
+            os.makedirs(app_dir, exist_ok=True)
+            
+            config_path = os.path.join(app_dir, "chat_config.json")
+            print(f"ChatWidget: PROD {platform.system()} - config v: {config_path}")
+            
+            # Backward kompatibilita - přesuň config z vedle executable
+            old_config = os.path.join(os.path.dirname(sys.executable), "chat_config.json")
+            if os.path.exists(old_config) and not os.path.exists(config_path):
+                try:
+                    import shutil
+                    shutil.move(old_config, config_path)
+                    print(f"ChatWidget: Přesunut config z {old_config} do {config_path}")
+                except Exception as e:
+                    print(f"ChatWidget: Chyba při přesunu: {e}")
+        else:
+            # Vývojové prostředí - původní lokace
+            config_path = os.path.join(os.path.dirname(__file__), "chat_config.json")
+            print(f"ChatWidget: DEV režim - config v: {config_path}")
+        
+        return config_path
 
     def try_connect(self):
         # Pokud je v konfiguraci režim "server", spusť server a TAKÉ se připoj jako client
@@ -290,7 +359,17 @@ class ChatWidget(QWidget):
         """Server widget se připojí jako client pro příjem zpráv od ostatních"""
         print("ChatWidget: Server widget se připojuje jako client")
         self.connection_attempts = 0
+        
+        # Pokud server běží na 0.0.0.0, klient se musí připojit na localhost
+        original_host = self.server_host
+        if self.server_host == "0.0.0.0":
+            self.server_host = "127.0.0.1"
+            print(f"ChatWidget: Změna adresy pro připojení z {original_host} na {self.server_host}")
+        
         self._do_connect()
+        
+        # Obnovit původní host pro další operace
+        self.server_host = original_host
 
     def test_message_display(self):
         print("ChatWidget: Odesílám zprávu o připojení všem")
