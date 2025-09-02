@@ -90,17 +90,34 @@ class HlavniOkno(QMainWindow):
                 
          
         # --- MENU BAR ---
+        import platform
+        current_os = platform.system()
+        print(f"🖥️ Detekovaný OS: {current_os}")
+        
         self.menu_bar = QMenuBar(self)
+        
+        # macOS specifické nastavení
+        if current_os == "Darwin":  # macOS
+            print("🍎 Konfiguruji menu pro macOS...")
+            # Na macOS se menu automaticky přesouvá do systémového menu baru
+            self.menu_bar.setNativeMenuBar(True)
+        else:
+            print(f"🖥️ Konfiguruji menu pro {current_os}...")
+            # Pro ostatní platformy ponecháme menu v okně
+            self.menu_bar.setNativeMenuBar(False)
+        
         self.login_action = QAction("Přihlášení", self)
         self.login_action.triggered.connect(self.show_login_dialog)
         self.menu_bar.addAction(self.login_action)
+        
+        print(f"📋 Menu akce 'Přihlášení' přidána")
         
         # Uživatel menu bude přidáváno/odebíráno dynamicky
         self.user_menu = None
         self.database_action = None  # Inicializace pro pozdější použití
         
-            
         self.setMenuBar(self.menu_bar)  # Přidání menu bar do layoutu
+        print(f"✅ Menu bar nastaven")
         
         # --- STATUS BAR ---
         self.status_bar = self.statusBar()
@@ -514,12 +531,41 @@ class HlavniOkno(QMainWindow):
     def add_logo(self):
         # Logo vlevo
         self.logo_label = QLabel()
-        logo_path = os.path.join(os.path.dirname(__file__), "../pictures/karakal_logo_grey.png")
-        pixmap = QPixmap(logo_path)
-        if not pixmap.isNull():
-            self.logo_label.setPixmap(pixmap.scaledToHeight(48))
+        
+        # Fix pro PyInstaller - správné určení cesty k resources
+        import sys
+        if getattr(sys, 'frozen', False):
+            # Produkční executable - použij _MEIPASS
+            base_path = sys._MEIPASS
         else:
+            # Development - relativní cesta
+            base_path = os.path.dirname(__file__)
+        
+        # Zkus najít logo v pictures složce
+        logo_paths = [
+            os.path.join(base_path, "pictures", "karakal_logo_grey.png"),
+            os.path.join(base_path, "..", "pictures", "karakal_logo_grey.png"),
+            os.path.join(os.path.dirname(__file__), "../pictures/karakal_logo_grey.png")
+        ]
+        
+        pixmap = None
+        logo_found = False
+        
+        for logo_path in logo_paths:
+            if os.path.exists(logo_path):
+                pixmap = QPixmap(logo_path)
+                if not pixmap.isNull():
+                    self.logo_label.setPixmap(pixmap.scaledToHeight(48))
+                    logo_found = True
+                    print(f"✅ Logo načteno z: {logo_path}")
+                    break
+        
+        if not logo_found:
             self.logo_label.setText("Logo nenalezeno")
+            print(f"❌ Logo nenalezeno. Hledáno v:")
+            for path in logo_paths:
+                print(f"   - {path} (exists: {os.path.exists(path)})")
+        
         self.logo_layout.addWidget(self.logo_label)
     
     
@@ -560,6 +606,7 @@ class HlavniOkno(QMainWindow):
               
               
     def show_login_dialog(self):
+        print("🔑 Otevírám přihlašovací dialog...")
         dialog = LoginDialog(self)
         if dialog.exec():
             username, role = dialog.get_name_and_role()
@@ -570,6 +617,7 @@ class HlavniOkno(QMainWindow):
             self.login_action.triggered.disconnect()
             self.login_action.triggered.connect(self.logout_user)
             self.update_user_menu()  # <-- Přidat/aktualizovat podmenu
+            print(f"✅ Uživatel {username} s rolí {role} přihlášen")
 
     def logout_user(self):
         self.logged_in_user = None
@@ -606,9 +654,12 @@ class HlavniOkno(QMainWindow):
         
     def update_user_menu(self):
         """Aktualizuje menu pro uživatele podle jeho role."""
+        print(f"🔄 Aktualizuji menu pro roli: {self.logged_in_user_role}")
+        
         if self.logged_in_user_role == "user":
             # Pokud je uživatel běžný uživatel, nebudeme přidávat žádné menu
             self.user_menu = None
+            print("👤 Běžný uživatel - žádné dodatečné menu")
             return
           
         # Odeber staré user_menu, pokud existuje
@@ -1145,17 +1196,47 @@ class HlavniOkno(QMainWindow):
             
     def setup_icons(self):
         """Nastavení ikon pro aplikaci a okno."""
-        # Zkuste nejprve .ico soubor pro Windows
-        icon_path = os.path.join(os.path.dirname(__file__), "../pictures/karakal_logo_grey.ico")
+        import sys
         
-        # Fallback na PNG pokud .ico neexistuje
-        if not os.path.exists(icon_path):
-            icon_path = os.path.join(os.path.dirname(__file__), "../pictures/karakal_logo_grey.png")
+        # Fix pro PyInstaller - správné určení cesty k resources
+        if getattr(sys, 'frozen', False):
+            # Produkční executable
+            base_path = sys._MEIPASS
+        else:
+            # Development
+            base_path = os.path.dirname(__file__)
         
-        if os.path.exists(icon_path):
-            # Vytvoření QIcon objektu
-            app_icon = QIcon(icon_path)
-            
+        # Zkus najít ikonu v různých formátech a umístěních
+        icon_paths = [
+            # ICO formát (Windows)
+            os.path.join(base_path, "pictures", "karakal_logo_grey.ico"),
+            os.path.join(base_path, "..", "pictures", "karakal_logo_grey.ico"),
+            # PNG formát (fallback)
+            os.path.join(base_path, "pictures", "karakal_logo_grey.png"),
+            os.path.join(base_path, "..", "pictures", "karakal_logo_grey.png"),
+            # Development fallback
+            os.path.join(os.path.dirname(__file__), "../pictures/karakal_logo_grey.ico"),
+            os.path.join(os.path.dirname(__file__), "../pictures/karakal_logo_grey.png")
+        ]
+        
+        app_icon = None
+        icon_found = False
+        
+        for icon_path in icon_paths:
+            if os.path.exists(icon_path):
+                app_icon = QIcon(icon_path)
+                if not app_icon.isNull():
+                    icon_found = True
+                    print(f"✅ Ikona načtena z: {icon_path}")
+                    break
+        
+        if not icon_found:
+            print(f"❌ Ikona nenalezena. Hledáno v:")
+            for path in icon_paths:
+                print(f"   - {path} (exists: {os.path.exists(path)})")
+            return
+        
+        if app_icon and not app_icon.isNull():
             # Nastavení ikony pro okno (levý horní roh)
             self.setWindowIcon(app_icon)
             
@@ -1198,11 +1279,12 @@ class HlavniOkno(QMainWindow):
                 
                 # Reakce na kliknutí na ikonu (zobrazí/skryje okno)
                 self.tray_icon.activated.connect(self.tray_icon_activated)
+                print("✅ System tray ikona nastavena")
             else:
-                print("Systémová lišta není dostupná")
+                print("⚠️ Systémová lišta není dostupná")
                 self.tray_icon = None
         else:
-            print(f"Ikona nenalezena: {icon_path}")
+            print(f"❌ Nepodařilo se načíst žádnou ikonu")
             self.tray_icon = None
             
     def tray_icon_activated(self, reason):
