@@ -1,0 +1,103 @@
+name: Multi-Platform Build
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+    
+    - name: Build Windows exe
+      run: |
+        pyinstaller --onefile --noconsole --name "ReservationSystem" --icon="pictures/karakal_logo_grey.ico" --add-data="assets;assets" --add-data="pictures;pictures" main.py
+    
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ReservationSystem-Windows
+        path: dist/ReservationSystem.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+    
+    - name: Create icns icon
+      run: |
+        mkdir tmp.iconset
+        sips -z 16 16 pictures/karakal_logo_grey.png --out tmp.iconset/icon_16x16.png
+        sips -z 32 32 pictures/karakal_logo_grey.png --out tmp.iconset/icon_32x32.png
+        sips -z 128 128 pictures/karakal_logo_grey.png --out tmp.iconset/icon_128x128.png
+        sips -z 256 256 pictures/karakal_logo_grey.png --out tmp.iconset/icon_256x256.png
+        sips -z 512 512 pictures/karakal_logo_grey.png --out tmp.iconset/icon_512x512.png
+        iconutil -c icns tmp.iconset
+        mv tmp.icns pictures/karakal_logo_grey.icns
+    
+    - name: Build macOS app
+      run: |
+        pyinstaller --onefile --windowed --name "ReservationSystem" --icon="pictures/karakal_logo_grey.icns" --add-data="assets:assets" --add-data="pictures:pictures" main.py
+    
+    - name: Upload macOS artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ReservationSystem-macOS
+        path: dist/ReservationSystem.app
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y libxcb-xinerama0 libxcb1 libx11-6 libxrandr2 libxss1 libxcursor1 libxdamage1 libxfixes3 libxcomposite1 libxi6 libxtst6 libgl1-mesa-glx
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+    
+    - name: Build Linux binary
+      run: |
+        pyinstaller --onefile --name "ReservationSystem" --add-data="assets:assets" --add-data="pictures:pictures" main.py
+    
+    - name: Upload Linux artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ReservationSystem-Linux
+        path: dist/ReservationSystem
