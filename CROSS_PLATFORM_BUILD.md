@@ -123,8 +123,8 @@ pip install pyinstaller
 # Přejdi do projektové složky
 cd "/home/$(whoami)/reservation_system"
 
-# Vytvoř Linux binary
-pyinstaller --onefile --name "ReservationSystem" main.py
+# Vytvoř Linux binary s logem
+pyinstaller --onefile --name "ReservationSystem" --add-data="assets:assets" --add-data="pictures:pictures" --icon="pictures/karakal_logo_grey.png" main.py
 ```
 
 **Výsledek:** `dist/ReservationSystem` (~40MB)

@@ -35,6 +35,7 @@ echo "🔨 Builduji Linux binary..."
 pyinstaller --onefile --name "ReservationSystem" \
     --add-data="assets:assets" \
     --add-data="pictures:pictures" \
+    --icon="pictures/karakal_logo_grey.png" \
     main.py
 
 # Zkontroluj výsledek
