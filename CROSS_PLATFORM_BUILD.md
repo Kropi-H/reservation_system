@@ -123,11 +123,28 @@ pip install pyinstaller
 # Přejdi do projektové složky
 cd "/home/$(whoami)/reservation_system"
 
-# Vytvoř Linux binary s logem
-pyinstaller --onefile --name "ReservationSystem" --add-data="assets:assets" --add-data="pictures:pictures" --icon="pictures/karakal_logo_grey.png" main.py
+# Vytvoř Linux binary (ikona se nastavuje přes .desktop soubor)
+pyinstaller --onefile --name "ReservationSystem" --add-data="assets:assets" --add-data="pictures:pictures" main.py
+
+# Vytvoř .desktop soubor pro ikonu
+cat > ReservationSystem.desktop << EOF
+[Desktop Entry]
+Type=Application
+Name=Reservation System
+Comment=Veterinary Reservation System
+Exec=$(pwd)/dist/ReservationSystem
+Icon=$(pwd)/pictures/karakal_logo_grey.png
+Categories=Office;Database;
+Terminal=false
+EOF
+
+# Nainstaluj ikonu do systému (optional)
+desktop-file-install --dir=~/.local/share/applications ReservationSystem.desktop
 ```
 
 **Výsledek:** `dist/ReservationSystem` (~40MB)
+
+**Poznámka:** Na Linuxu PyInstaller nepodporuje `--icon` parametr. Ikona se nastavuje přes .desktop soubor.
 
 ### 📦 AppImage (doporučeno pro distribuci)
 ```bash

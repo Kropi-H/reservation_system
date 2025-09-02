@@ -32,10 +32,10 @@ pip install pyinstaller
 
 # Build binary
 echo "🔨 Builduji Linux binary..."
+# Poznámka: --icon není podporováno na Linuxu, ikona se nastavuje přes desktop integration
 pyinstaller --onefile --name "ReservationSystem" \
     --add-data="assets:assets" \
     --add-data="pictures:pictures" \
-    --icon="pictures/karakal_logo_grey.png" \
     main.py
 
 # Zkontroluj výsledek
@@ -43,10 +43,28 @@ if [ -f "dist/ReservationSystem" ]; then
     echo "✅ Build úspěšný!"
     echo "📁 Soubor: $(pwd)/dist/ReservationSystem"
     echo "📊 Velikost: $(ls -lh dist/ReservationSystem | awk '{print $5}')"
+    
+    # Vytvoř .desktop soubor pro ikonu
+    echo "🖼️ Vytvářím .desktop soubor pro ikonu..."
+    cat > ReservationSystem.desktop << EOF
+[Desktop Entry]
+Type=Application
+Name=Reservation System
+Comment=Veterinary Reservation System
+Exec=$(pwd)/dist/ReservationSystem
+Icon=$(pwd)/pictures/karakal_logo_grey.png
+Categories=Office;Database;
+Terminal=false
+EOF
+    
+    echo "📋 Vytvořen: ReservationSystem.desktop"
     echo ""
     echo "🚀 Spuštění:"
     echo "chmod +x dist/ReservationSystem"
     echo "./dist/ReservationSystem"
+    echo ""
+    echo "🖼️ Pro ikonu v systému (optional):"
+    echo "desktop-file-install --dir=~/.local/share/applications ReservationSystem.desktop"
 else
     echo "❌ Build selhal!"
     exit 1

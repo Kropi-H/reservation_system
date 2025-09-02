@@ -94,7 +94,7 @@ jobs:
     
     - name: Build Linux binary
       run: |
-        pyinstaller --onefile --name "ReservationSystem" --add-data="assets:assets" --add-data="pictures:pictures" --icon="pictures/karakal_logo_grey.png" main.py
+        pyinstaller --onefile --name "ReservationSystem" --add-data="assets:assets" --add-data="pictures:pictures" main.py
     
     - name: Upload Linux binary
       uses: actions/upload-artifact@v4
