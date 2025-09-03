@@ -30,6 +30,24 @@ pip install --upgrade pip
 pip install -r requirements.txt
 pip install pyinstaller
 
+# Test importů před buildem
+echo "🔍 Testuji nové moduly..."
+python3 -c "
+try:
+    import models.database_listener
+    print('✅ database_listener import OK')
+except ImportError as e:
+    print(f'❌ database_listener import failed: {e}')
+    exit(1)
+
+try:
+    from views.hlavni_okno import HlavniOkno
+    print('✅ HlavniOkno with new features import OK')
+except ImportError as e:
+    print(f'❌ HlavniOkno import failed: {e}')
+    exit(1)
+" || exit 1
+
 # Build binary
 echo "🔨 Builduji Linux binary..."
 # Použijeme .spec soubor, který automaticky detekuje platformu a nastavuje ikony správně

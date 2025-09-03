@@ -305,6 +305,9 @@ class HlavniOkno(QMainWindow):
         
         # Nastavení minimální velikosti pro lepší responzivitu
         self.setMinimumSize(950, 600)  # Menší minimální velikost pro MacBook
+        
+        # Nastavení listenerů pro database změny
+        self.setup_database_listeners()
     
     def resizeEvent(self, event):
         """Jednoduchá responzivní úprava bez rozbíjení layoutu"""
@@ -1489,3 +1492,110 @@ class HlavniOkno(QMainWindow):
             print(f"⚠️ Chyba při manuálním refresh: {e}")
             if hasattr(self, 'status_bar'):
                 self.status_bar.showMessage(f"❌ Chyba při obnovení: {e}", 5000)
+
+    def setup_database_listeners(self):
+        """Nastaví poslouchání database notifikací."""
+        try:
+            from models.database_listener import DatabaseListener
+            
+            self.db_listener = DatabaseListener()
+            
+            # Připoj signály pro různé typy změn
+            self.db_listener.reservation_changed.connect(self.on_reservation_changed)
+            self.db_listener.doctor_changed.connect(self.on_doctor_changed)
+            self.db_listener.ordinace_changed.connect(self.on_ordinace_changed)
+            
+            # Spusť listener pro všechny typy změn
+            self.db_listener.start_listening(['reservation_changes', 'doctor_changes', 'ordinace_changes'])
+            
+            print("✅ Database listener nastaven pro rezervace, doktory a ordinace")
+        except Exception as e:
+            print(f"⚠️ Database listener nedostupný: {e}")
+            self.db_listener = None
+
+    def on_reservation_changed(self, data):
+        """Reakce na změnu rezervace v databázi."""
+        try:
+            print(f"🔄 Změna rezervace detekována: {data}")
+            
+            # Aktualizuj rezervace
+            self.nacti_rezervace()
+            
+            # Zobraz notifikaci uživateli
+            operation = data.get('operation', 'UPDATE')
+            if hasattr(self, 'status_bar'):
+                if operation == 'INSERT':
+                    self.status_bar.showMessage("📅 Byla přidána nová rezervace", 3000)
+                elif operation == 'UPDATE':
+                    self.status_bar.showMessage("🔧 Rezervace byla aktualizována", 3000)
+                elif operation == 'DELETE':
+                    self.status_bar.showMessage("❌ Rezervace byla smazána", 3000)
+                    
+        except Exception as e:
+            print(f"⚠️ Chyba při zpracování změny rezervace: {e}")
+
+    def on_doctor_changed(self, data):
+        """Reakce na změnu doktora v databázi."""
+        try:
+            print(f"🔄 Změna doktora detekována: {data}")
+            
+            # Aktualizuj layout doktorů
+            self.aktualizuj_doktori_layout()
+            
+            # Aktualizuj rezervace (mohou obsahovat jména doktorů)
+            self.nacti_rezervace()
+            
+            # Zobraz notifikaci uživateli
+            operation = data.get('operation', 'UPDATE')
+            if hasattr(self, 'status_bar'):
+                if operation == 'UPDATE':
+                    self.status_bar.showMessage("👨‍⚕️ Informace o doktorovi byly aktualizovány", 3000)
+                elif operation == 'DEACTIVATE':
+                    self.status_bar.showMessage("⚠️ Doktor byl deaktivován", 3000)
+                elif operation == 'DELETE':
+                    self.status_bar.showMessage("❌ Doktor byl odstraněn", 3000)
+                    
+        except Exception as e:
+            print(f"⚠️ Chyba při zpracování změny doktora: {e}")
+
+    def on_ordinace_changed(self, data):
+        """Reakce na změnu ordinace v databázi."""
+        try:
+            print(f"🔄 Změna ordinace detekována: {data}")
+            
+            operation = data.get('operation', 'UPDATE')
+            nazev = data.get('data', {}).get('nazev', 'neznámá')
+            
+            # Aktualizuj layout ordinací
+            self.aktualizuj_tabulku_ordinaci_layout()
+            
+            # Aktualizuj rezervace (mohou obsahovat názvy ordinací)
+            self.nacti_rezervace()
+            
+            # Zobraz notifikaci uživateli
+            if hasattr(self, 'status_bar'):
+                if operation == 'INSERT':
+                    self.status_bar.showMessage(f"🏥 Byla přidána nová ordinace: {nazev}", 3000)
+                elif operation == 'UPDATE':
+                    self.status_bar.showMessage(f"🔧 Ordinace {nazev} byla aktualizována", 3000)
+                elif operation == 'DELETE':
+                    self.status_bar.showMessage(f"❌ Ordinace {nazev} byla odstraněna", 3000)
+                    
+        except Exception as e:
+            print(f"⚠️ Chyba při zpracování změny ordinace: {e}")
+
+    def closeEvent(self, event):
+        """Obsluha zavření aplikace"""
+        # Zastavit database listener
+        if hasattr(self, 'db_listener') and self.db_listener:
+            try:
+                self.db_listener.stop_listening()
+                print("✅ Database listener zastaven")
+            except Exception as e:
+                print(f"⚠️ Chyba při zastavování database listeneru: {e}")
+        
+        # Zastavit timery
+        if hasattr(self, 'refresh_timer') and self.refresh_timer:
+            self.refresh_timer.stop()
+        
+        event.accept()

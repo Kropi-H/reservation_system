@@ -1,6 +1,15 @@
 from datetime import datetime, date
 from models.databaze import get_connection
 
+# Import pro database notifikace (pouze pokud je dostupný)
+try:
+    from models.database_listener import notify_database_change
+    NOTIFICATIONS_ENABLED = True
+except ImportError:
+    NOTIFICATIONS_ENABLED = False
+    def notify_database_change(*args, **kwargs):
+        pass
+
 
 time_anchores = ["08:00","08:20", "08:40", "09:00", "09:15", "09:30", "09:45", "10:00", "10:20", "10:40",
                  "11:00", "11:20", "11:40", "12:00", "12:30", "12:40", "13:00", "13:20", "13:40", "14:00",
@@ -22,9 +31,21 @@ def add_doctor(data):
         cur = conn.cursor()
         cur.execute('''
             INSERT INTO Doktori (jmeno, prijmeni, specializace, isActive, color)
-            VALUES (%s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s) RETURNING doktor_id
         ''', (data["jmeno"], data["prijmeni"], data["specializace"], int(data["isActive"]), data["color"]))
+        doktor_id = cur.fetchone()[0]
         conn.commit()
+        
+        # Pošli notifikaci o novém doktorovi
+        if NOTIFICATIONS_ENABLED:
+            notify_database_change('doctor', 'INSERT', {
+                'id': doktor_id,
+                'jmeno': data["jmeno"],
+                'prijmeni': data["prijmeni"],
+                'specializace': data["specializace"],
+                'isActive': data["isActive"],
+                'color': data["color"]
+            })
         
 def get_doctor_by_id(doktor_id):
     """Vrátí informace o doktorovi podle jeho ID."""
@@ -44,8 +65,20 @@ def update_doctor(data, doktor_id):
             UPDATE Doktori
             SET jmeno = %s, prijmeni = %s, specializace = %s, isActive = %s, color = %s
             WHERE doktor_id = %s
-        ''', (data["jmeno"], data["prijmeni"], data["specializace"], data["isActive"], data["color"], doktor_id))
+        ''', (data["jmeno"], data["prijmeni"], data["specializace"], int(data["isActive"]), data["color"], doktor_id))
+        updated = cur.rowcount > 0
         conn.commit()
+        
+        # Pošli notifikaci o změně doktora
+        if updated and NOTIFICATIONS_ENABLED:
+            notify_database_change('doctor', 'UPDATE', {
+                'id': doktor_id,
+                'jmeno': data["jmeno"],
+                'prijmeni': data["prijmeni"],
+                'specializace': data["specializace"],
+                'isActive': data["isActive"],
+                'color': data["color"]
+            })
 
 def get_doktor_id(doktor):
     """Vrátí doktor_id podle jména a příjmení."""
@@ -411,7 +444,14 @@ def deactivate_doctor(doktor_id):
         cur.execute('''
             UPDATE Doktori SET isActive = FALSE WHERE doktor_id = %s
         ''', (doktor_id,))
+        deactivated = cur.rowcount > 0
         conn.commit()
+        
+        # Pošli notifikaci o deaktivaci doktora
+        if deactivated and NOTIFICATIONS_ENABLED:
+            notify_database_change('doctor', 'DEACTIVATE', {
+                'id': doktor_id
+            })
 
 
 def remove_doctor(doktor_id):
@@ -421,4 +461,11 @@ def remove_doctor(doktor_id):
         cur.execute('''
             DELETE FROM Doktori WHERE doktor_id = %s
         ''', (doktor_id,))
+        removed = cur.rowcount > 0
         conn.commit()
+        
+        # Pošli notifikaci o odstranění doktora
+        if removed and NOTIFICATIONS_ENABLED:
+            notify_database_change('doctor', 'DELETE', {
+                'id': doktor_id
+            })
