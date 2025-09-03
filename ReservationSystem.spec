@@ -5,18 +5,8 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[
-        ('pictures', 'pictures'),  # Zabalí složku pictures do executable
-    ],
-    hiddenimports=[
-        'models.database_listener',
-        'psycopg2',
-        'psycopg2.extras',
-        'json',
-        'threading',
-        'platform',
-        'time'
-    ],
+    datas=[],
+    hiddenimports=['asyncio', 'threading', 'psycopg2', 'sqlalchemy', 'models.database_listener'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
