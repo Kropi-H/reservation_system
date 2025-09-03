@@ -28,11 +28,11 @@ class ConnectionPool:
             
             try:
                 self._pool = psycopg2.pool.SimpleConnectionPool(
-                    1,  # minimální počet připojení
-                    5,  # maximální počet připojení
+                    2,   # minimální počet připojení (zvýšeno z 1)
+                    20,  # maximální počet připojení (zvýšeno z 5)
                     **config
                 )
-                print("Connection pool vytvořen")
+                print("Connection pool vytvořen (2-20 připojení)")
             except Exception as e:
                 raise Exception(f"Nelze vytvořit connection pool: {e}")
         

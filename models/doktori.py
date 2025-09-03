@@ -442,7 +442,7 @@ def deactivate_doctor(doktor_id):
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute('''
-            UPDATE Doktori SET isActive = FALSE WHERE doktor_id = %s
+            UPDATE Doktori SET isActive = 0 WHERE doktor_id = %s
         ''', (doktor_id,))
         deactivated = cur.rowcount > 0
         conn.commit()

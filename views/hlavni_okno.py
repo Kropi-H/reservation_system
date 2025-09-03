@@ -599,11 +599,12 @@ class HlavniOkno(QMainWindow):
             # Development - relativní cesta
             base_path = os.path.dirname(__file__)
         
-        # Zkus najít logo v pictures složce
+        # Zkus najít logo v pictures složce - cross-platform cesty
         logo_paths = [
             os.path.join(base_path, "pictures", "karakal_logo_grey.png"),
             os.path.join(base_path, "..", "pictures", "karakal_logo_grey.png"),
-            os.path.join(os.path.dirname(__file__), "../pictures/karakal_logo_grey.png")
+            os.path.join(os.path.dirname(__file__), "..", "pictures", "karakal_logo_grey.png"),
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "pictures", "karakal_logo_grey.png")
         ]
         
         pixmap = None
@@ -1295,7 +1296,7 @@ class HlavniOkno(QMainWindow):
             # Development
             base_path = os.path.dirname(__file__)
         
-        # Zkus najít ikonu v různých formátech a umístěních
+        # Zkus najít ikonu v různých formátech a umístěních - cross-platform cesty
         icon_paths = [
             # ICO formát (Windows)
             os.path.join(base_path, "pictures", "karakal_logo_grey.ico"),
@@ -1303,9 +1304,11 @@ class HlavniOkno(QMainWindow):
             # PNG formát (fallback)
             os.path.join(base_path, "pictures", "karakal_logo_grey.png"),
             os.path.join(base_path, "..", "pictures", "karakal_logo_grey.png"),
-            # Development fallback
-            os.path.join(os.path.dirname(__file__), "../pictures/karakal_logo_grey.ico"),
-            os.path.join(os.path.dirname(__file__), "../pictures/karakal_logo_grey.png")
+            # Development fallback - cross-platform
+            os.path.join(os.path.dirname(__file__), "..", "pictures", "karakal_logo_grey.ico"),
+            os.path.join(os.path.dirname(__file__), "..", "pictures", "karakal_logo_grey.png"),
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "pictures", "karakal_logo_grey.ico"),
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "pictures", "karakal_logo_grey.png")
         ]
         
         app_icon = None

@@ -30,8 +30,8 @@ pip install --upgrade pip
 pip install -r requirements.txt
 pip install pyinstaller
 
-# Test importů před buildem
-echo "🔍 Testuji nové moduly..."
+# Test importů před buildem + macOS specifické testy
+echo "🔍 Testuji nové moduly a macOS kompatibilitu..."
 python3 -c "
 try:
     import models.database_listener
@@ -46,6 +46,22 @@ try:
 except ImportError as e:
     print(f'❌ HlavniOkno import failed: {e}')
     exit(1)
+
+# macOS specifické testy
+import platform
+if platform.system() == 'Darwin':
+    import select
+    print('✅ select module OK')
+    
+    try:
+        # Test krátký select call
+        select.select([], [], [], 0.1)
+        print('✅ select.select() funguje')
+    except Exception as e:
+        print(f'⚠️ select.select() může mít problémy: {e}')
+        print('🍎 Použije se polling fallback')
+
+print('🎉 Všechny kontroly prošly!')
 " || exit 1
 
 # Vytvoř ICNS ikonu z PNG
