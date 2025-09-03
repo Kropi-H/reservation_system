@@ -41,17 +41,31 @@ except ImportError as e:
     exit(1)
 
 try:
+    import models.connection_pool
+    print('✅ connection_pool import OK')
+except ImportError as e:
+    print(f'❌ connection_pool import failed: {e}')
+    exit(1)
+
+try:
     from views.hlavni_okno import HlavniOkno
     print('✅ HlavniOkno with new features import OK')
 except ImportError as e:
     print(f'❌ HlavniOkno import failed: {e}')
     exit(1)
 
-# macOS specifické testy
+# macOS specifické testy pro pooling
 import platform
 if platform.system() == 'Darwin':
     import select
     print('✅ select module OK')
+    
+    try:
+        import psycopg2.pool
+        print('✅ psycopg2.pool import OK')
+    except ImportError as e:
+        print(f'❌ psycopg2.pool import failed: {e}')
+        exit(1)
     
     try:
         # Test krátký select call
