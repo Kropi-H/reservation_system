@@ -9,8 +9,9 @@ def insert_admin_user(u_name, password, u_role="admin"):
   with get_connection() as conn:
       cur = conn.cursor()
       cur.execute('''
-        INSERT OR IGNORE INTO Users (username, password, user_role)
-        VALUES (%s, %s, %s );
+        INSERT INTO Users (username, password, user_role)
+        VALUES (%s, %s, %s )
+        ON CONFLICT (username) DO NOTHING;
       ''', (u_name, hashed_password, u_role))
       conn.commit()
 
@@ -61,7 +62,7 @@ def update_user(user_id, user_data):
     try:
       with get_connection() as conn:
           cur = conn.cursor()
-          cur.execute('UPDATE Users SET username = ?, user_role = ? WHERE user_id = %s', (user_data['username'], user_data['role'], user_id))
+          cur.execute('UPDATE Users SET username = %s, user_role = %s WHERE user_id = %s', (user_data['username'], user_data['role'], user_id))
           conn.commit()
     except Exception as e:
       print(f"Error updating user: {e}")
@@ -70,7 +71,7 @@ def update_user_pass(user_data, user_id):
     try:
         with get_connection() as conn:
             cur = conn.cursor()
-            cur.execute('UPDATE Users SET password = ? WHERE user_id = %s', (user_data, user_id))
+            cur.execute('UPDATE Users SET password = %s WHERE user_id = %s', (user_data, user_id))
             conn.commit()
     except Exception as e:
         print(f"Error updating user password: {e}")
