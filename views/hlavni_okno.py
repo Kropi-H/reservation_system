@@ -417,6 +417,11 @@ class HlavniOkno(QMainWindow):
 
             # Připojení signálu pro dvojklik
             tabulka.cellDoubleClicked.connect(partial(self.zpracuj_dvojklik, mistnost))
+            
+            # Připojení synchronizace scrollování
+            scrollbar = tabulka.verticalScrollBar()
+            scrollbar.valueChanged.connect(partial(self.sync_table_scrolling, mistnost))
+            
             self.ordinace_layout.addWidget(tabulka)
             self.tabulky[mistnost] = tabulka
             
@@ -1602,3 +1607,20 @@ class HlavniOkno(QMainWindow):
             self.refresh_timer.stop()
         
         event.accept()
+
+    def sync_table_scrolling(self, source_mistnost, value):
+        """Synchronizuje scrollování všech tabulek s ordinacemi."""
+        # Použijeme flag pro zabránění rekurzi místo odpojování signálů
+        if hasattr(self, '_syncing_scroll') and self._syncing_scroll:
+            return
+            
+        self._syncing_scroll = True
+        
+        try:
+            for mistnost, tabulka in self.tabulky.items():
+                if mistnost != source_mistnost:
+                    scrollbar = tabulka.verticalScrollBar()
+                    # Nastavíme stejnou pozici scrollbaru bez odpojování signálů
+                    scrollbar.setValue(value)
+        finally:
+            self._syncing_scroll = False
