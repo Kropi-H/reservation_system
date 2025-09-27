@@ -16,6 +16,7 @@
 # Pokročilý build (nejspolehlivější):
 & "C:/Program Files/Python38/python.exe" -m PyInstaller --onefile --noconsole --name "ReservationSystem" --icon="pictures\karakal_logo_grey.ico" --add-data="assets;assets" --add-data="pictures;pictures" main.py
 
+
 # Pokud chybí moduly, přidej:
 & "C:/Program Files/Python38/python.exe" -m PyInstaller --onefile --noconsole ^
     --hidden-import=PySide6.QtWidgets ^
