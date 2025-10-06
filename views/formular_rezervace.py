@@ -1,5 +1,5 @@
 # views/formular_rezervace.py
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QLabel, QFormLayout, QComboBox, QTextEdit, QDateTimeEdit, QMessageBox
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QLabel, QFormLayout, QComboBox, QTextEdit, QDateTimeEdit, QMessageBox, QCheckBox
 from PySide6.QtCore import QDateTime, QTime
 from controllers.rezervace_controller import uloz_rezervaci, odstran_rezervaci_z_db, aktualizuj_rezervaci, kontrola_prekryvani_rezervaci
 from models.databaze import get_doktori, get_ordinace
@@ -20,13 +20,20 @@ class FormularRezervace(QWidget):
 
         self.layout = QFormLayout()
 
-        self.pacient_jmeno_input = QLineEdit()
+        self.pacient_problem = QLineEdit()
         self.pacient_druh_input = QLineEdit()
         self.majitel_input = QLineEdit()
         self.kontakt_majitel_input = QLineEdit()
         self.doktor_input = QComboBox()
+        self.druhy_doktor_input = QComboBox()
         self.doktor_input.addItem("!---Vyberte doktora---!")
+        self.anestezie_checkbox = QCheckBox()
+        self.druhy_doktor_input.addItem("!---Vyberte druhého doktora---!")
         self.doktor_input.addItems(self.get_doctors())
+        # Signal pro aktualizaci druhého doktora při změně prvního
+        self.doktor_input.currentTextChanged.connect(self.aktualizuj_druhy_doktor)
+        # Inicializace seznamu druhých doktorů
+        self.aktualizuj_druhy_doktor()
 
         self.cas_input = QDateTimeEdit()
         self.cas_input.setCalendarPopup(True)
@@ -64,8 +71,8 @@ class FormularRezervace(QWidget):
 
         # Předvyplnění dat pokud jsou k dispozici
         if rezervace_data:
-          # Předpoklad: rezervace_data = (cas, id, doktor, doktor_color, pacient, majitel, kontakt, druh, mistnost, poznamka, cas_od, cas_do)
-          self.pacient_jmeno_input.setText(rezervace_data[4])
+          # Předpoklad: rezervace_data = (cas, id, doktor, doktor_color, pacient, majitel, kontakt, druh, mistnost, poznamka, cas_od, cas_do, anestezie, druhy_doktor, druhy_doktor_barva)
+          self.pacient_problem.setText(rezervace_data[4])
           self.pacient_druh_input.setText(rezervace_data[7])
           self.majitel_input.setText(rezervace_data[5])
           self.kontakt_majitel_input.setText(rezervace_data[6])
@@ -88,6 +95,17 @@ class FormularRezervace(QWidget):
           
           if idx != -1:
               self.doktor_input.setCurrentIndex(idx)
+          
+          # Předvyplnění anestézie (index 12)
+          if len(rezervace_data) > 12 and rezervace_data[12] is not None:
+              self.anestezie_checkbox.setChecked(bool(rezervace_data[12]))
+          
+          # Předvyplnění druhého doktora (index 13) - musí být až po nastavení prvního doktora
+          if len(rezervace_data) > 13 and rezervace_data[13]:
+              # Najít druhého doktora v seznamu
+              druhy_doktor_idx = self.druhy_doktor_input.findText(rezervace_data[13])
+              if druhy_doktor_idx != -1:
+                  self.druhy_doktor_input.setCurrentIndex(druhy_doktor_idx)
           
           self.note_input.setPlainText(rezervace_data[9])
           
@@ -134,11 +152,13 @@ class FormularRezervace(QWidget):
         # Časové kotvy pro délku rezervace
         # self.delka_rezervace_input.addItems(self.reservation_length())
         
-        self.layout.addRow("Jméno pacienta:", self.pacient_jmeno_input)
-        self.layout.addRow("Druh:", self.pacient_druh_input)
-        self.layout.addRow("Příjmení majitele:", self.majitel_input)
-        self.layout.addRow("Kontakt (nemusí být):", self.kontakt_majitel_input)
+        self.layout.addRow("Příjmení majitele pacienta:", self.majitel_input)
+        self.layout.addRow("Co pacienta trápí:", self.pacient_problem)
+        self.layout.addRow("Druh pacienta:", self.pacient_druh_input)
+        self.layout.addRow("Kontakt majitele (nemusí být):", self.kontakt_majitel_input)
         self.layout.addRow("Doktor:", self.doktor_input)
+        self.layout.addRow("Anestézie (nemusí být):", self.anestezie_checkbox)
+        self.layout.addRow("Druhý doktor (nemusí být):", self.druhy_doktor_input) if hasattr(self, 'druhy_doktor_input') else None
         self.layout.addRow("Poznámka (nemusí být):", self.note_input)
         self.layout.addRow("Datum:", self.datum_input)
         self.layout.addRow("Čas od:", self.vytvor_cas_layout())
@@ -179,6 +199,20 @@ class FormularRezervace(QWidget):
         else:
             # SQLite format - use index access
             return [' '.join(f"{i[1]} {i[2]}".split()) for i in doktori]
+          
+    def aktualizuj_druhy_doktor(self):
+        """Aktualizuje seznam druhých doktorů bez vybraného prvního doktora"""
+        vybrany_prvni_doktor = self.doktor_input.currentText()
+        
+        # Vymazat současný obsah
+        self.druhy_doktor_input.clear()
+        self.druhy_doktor_input.addItem("!---Vyberte druhého doktora---!")
+        
+        # Přidat všechny doktory kromě vybraného prvního
+        vsichni_doktori = self.get_doctors()
+        for doktor in vsichni_doktori:
+            if doktor != vybrany_prvni_doktor and vybrany_prvni_doktor != "!---Vyberte doktora---!":
+                self.druhy_doktor_input.addItem(doktor)
 
     def get_ordinace_list(self):
         ordinace = get_ordinace()
@@ -252,12 +286,15 @@ class FormularRezervace(QWidget):
             self.status.setText("Žádná rezervace k odstranění.")
 
     def uloz(self):
-        pacient_jmeno = self.pacient_jmeno_input.text().strip()
+        pacient_problem = self.pacient_problem.text().strip()
         pacient_druh = self.pacient_druh_input.text().strip()
         majitel_pacienta = self.majitel_input.text().strip()
         majitel_kontakt = self.kontakt_majitel_input.text().strip()
         doktor = self.doktor_input.currentText()
+        anestezie = self.anestezie_checkbox.isChecked()
+        druhy_doktor = self.druhy_doktor_input.currentText() if self.druhy_doktor_input.currentText() != "!---Vyberte druhého doktora---!" else None
         note = self.note_input.toPlainText().strip()
+        print(f"Anestezie: {anestezie}, Druhý doktor: {druhy_doktor}")
         
         # Sestavení datetime z datumu a času
         datum = self.datum_input.date().toString("yyyy-MM-dd")
@@ -271,8 +308,8 @@ class FormularRezervace(QWidget):
         # Kontrola času
         selected_time = QTime.fromString(cas_od, "HH:mm")
 
-        if not pacient_jmeno:
-            self.status.setText("Vyplňte jmeno pacienta.")
+        if not pacient_problem:
+            self.status.setText("Vyplňte problém pacienta, případně jméno.")
         elif not pacient_druh:
             self.status.setText("Vyplňte druh pacienta.")
         elif not majitel_pacienta:
@@ -298,8 +335,8 @@ class FormularRezervace(QWidget):
             if self.rezervace_id:
                 # Úprava existující rezervace
                 ok = aktualizuj_rezervaci(
-                    self.rezervace_id, pacient_jmeno, pacient_druh, majitel_pacienta,
-                    majitel_kontakt, doktor, note, datum, cas_od, cas_do, mistnost
+                    self.rezervace_id, pacient_problem, pacient_druh, majitel_pacienta,
+                    majitel_kontakt, doktor, anestezie, druhy_doktor, note, datum, cas_od, cas_do, mistnost
                 )
                 if ok:
                     self.status.setText("Rezervace byla upravena.")
@@ -310,7 +347,7 @@ class FormularRezervace(QWidget):
                     self.status.setText("Chyba při úpravě rezervace.")
             else:
                 # Nová rezervace
-                if uloz_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, datum, cas_od, cas_do, mistnost):
+                if uloz_rezervaci(pacient_problem, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, anestezie, druhy_doktor, note, datum, cas_od, cas_do, mistnost):
                     self.status.setText("Rezervace byla uložena.")
                     if self.hlavni_okno:
                         self.hlavni_okno.nacti_rezervace()

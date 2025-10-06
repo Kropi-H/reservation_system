@@ -9,8 +9,8 @@ except ImportError:
     NOTIFICATIONS_ENABLED = False
     def notify_database_change(*args, **kwargs):
         pass  # No-op pokud není dostupný
-                    
-def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, termin, cas_od, cas_do, mistnost):
+
+def pridej_rezervaci(pacient_problem, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, anestezie, druhy_doktor, note, termin, cas_od, cas_do, mistnost):
     """
     Přidá novou rezervaci.
     """
@@ -27,14 +27,27 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
                 "prijmeni": doktor.split(maxsplit=1)[1] if len(doktor.split()) > 1 else "",
             }
         )
+        
+        # 2) Druhý doktor (pokud je vybrán)
+        druhy_doc_id = None
+        if druhy_doktor and druhy_doktor != "!---Vyberte druhého doktora---!":
+            druhy_doc_id = get_or_create(
+                cur,
+                table="Doktori",
+                unique_cols=("jmeno","prijmeni"),
+                data_cols={
+                    "jmeno": druhy_doktor.split()[0],
+                    "prijmeni": druhy_doktor.split(maxsplit=1)[1] if len(druhy_doktor.split()) > 1 else "",
+                }
+            )
 
-        # 2) Pacient (zvíře + majitel)
+        # 3) Pacient (zvíře + majitel)
         pac_id = get_or_create(
             cur,
             table="Pacienti",
-            unique_cols=("jmeno_zvirete","druh","majitel_jmeno","majitel_telefon", "poznamka"),
+            unique_cols=("pacient_problem","druh","majitel_jmeno","majitel_telefon", "poznamka"),
             data_cols={
-                "jmeno_zvirete": pacient_jmeno,
+                "pacient_problem": pacient_problem,
                 "druh":          pacient_druh,
                 "majitel_jmeno": majitel_pacienta,
                 "majitel_telefon": majitel_kontakt,
@@ -42,7 +55,7 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
             }
         )
 
-        # 3) Ordinace
+        # 4) Ordinace
         ord_id = get_or_create(
             cur,
             table="Ordinace",
@@ -50,15 +63,15 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
             data_cols={"nazev": mistnost}
         )
 
-        # 4) Vložíme rezervaci
+        # 5) Vložíme rezervaci s novými sloupci
         cur.execute(
             """
             INSERT INTO Rezervace
-            (pacient_id, doktor_id, ordinace_id, termin, cas_od, cas_do)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            (pacient_id, doktor_id, druhy_doktor_id, ordinace_id, termin, cas_od, cas_do, anestezie)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING rezervace_id
             """,
-            (pac_id, doc_id, ord_id, termin, cas_od, cas_do)
+            (pac_id, doc_id, druhy_doc_id, ord_id, termin, cas_od, cas_do, anestezie)
         )
 
         result = cur.fetchone()
@@ -68,9 +81,11 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
         if rezervace_id and NOTIFICATIONS_ENABLED:
             notify_database_change('reservation', 'INSERT', {
                 'id': rezervace_id,
-                'pacient_jmeno': pacient_jmeno,
+                'pacient_problem': pacient_problem,
                 'majitel_pacienta': majitel_pacienta,
                 'doktor': doktor,
+                'druhy_doktor': druhy_doktor,
+                'anestezie': anestezie,
                 'termin': str(termin),
                 'cas_od': str(cas_od),
                 'cas_do': str(cas_do),
@@ -79,7 +94,7 @@ def pridej_rezervaci(pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kont
         
         return rezervace_id  # id nově vzniklé rezervace
 
-def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, note, termin, cas_od, cas_do, mistnost):
+def aktualizuj_rezervaci(rezervace_id, pacient_problem, pacient_druh, majitel_pacienta, majitel_kontakt, doktor, anestezie, druhy_doktor, note, termin, cas_od, cas_do, mistnost):
     """
     Aktualizuje existující rezervaci podle rezervace_id.
     """
@@ -105,14 +120,27 @@ def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_paci
             }
         )
 
-        # 2) Aktualizujeme existujícího pacienta místo vytváření nového
+        # 2) Druhý doktor (pokud je vybrán)
+        druhy_doc_id = None
+        if druhy_doktor and druhy_doktor != "!---Vyberte druhého doktora---!":
+            druhy_doc_id = get_or_create(
+                cur,
+                table="Doktori",
+                unique_cols=("jmeno","prijmeni"),
+                data_cols={
+                    "jmeno": druhy_doktor.split()[0],
+                    "prijmeni": druhy_doktor.split(maxsplit=1)[1] if len(druhy_doktor.split()) > 1 else "",
+                }
+            )
+
+        # 3) Aktualizujeme existujícího pacienta místo vytváření nového
         cur.execute('''
             UPDATE Pacienti
-            SET jmeno_zvirete = %s, druh = %s, majitel_jmeno = %s, majitel_telefon = %s, poznamka = %s
+            SET pacient_problem = %s, druh = %s, majitel_jmeno = %s, majitel_telefon = %s, poznamka = %s
             WHERE pacient_id = %s
-        ''', (pacient_jmeno, pacient_druh, majitel_pacienta, majitel_kontakt, note, existing_pacient_id))
+        ''', (pacient_problem, pacient_druh, majitel_pacienta, majitel_kontakt, note, existing_pacient_id))
 
-        # 3) Ordinace
+        # 4) Ordinace
         ord_id = get_or_create(
             cur,
             table="Ordinace",
@@ -120,32 +148,34 @@ def aktualizuj_rezervaci(rezervace_id, pacient_jmeno, pacient_druh, majitel_paci
             data_cols={"nazev": mistnost}
         )
 
-        # 4) Aktualizace rezervace (zachováme stávající pacient_id)
+        # 5) Aktualizace rezervace s novými sloupci
         cur.execute(
             """
             UPDATE Rezervace
-            SET doktor_id = %s, ordinace_id = %s, termin = %s, cas_od = %s, cas_do = %s
+            SET doktor_id = %s, druhy_doktor_id = %s, ordinace_id = %s, termin = %s, cas_od = %s, cas_do = %s, anestezie = %s
             WHERE rezervace_id = %s
             """,
-            (doc_id, ord_id, termin, cas_od, cas_do, rezervace_id)
+            (doc_id, druhy_doc_id, ord_id, termin, cas_od, cas_do, anestezie, rezervace_id)
         )
 
-        updated = cur.rowcount > 0  # True pokud byl záznam upraven
+        updated = cur.rowcount > 0
         
         # Pošli notifikaci o úpravě rezervace
         if updated and NOTIFICATIONS_ENABLED:
             notify_database_change('reservation', 'UPDATE', {
                 'id': rezervace_id,
-                'pacient_jmeno': pacient_jmeno,
+                'pacient_problem': pacient_problem,
                 'majitel_pacienta': majitel_pacienta,
                 'doktor': doktor,
+                'druhy_doktor': druhy_doktor,
+                'anestezie': anestezie,
                 'termin': str(termin),
                 'cas_od': str(cas_od),
                 'cas_do': str(cas_do),
                 'mistnost': mistnost
             })
 
-        return updated
+        return updated # Vrátíme True pokud byla rezervace úspěšně aktualizována
 
 def rezervace_pro_ordinaci(ordinace_id):
     """
@@ -170,8 +200,7 @@ def rezervace_pro_ordinaci(ordinace_id):
       
 def ziskej_rezervace_dne(datum_str):
     """
-    Vrátí seznam rezervací pro daný den (datum ve formátu 'YYYY-MM-DD') s detaily:
-    "Čas", "Rezervace ID", "Doktor", "Barva", "Pacient", "Majitel", "Kontakt", "Druh", "Ordinace", "Poznámka".
+    Vrátí seznam rezervací pro daný den s novými sloupci anestezie a druhý doktor včetně barvy.
     """
     with get_connection() as conn:
         cur = conn.cursor()
@@ -181,16 +210,28 @@ def ziskej_rezervace_dne(datum_str):
             Rezervace.rezervace_id AS id,
             Doktori.jmeno || ' ' || Doktori.prijmeni AS Doktor,
             Doktori.color AS Barva,
-            Pacienti.jmeno_zvirete AS Pacient,
+            Pacienti.pacient_problem AS Pacient,
             Pacienti.majitel_jmeno AS Majitel,
             Pacienti.majitel_telefon AS Kontakt,
             Pacienti.druh AS Druh,
             Ordinace.nazev AS Ordinace,
             Pacienti.poznamka AS Poznamka,
             Rezervace.cas_od AS Cas_od,
-            Rezervace.cas_do AS Cas_do
+            Rezervace.cas_do AS Cas_do,
+            Rezervace.anestezie AS Anestezie,
+            CASE 
+                WHEN Rezervace.druhy_doktor_id IS NOT NULL 
+                THEN DruhyDoktor.jmeno || ' ' || DruhyDoktor.prijmeni 
+                ELSE NULL 
+            END AS Druhy_doktor,
+            CASE 
+                WHEN Rezervace.druhy_doktor_id IS NOT NULL 
+                THEN DruhyDoktor.color 
+                ELSE NULL 
+            END AS Druhy_doktor_barva
         FROM Rezervace
         INNER JOIN Doktori ON Rezervace.doktor_id = Doktori.doktor_id
+        LEFT JOIN Doktori AS DruhyDoktor ON Rezervace.druhy_doktor_id = DruhyDoktor.doktor_id
         INNER JOIN Pacienti ON Rezervace.pacient_id = Pacienti.pacient_id
         INNER JOIN Ordinace ON Rezervace.ordinace_id = Ordinace.ordinace_id
         WHERE Rezervace.termin = %s
