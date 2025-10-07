@@ -10,8 +10,13 @@ from models.doktori import time_anchores
 
 class FormularRezervace(QWidget):
     def __init__(self, hlavni_okno=None, rezervace_data=None, predvyplneny_cas=None, predvyplnena_ordinace=None, predvyplneny_doktor=None):
-        super().__init__()
+        super().__init__(parent=hlavni_okno)  # Nastavit parent
         self.setWindowTitle("Nová rezervace" if rezervace_data is None else "Úprava rezervace")
+        
+        # Nastavit window flags aby se choval jako samostatné okno
+        from PySide6.QtCore import Qt
+        self.setWindowFlags(Qt.Window | Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint)
+        
         self.rezervace_id = rezervace_data[1] if rezervace_data else None
         self.hlavni_okno = hlavni_okno
         self.predvyplneny_doktor = predvyplneny_doktor
@@ -72,27 +77,33 @@ class FormularRezervace(QWidget):
         # Předvyplnění dat pokud jsou k dispozici
         if rezervace_data:
           # Předpoklad: rezervace_data = (cas, id, doktor, doktor_color, pacient, majitel, kontakt, druh, mistnost, poznamka, cas_od, cas_do, anestezie, druhy_doktor, druhy_doktor_barva)
-          self.pacient_problem.setText(rezervace_data[4])
-          self.pacient_druh_input.setText(rezervace_data[7])
-          self.majitel_input.setText(rezervace_data[5])
-          self.kontakt_majitel_input.setText(rezervace_data[6])
+          # Ošetření None hodnot pro text inputy
+          self.pacient_problem.setText(rezervace_data[4] if rezervace_data[4] is not None else "")
+          self.pacient_druh_input.setText(rezervace_data[7] if rezervace_data[7] is not None else "")
+          self.majitel_input.setText(rezervace_data[5] if rezervace_data[5] is not None else "")
+          self.kontakt_majitel_input.setText(rezervace_data[6] if rezervace_data[6] is not None else "")
           
           # Kontrola a nastavení doktora
           doktor_z_rezervace = rezervace_data[2]
-          doktor_normalized = ' '.join(doktor_z_rezervace.split())  # Normalizace mezer
+          idx = -1  # Inicializace indexu
           
-          # Pokusíme se najít přesnou shodu
-          idx = self.doktor_input.findText(doktor_z_rezervace)
+          # Zkontroluj, zda doktor není None (rezervace bez doktora)
+          if doktor_z_rezervace is not None:
+              doktor_normalized = ' '.join(doktor_z_rezervace.split())  # Normalizace mezer
+              
+              # Pokusíme se najít přesnou shodu
+              idx = self.doktor_input.findText(doktor_z_rezervace)
+              
+              # Pokud nenajdeme přesnou shodu, zkusíme normalizovanou shodu
+              if idx == -1:
+                  for i in range(self.doktor_input.count()):
+                      doctor_name = self.doktor_input.itemText(i)
+                      doctor_name_normalized = ' '.join(doctor_name.split())
+                      if doctor_name_normalized.lower() == doktor_normalized.lower():
+                          idx = i
+                          break
           
-          # Pokud nenajdeme přesnou shodu, zkusíme normalizovanou shodu
-          if idx == -1:
-              for i in range(self.doktor_input.count()):
-                  doctor_name = self.doktor_input.itemText(i)
-                  doctor_name_normalized = ' '.join(doctor_name.split())
-                  if doctor_name_normalized.lower() == doktor_normalized.lower():
-                      idx = i
-                      break
-          
+          # Nastaví doktora pokud byl nalezen, jinak zůstane prázdný (pro rezervace bez doktora)
           if idx != -1:
               self.doktor_input.setCurrentIndex(idx)
           
@@ -107,7 +118,9 @@ class FormularRezervace(QWidget):
               if druhy_doktor_idx != -1:
                   self.druhy_doktor_input.setCurrentIndex(druhy_doktor_idx)
           
-          self.note_input.setPlainText(rezervace_data[9])
+          # Ošetření poznámky - může být None
+          poznamka = rezervace_data[9] if rezervace_data[9] is not None else ""
+          self.note_input.setPlainText(poznamka)
           
           # Handle both datetime object (PostgreSQL) and string (SQLite) formats for rezervace_data[0]
           if hasattr(rezervace_data[0], 'strftime'):  # datetime object
@@ -152,8 +165,8 @@ class FormularRezervace(QWidget):
         # Časové kotvy pro délku rezervace
         # self.delka_rezervace_input.addItems(self.reservation_length())
         
-        self.layout.addRow("Příjmení majitele pacienta:", self.majitel_input)
-        self.layout.addRow("Co pacienta trápí:", self.pacient_problem)
+        self.layout.addRow("Příjmení majitele:", self.majitel_input)
+        self.layout.addRow("Co trápí pacienta:", self.pacient_problem)
         self.layout.addRow("Druh pacienta:", self.pacient_druh_input)
         self.layout.addRow("Kontakt majitele (nemusí být):", self.kontakt_majitel_input)
         self.layout.addRow("Doktor:", self.doktor_input)
@@ -290,7 +303,7 @@ class FormularRezervace(QWidget):
         pacient_druh = self.pacient_druh_input.text().strip()
         majitel_pacienta = self.majitel_input.text().strip()
         majitel_kontakt = self.kontakt_majitel_input.text().strip()
-        doktor = self.doktor_input.currentText()
+        doktor = self.doktor_input.currentText() if self.doktor_input.currentText() != "!---Vyberte doktora---!" else None
         anestezie = self.anestezie_checkbox.isChecked()
         druhy_doktor = self.druhy_doktor_input.currentText() if self.druhy_doktor_input.currentText() != "!---Vyberte druhého doktora---!" else None
         note = self.note_input.toPlainText().strip()
@@ -314,8 +327,6 @@ class FormularRezervace(QWidget):
             self.status.setText("Vyplňte druh pacienta.")
         elif not majitel_pacienta:
             self.status.setText("Vyplňte příjmení majitele pacienta.")
-        elif doktor == "!---Vyberte doktora---!":
-            self.status.setText("Vybrat doktora.")
         elif mistnost == "!---Vyberte ordinaci---!":
             self.status.setText("Vybrat ordinaci.")
         elif selected_time > max_cas or selected_time < min_cas:
@@ -354,3 +365,11 @@ class FormularRezervace(QWidget):
                     self.close()
                 else:
                     self.status.setText("Chyba při ukládání.")
+    
+    def closeEvent(self, event):
+        """Obsluha zavření formuláře"""
+        print(f"🔴 Zavírám FormularRezervace")
+        # Odregistruj se z hlavního okna pokud je nastaveno
+        if self.hlavni_okno and hasattr(self.hlavni_okno, 'unregister_dialog'):
+            self.hlavni_okno.unregister_dialog(self)
+        event.accept()

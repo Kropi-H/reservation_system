@@ -57,6 +57,9 @@ class HlavniOkno(QMainWindow):
         # Flag pro detekci aktivního plánování ordinačních časů
         self.is_planning_active = False
         
+        # Seznam otevřených dialogů pro sledování
+        self.open_dialogs = []
+        
         # Inicializace pro případné budoucí rozšíření
         # Real-time synchronizace momentálně zakázána kvůli stabilitě
         
@@ -488,6 +491,7 @@ class HlavniOkno(QMainWindow):
     def show_chat_config(self):
         """Zobrazí dialog pro konfiguraci chatu"""
         dialog = ChatConfigDialog(self)
+        self.register_dialog(dialog)
         if dialog.exec():
             config = dialog.get_config()
             
@@ -672,6 +676,7 @@ class HlavniOkno(QMainWindow):
     def show_login_dialog(self):
         print("🔑 Otevírám přihlašovací dialog...")
         dialog = LoginDialog(self)
+        self.register_dialog(dialog)
         if dialog.exec():
             username, role = dialog.get_name_and_role()
             self.logged_in_user = username
@@ -809,19 +814,23 @@ class HlavniOkno(QMainWindow):
 
     def sekce_ordinace(self):
         dialog = OrdinaceDialog(self)
+        self.register_dialog(dialog)
         dialog.exec()
 
     def sekce_uzivatelu(self):
         dialog = UsersDialog(self, current_user=self.logged_in_user_role)
+        self.register_dialog(dialog)
         dialog.exec()
         
     def sekce_doktoru(self):
         dialog = DoctorDialog(self)
+        self.register_dialog(dialog)
         dialog.exec()
   
     def zahaj_planovani_ordinaci(self):
         self.plan_menu = QMenu("Plánování ordinací", self)
         dialog = PlanovaniOrdinaciDialog(self)
+        self.register_dialog(dialog)
         if dialog.exec():
           self.is_planning_active = True  # Nastavit flag - pozastavit auto-refresh
           print("📋 Plánování ordinačních časů spuštěno - auto-refresh pozastaven")
@@ -945,6 +954,7 @@ class HlavniOkno(QMainWindow):
                       if not barva in match_doctor_colors:
                         match_doctor_colors.append(barva)
         dialog = VyberDoktoraDialog(self)
+        self.register_dialog(dialog)
         if dialog.exec():
             new_reservace_doktor = dialog.get_selected()
             
@@ -1011,6 +1021,7 @@ class HlavniOkno(QMainWindow):
               predvyplnena_ordinace=mistnost,
               predvyplneny_doktor=doktor_jmeno  # <-- přidej tento parametr
           )
+          self.register_dialog(self.formular)  # Zaregistruj dialog
           self.formular.show()
         else:
             # ...původní logika pro otevření existující rezervace...
@@ -1027,6 +1038,7 @@ class HlavniOkno(QMainWindow):
                 rez_cas = datetime.strptime(f"{datum_str} {r[10]}", "%Y-%m-%d %H:%M")
                 if r[8] == mistnost and slot_start <= rez_cas < slot_start + slot:
                     self.formular = FormularRezervace(self, rezervace_data=r)
+                    self.register_dialog(self.formular)  # Zaregistruj dialog
                     self.formular.show()
                     break    
 
@@ -1054,30 +1066,35 @@ class HlavniOkno(QMainWindow):
       # Zmapuj rezervace podle ordinace
       mapovane = {i: [] for i in ordinace}
       for r in rezervace:
-          # Handle both datetime object (PostgreSQL) and string (SQLite) formats for r[0]
-          if isinstance(r[0], datetime):
-              # PostgreSQL returns datetime objects
-              datum_str = r[0].strftime("%Y-%m-%d")
-          else:
-              # SQLite returns strings
-              datum_str = str(r[0])
+          try:
+              # Handle both datetime object (PostgreSQL) and string (SQLite) formats for r[0]
+              if isinstance(r[0], datetime):
+                  # PostgreSQL returns datetime objects
+                  datum_str = r[0].strftime("%Y-%m-%d")
+              else:
+                  # SQLite returns strings
+                  datum_str = str(r[0])
+                  
+              # Combine date and time properly
+              cas_od = datetime.strptime(f"{datum_str} {r[10]}", "%Y-%m-%d %H:%M")
+              cas_do = datetime.strptime(f"{datum_str} {r[11]}", "%Y-%m-%d %H:%M")
               
-          # Combine date and time properly
-          cas_od = datetime.strptime(f"{datum_str} {r[10]}", "%Y-%m-%d %H:%M")
-          cas_do = datetime.strptime(f"{datum_str} {r[11]}", "%Y-%m-%d %H:%M")
-          
-          id = r[1]
-          doktor = r[2]
-          doktor_color = r[3]
-          pacient = r[4]
-          majitel = r[5]
-          kontakt = r[6]
-          druh = r[7]
-          mistnost = r[8]
-          poznamka = r[9]
+              id = r[1]
+              doktor = r[2] if r[2] else None  # Může být null
+              doktor_color = r[3] if r[3] else None  # Může být null
+              pacient = r[4] if r[4] else ""
+              majitel = r[5] if r[5] else ""
+              kontakt = r[6] if r[6] else ""
+              druh = r[7] if r[7] else ""
+              mistnost = r[8] if r[8] else ""
+              poznamka = r[9] if r[9] else ""
 
-          if mistnost in mapovane:
-              mapovane[mistnost].append((cas_od, cas_do, id, doktor, doktor_color, pacient, majitel, kontakt, druh, poznamka))
+              if mistnost and mistnost in mapovane:
+                  mapovane[mistnost].append((cas_od, cas_do, id, doktor, doktor_color, pacient, majitel, kontakt, druh, poznamka))
+          except (ValueError, IndexError, AttributeError) as e:
+              # Pokud je problém s formátem dat rezervace, přeskoč ji
+              print(f"Chyba při zpracování rezervace: {e}")
+              continue
           
       # Vlož data do tabulek
       for mistnost, tabulka in self.tabulky.items():
@@ -1088,11 +1105,14 @@ class HlavniOkno(QMainWindow):
           end = datetime.combine(datum, datetime.strptime("20:00", "%H:%M").time())
           
           rozvrh_doktoru_map = {}
-          for r in rezervace_doktoru:
-              ordinace_nazev = r[6]
-              if ordinace_nazev not in rozvrh_doktoru_map:
-                  rozvrh_doktoru_map[ordinace_nazev] = []
-              rozvrh_doktoru_map[ordinace_nazev].append(r)    
+          # Bezpečně zpracuj rezervace doktorů - může být prázdné
+          if rezervace_doktoru:
+              for r in rezervace_doktoru:
+                  if r and len(r) > 6:  # Zkontroluj, že záznam má všechny potřebné položky
+                      ordinace_nazev = r[6]
+                      if ordinace_nazev not in rozvrh_doktoru_map:
+                          rozvrh_doktoru_map[ordinace_nazev] = []
+                      rozvrh_doktoru_map[ordinace_nazev].append(r)    
           
           while cas <= end:
               pause_time = False
@@ -1126,16 +1146,21 @@ class HlavniOkno(QMainWindow):
               # Kontrola rozvrhu doktora
               doktor_bg_color = "#ffffff"
               doktor_jmeno = ""
-              if mistnost in rozvrh_doktoru_map:
+              if mistnost in rozvrh_doktoru_map and rozvrh_doktoru_map[mistnost]:
                   for r in rozvrh_doktoru_map[mistnost]:
-                      od = datetime.strptime(r[4], "%H:%M").time()
-                      do = datetime.strptime(r[5], "%H:%M").time()
-                      if od <= cas.time() <= do:
-                        doktor_active = get_doktor_isactive_by_color(r[2])
-                        if doktor_active == 1:
-                          doktor_bg_color = r[2].strip()
-                          doktor_jmeno = r[1]
-                          break
+                      try:
+                          if r and len(r) > 5:  # Zkontroluj, že záznam má všechny potřebné položky
+                              od = datetime.strptime(r[4], "%H:%M").time()
+                              do = datetime.strptime(r[5], "%H:%M").time()
+                              if od <= cas.time() <= do:
+                                doktor_active = get_doktor_isactive_by_color(r[2])
+                                if doktor_active == 1:
+                                  doktor_bg_color = r[2].strip() if r[2] else "#ffffff"
+                                  doktor_jmeno = r[1] if r[1] else ""
+                                  break
+                      except (ValueError, IndexError, AttributeError) as e:
+                          # Pokud je problém s formátem dat, pokračuj bez chyby
+                          continue
                         
               tabulka.setItem(index, 0, QTableWidgetItem(cas_str))
               doktor_item = QTableWidgetItem("")
@@ -1153,7 +1178,8 @@ class HlavniOkno(QMainWindow):
                       rezervace_pro_cas.append(rez)
               
 
-              if doktor_jmeno:
+              # Nastav pozadí pouze pokud je doktor a jeho jméno není prázdné
+              if doktor_jmeno and doktor_bg_color and doktor_bg_color != "#ffffff":
                   doktor_item.setBackground(QColor(doktor_bg_color))
               tabulka.setItem(index, 1, doktor_item)
 
@@ -1168,6 +1194,7 @@ class HlavniOkno(QMainWindow):
                   cas_od_str = rez[0].strftime("%H:%M")
                   cas_do_str = rez[1].strftime("%H:%M")
                   
+                  
                   # Pokud rezervace trvá více slotů, zobraz čas od-do
                   if rez[0] < cas + slot and rez[1] > cas + slot:
                       # Rezervace pokračuje do dalších slotů
@@ -1180,12 +1207,20 @@ class HlavniOkno(QMainWindow):
                   font = doktor_item.font()
                   font.setBold(True)
                   doktor_item.setFont(font)
-                  doktor_item.setBackground(QColor(doktor_bg_color))
+                  
+                  # Použij barvu z rezervace pokud je dostupná, jinak defaultní barvu
+                  reservation_bg_color = rez[4] if rez[4] and rez[4].strip() else doktor_bg_color
+                  if reservation_bg_color and reservation_bg_color != "#ffffff":
+                      doktor_item.setBackground(QColor(reservation_bg_color))
+                  elif doktor_bg_color and doktor_bg_color != "#ffffff":
+                      doktor_item.setBackground(QColor(doktor_bg_color))
+                  
                   tabulka.setItem(index, 1, doktor_item)
                   
-                  # Tooltip s detaily
+                  # Tooltip s detaily - ošetřit případ kdy doktor může být null
+                  doktor_display = rez[3] if rez[3] else "Nepřiřazen"
                   tooltip_html = f"""
-                      <table style="background-color: {doktor_bg_color}; padding: 8px; border-radius: 6px; border: 3px solid #009688; font-family: Arial; font-size: 14px; color: #222; min-width: 250px; margin: 10px; border-collapse: collapse;">
+                      <table style="background-color: {reservation_bg_color if reservation_bg_color and reservation_bg_color != '#ffffff' else '#f0f0f0'}; padding: 8px; border-radius: 6px; border: 3px solid #009688; font-family: Arial; font-size: 14px; color: #222; min-width: 250px; margin: 10px; border-collapse: collapse;">
                           <thead>
                           <tr><th colspan="2" style="text-align: center; font-weight: bold; font-size: 16px; padding: 4px; border-radius: 3px; margin-bottom: 8px;">
                             🐕 {rez[5]}
@@ -1195,7 +1230,7 @@ class HlavniOkno(QMainWindow):
                           <tr><td colspan="2" style="text-align: center; color: lightgrey">{40*"-"}</td></tr>
                           <tr><td>🔗 Druh:</td><td style="font-weight: bold; padding-top:1px">{rez[8]}</td></tr>
                           <tr><td>👤 Majitel:</td><td style="font-weight: bold; padding-top:1px">{rez[6]}</td></tr>
-                          <tr><td>🩺 Doktor:</td><td style="font-weight: bold; padding-top:1px">{rez[3]}</td></tr>
+                          <tr><td>🩺 Doktor:</td><td style="font-weight: bold; padding-top:1px">{doktor_display}</td></tr>
                           <tr><td>🕰️ Čas:</td><td style="font-weight: bold; padding-top:1px">{cas_od_str} - {cas_do_str}</td></tr>
                           <tr><td>📞 Kontakt:</td><td style="font-weight: bold; padding-top:1px">{rez[7]}</td></tr>
                           <tr><td>📝 Poznámka:</td><td style="font-weight: bold; padding-top:1px">{rez[9]}</td></tr>
@@ -1203,28 +1238,32 @@ class HlavniOkno(QMainWindow):
                       """
                   doktor_item.setToolTip(tooltip_html)
 
-              # Nastavení pozadí řádků
-              if index % 2 == 0:
-                  for col in range(2):
-                    tabulka.item(index, col).setBackground(QColor(table_grey_strip))
-                    if vaccination_time:
-                      tabulka.item(index, 0).setBackground(QColor(vaccination_color))
-                    if doktor_bg_color and col == 1:
-                      tabulka.item(index, 1).setBackground(QColor(doktor_bg_color))
-                    if pause_time:
-                      tabulka.item(index, col).setBackground(QColor(pause_color))
-              else:
-                  for col in range(2):
-                    if vaccination_time and col == 0:
-                      tabulka.item(index, 0).setBackground(QColor(vaccination_color))
-                    elif pause_time:
-                      tabulka.item(index, col).setBackground(QColor(pause_color))
-                    elif doktor_bg_color and col == 1:
-                      tabulka.item(index, 1).setBackground(QColor(doktor_bg_color))
+              # Nastavení pozadí řádků - pouze pokud není rezervace
+              if not rezervace_pro_cas:
+                  if index % 2 == 0:
+                      for col in range(2):
+                        if tabulka.item(index, col):  # Zkontroluj, že item existuje
+                            tabulka.item(index, col).setBackground(QColor(table_grey_strip))
+                            if vaccination_time and col == 0:
+                              tabulka.item(index, 0).setBackground(QColor(vaccination_color))
+                            elif doktor_bg_color and doktor_bg_color != "#ffffff" and col == 1:
+                              tabulka.item(index, 1).setBackground(QColor(doktor_bg_color))
+                            elif pause_time:
+                              tabulka.item(index, col).setBackground(QColor(pause_color))
+                  else:
+                      for col in range(2):
+                        if tabulka.item(index, col):  # Zkontroluj, že item existuje
+                            if vaccination_time and col == 0:
+                              tabulka.item(index, 0).setBackground(QColor(vaccination_color))
+                            elif pause_time:
+                              tabulka.item(index, col).setBackground(QColor(pause_color))
+                            elif doktor_bg_color and doktor_bg_color != "#ffffff" and col == 1:
+                              tabulka.item(index, 1).setBackground(QColor(doktor_bg_color))
                       
               index += 1
               cas += slot
-            
+      
+      
       #print("Rezervace načtené z databáze:", rezervace)
     
     def change_database(self):
@@ -1241,6 +1280,7 @@ class HlavniOkno(QMainWindow):
         
         if reply == QMessageBox.Yes:
             dialog = PostgreSQLSetupDialog(self)
+            self.register_dialog(dialog)
             result = dialog.exec()
             
             if result == PostgreSQLSetupDialog.Accepted:
@@ -1276,6 +1316,7 @@ class HlavniOkno(QMainWindow):
       """Zobrazí dialog pro nastavení smazání dat."""
       
       dialog = SmazRezervaceDialog(self)
+      self.register_dialog(dialog)
       if dialog.exec():
           days_to_keep = dialog.get_days()
           if days_to_keep is not None:
@@ -1404,9 +1445,19 @@ class HlavniOkno(QMainWindow):
 
     def closeEvent(self, event):
         """Obsluha zavření aplikace"""
+        print("🔴 Zavírám hlavní okno a všechna podokna...")
+        
         # Zastavení auto-refresh timeru
         if hasattr(self, 'refresh_timer'):
             self.refresh_timer.stop()
+        
+        # Zastavit database listener
+        if hasattr(self, 'db_listener') and self.db_listener:
+            try:
+                self.db_listener.stop()
+                self.db_listener = None
+            except Exception as e:
+                print(f"Chyba při zastavování database listeneru: {e}")
         
         # Zavři chat pokud je inicializován
         if self.chat_initialized and self.chat:
@@ -1415,7 +1466,73 @@ class HlavniOkno(QMainWindow):
             except Exception as e:
                 print(f"Chyba při zavírání chatu: {e}")
         
+        # Zavři všechna registrovaná podokna (dialogy)
+        dialogs_to_close = self.open_dialogs.copy()  # Kopie seznamu
+        for dialog in dialogs_to_close:
+            try:
+                if dialog and hasattr(dialog, 'close'):
+                    print(f"🔴 Zavírám registrovaný dialog: {dialog.__class__.__name__}")
+                    dialog.close()
+                    # Pro QWidget také zajistíme, že se smaže
+                    if hasattr(dialog, 'deleteLater'):
+                        dialog.deleteLater()
+            except Exception as e:
+                print(f"Chyba při zavírání dialogu {dialog}: {e}")
+        
+        # Vyčistíme seznam
+        self.open_dialogs.clear()
+        
+        # Zavři všechna otevřená podokna (dialogy) - agresivní fallback
+        try:
+            app = QApplication.instance()
+            if app:
+                print("🔴 Zavírám všechny widgety aplikace...")
+                # Zavři všechny top-level widgety kromě hlavního okna
+                for widget in app.topLevelWidgets():
+                    if widget != self and widget.isVisible():
+                        try:
+                            print(f"🔴 Zavírám top-level widget: {widget.__class__.__name__}")
+                            widget.close()
+                            # Zajistíme, že se widget smaže
+                            if hasattr(widget, 'deleteLater'):
+                                widget.deleteLater()
+                        except Exception as e:
+                            print(f"Chyba při zavírání widgetu {widget}: {e}")
+                
+                # Forceuj ukončení aplikace
+                print("🔴 Ukončuji aplikaci...")
+                app.closeAllWindows()  # Zavře všechna okna
+                app.quit()
+                
+                # Pokud aplikace stále běží, použij exit
+                import sys
+                sys.exit(0)
+                
+        except Exception as e:
+            print(f"Chyba při zavírání aplikace: {e}")
+            # Poslední možnost - tvrdé ukončení
+            import sys
+            sys.exit(1)
+        
+        print("✅ Aplikace byla úspěšně ukončena")
         event.accept()
+
+    def register_dialog(self, dialog):
+        """Zaregistruje dialog pro sledování a automatické zavření"""
+        if dialog not in self.open_dialogs:
+            self.open_dialogs.append(dialog)
+            # Připojíme signál pro automatické odregistrování při zavření
+            # QDialog má finished signál, QWidget má pouze destroyed
+            if hasattr(dialog, 'finished'):
+                dialog.finished.connect(lambda: self.unregister_dialog(dialog))
+            else:
+                # Pro QWidget použijeme destroyed signál
+                dialog.destroyed.connect(lambda: self.unregister_dialog(dialog))
+    
+    def unregister_dialog(self, dialog):
+        """Odregistruje dialog ze sledování"""
+        if dialog in self.open_dialogs:
+            self.open_dialogs.remove(dialog)
 
     def destroy_chat(self):
         """Kompletně zničí chat widget a resetuje stav"""

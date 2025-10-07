@@ -18,15 +18,17 @@ def pridej_rezervaci(pacient_problem, pacient_druh, majitel_pacienta, majitel_ko
         cur = conn.cursor()
 
         # 1) Doktor
-        doc_id = get_or_create(
-            cur,
-            table="Doktori",
-            unique_cols=("jmeno","prijmeni"),
-            data_cols={
-                "jmeno": doktor.split()[0],
-                "prijmeni": doktor.split(maxsplit=1)[1] if len(doktor.split()) > 1 else "",
-            }
-        )
+        doc_id = None
+        if doktor and doktor != "!---Vyberte doktora---!":
+          doc_id = get_or_create(
+              cur,
+              table="Doktori",
+              unique_cols=("jmeno","prijmeni"),
+              data_cols={
+                  "jmeno": doktor.split()[0],
+                  "prijmeni": doktor.split(maxsplit=1)[1] if len(doktor.split()) > 1 else "",
+              }
+          )
         
         # 2) Druhý doktor (pokud je vybrán)
         druhy_doc_id = None
@@ -110,6 +112,7 @@ def aktualizuj_rezervaci(rezervace_id, pacient_problem, pacient_druh, majitel_pa
         existing_pacient_id = row[0]
 
         # 1) Doktor
+        doktor = doktor if doktor is not None else "None None"
         doc_id = get_or_create(
             cur,
             table="Doktori",
@@ -208,7 +211,11 @@ def ziskej_rezervace_dne(datum_str):
         SELECT 
             Rezervace.termin AS Termin,
             Rezervace.rezervace_id AS id,
-            Doktori.jmeno || ' ' || Doktori.prijmeni AS Doktor,
+            CASE 
+                WHEN Doktori.jmeno IS NOT NULL AND Doktori.prijmeni IS NOT NULL
+                THEN Doktori.jmeno || ' ' || Doktori.prijmeni
+                ELSE NULL
+            END AS Doktor,
             Doktori.color AS Barva,
             Pacienti.pacient_problem AS Pacient,
             Pacienti.majitel_jmeno AS Majitel,
@@ -230,7 +237,7 @@ def ziskej_rezervace_dne(datum_str):
                 ELSE NULL 
             END AS Druhy_doktor_barva
         FROM Rezervace
-        INNER JOIN Doktori ON Rezervace.doktor_id = Doktori.doktor_id
+        LEFT JOIN Doktori ON Rezervace.doktor_id = Doktori.doktor_id
         LEFT JOIN Doktori AS DruhyDoktor ON Rezervace.druhy_doktor_id = DruhyDoktor.doktor_id
         INNER JOIN Pacienti ON Rezervace.pacient_id = Pacienti.pacient_id
         INNER JOIN Ordinace ON Rezervace.ordinace_id = Ordinace.ordinace_id
