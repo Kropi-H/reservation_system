@@ -1088,9 +1088,11 @@ class HlavniOkno(QMainWindow):
               druh = r[7] if r[7] else ""
               mistnost = r[8] if r[8] else ""
               poznamka = r[9] if r[9] else ""
+              anestezie = r[12] if r[12] == True else None
+              druhy_doktor = f"{r[13]}" if r[13] is not None else None
 
               if mistnost and mistnost in mapovane:
-                  mapovane[mistnost].append((cas_od, cas_do, id, doktor, doktor_color, pacient, majitel, kontakt, druh, poznamka))
+                  mapovane[mistnost].append((cas_od, cas_do, id, doktor, doktor_color, pacient, majitel, kontakt, druh, poznamka, anestezie, druhy_doktor))
           except (ValueError, IndexError, AttributeError) as e:
               # Pokud je problém s formátem dat rezervace, přeskoč ji
               print(f"Chyba při zpracování rezervace: {e}")
@@ -1223,14 +1225,16 @@ class HlavniOkno(QMainWindow):
                       <table style="background-color: {reservation_bg_color if reservation_bg_color and reservation_bg_color != '#ffffff' else '#f0f0f0'}; padding: 8px; border-radius: 6px; border: 3px solid #009688; font-family: Arial; font-size: 14px; color: #222; min-width: 250px; margin: 10px; border-collapse: collapse;">
                           <thead>
                           <tr><th colspan="2" style="text-align: center; font-weight: bold; font-size: 16px; padding: 4px; border-radius: 3px; margin-bottom: 8px;">
-                            🐕 {rez[5]}
+                            👤 Majitel: {rez[6]}
                           </th></tr>
                           </thead>
                           <tbody>
                           <tr><td colspan="2" style="text-align: center; color: lightgrey">{40*"-"}</td></tr>
+                          <tr><td>🐕 Pacient</td><td style="font-weight: bold; padding-top:1px">{rez[5]}</td></tr>
                           <tr><td>🔗 Druh:</td><td style="font-weight: bold; padding-top:1px">{rez[8]}</td></tr>
-                          <tr><td>👤 Majitel:</td><td style="font-weight: bold; padding-top:1px">{rez[6]}</td></tr>
-                          <tr><td>🩺 Doktor:</td><td style="font-weight: bold; padding-top:1px">{doktor_display}</td></tr>
+                          {'<tr><td>🩺 Doktor:</td><td style="font-weight: bold; padding-top:1px">' + doktor_display + '</td></tr>' if doktor_display != "None None" else ""}
+                          {'<tr><td colspan="2" style="text-align: center; font-weight: bold; padding:1px 0">💉 Anestezie</td></tr>' if rez[10] == True  else ""}
+                          {'<tr><td>🩺🩺 Dokor:</td><td style="font-weight: bold; padding-top:1px">' + rez[11] + '</td></tr>' if rez[11]  else ""}
                           <tr><td>🕰️ Čas:</td><td style="font-weight: bold; padding-top:1px">{cas_od_str} - {cas_do_str}</td></tr>
                           <tr><td>📞 Kontakt:</td><td style="font-weight: bold; padding-top:1px">{rez[7]}</td></tr>
                           <tr><td>📝 Poznámka:</td><td style="font-weight: bold; padding-top:1px">{rez[9]}</td></tr>
