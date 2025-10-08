@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from models.ordinace import get_all_ordinace
 from models.doktori import uloz_nebo_uprav_ordinacni_cas, ziskej_rozvrh_doktoru_dne, get_all_doctors_colors, get_doktor_isactive_by_color, uprav_ordinacni_cas
 from views.login_dialog import LoginDialog
-from controllers.data import table_grey_strip, vaccination_color, pause_color
+from controllers.data import table_grey_strip, vaccination_color, pause_color, anesthesia_color
 # from controllers.rezervace_controller import uloz_rezervaci
 from models.databaze import get_doktori, set_database_path, inicializuj_databazi
 from config import test_database_connection
@@ -24,6 +24,7 @@ from views.database_setup_dialog import DatabaseSetupDialog
 from views.postgresql_setup_dialog import PostgreSQLSetupDialog
 from views.smaz_rezervace_po_xy_dialog import SmazRezervaceDialog
 from views.chat_config_dialog import ChatConfigDialog
+from views.time_cell_delegate import TimeCellDelegate
 from functools import partial
 from controllers.data import basic_style
 import os
@@ -168,7 +169,7 @@ class HlavniOkno(QMainWindow):
         self.setStyleSheet("""
             QTableWidget {
                 background-color: #fafdff;
-                font-size: 15px;
+                font-size: 14px;
                 color: #222;
                 gridline-color: #b2d7ef;
                 selection-background-color: #cceeff;
@@ -181,7 +182,7 @@ class HlavniOkno(QMainWindow):
                 background-color: #f4efeb;
                 color: black;
                 font-weight: bold;
-                font-size: 16px;
+                font-size: 14px;
                 text-decoration: underline;
                 letter-spacing: 0.75px;
                 text-transform: uppercase;
@@ -254,8 +255,12 @@ class HlavniOkno(QMainWindow):
         legenda_pauza = QLabel("Pauza")
         legenda_pauza.setStyleSheet(legenda_stylesheet(pause_color))
         
+        legenda_anestezie = QLabel("Anestezie")
+        legenda_anestezie.setStyleSheet(legenda_stylesheet(anesthesia_color))
+        
         self.legenda_info.addWidget(legenda_vakcinace)
         self.legenda_info.addWidget(legenda_pauza)
+        self.legenda_info.addWidget(legenda_anestezie)
         horni_radek.addLayout(self.legenda_info)
         self.legenda_info.addStretch()
         
@@ -417,6 +422,10 @@ class HlavniOkno(QMainWindow):
             tabulka.setColumnWidth(0, 70) # Čas
             tabulka.horizontalHeader().setStretchLastSection(True)  # Řádek rezervace v maximální šířce
             tabulka.verticalHeader().setVisible(False)
+
+            # Nastavení delegátu pro sloupec s časem (sloupec 0) pro zobrazení kolečka s barvami doktorů
+            time_delegate = TimeCellDelegate(tabulka)
+            tabulka.setItemDelegateForColumn(0, time_delegate)
 
             # Připojení signálu pro dvojklik
             tabulka.cellDoubleClicked.connect(partial(self.zpracuj_dvojklik, mistnost))
@@ -1090,9 +1099,11 @@ class HlavniOkno(QMainWindow):
               poznamka = r[9] if r[9] else ""
               anestezie = r[12] if r[12] == True else None
               druhy_doktor = f"{r[13]}" if r[13] is not None else None
+              barva_druhy_doktor = r[14] if r[14] is not None else None
+              
 
               if mistnost and mistnost in mapovane:
-                  mapovane[mistnost].append((cas_od, cas_do, id, doktor, doktor_color, pacient, majitel, kontakt, druh, poznamka, anestezie, druhy_doktor))
+                  mapovane[mistnost].append((cas_od, cas_do, id, doktor, doktor_color, pacient, majitel, kontakt, druh, poznamka, anestezie, druhy_doktor, barva_druhy_doktor))
           except (ValueError, IndexError, AttributeError) as e:
               # Pokud je problém s formátem dat rezervace, přeskoč ji
               print(f"Chyba při zpracování rezervace: {e}")
@@ -1164,9 +1175,6 @@ class HlavniOkno(QMainWindow):
                           # Pokud je problém s formátem dat, pokračuj bez chyby
                           continue
                         
-              tabulka.setItem(index, 0, QTableWidgetItem(cas_str))
-              doktor_item = QTableWidgetItem("")
-              
               # Najdi rezervace, které zasahují do aktuálního slotu
               rezervace_pro_cas = []
               for rez in mapovane[mistnost]:
@@ -1179,6 +1187,32 @@ class HlavniOkno(QMainWindow):
                   if cas_od < slot_end and cas_do >= cas:
                       rezervace_pro_cas.append(rez)
               
+              # Vytvoř cas_item s barvami doktorů z rezervací
+              cas_item = QTableWidgetItem(cas_str)
+              
+              # Shromaždi barvy doktorů z rezervací pro tento čas
+              doctor_colors = []
+              for rez in rezervace_pro_cas:
+                  # Pro každou rezervaci přidej doktory ve správném pořadí
+                  # První doktor (index 4 je doktor_color)
+                  if rez[4] and rez[4].strip():
+                      if rez[4].strip() not in doctor_colors:  # Prevence duplicit
+                          doctor_colors.append(rez[4].strip())
+                  # Druhý doktor (index 12 je barva_druhy_doktor) - pouze pokud ještě nemáme 2 doktory
+                  if len(doctor_colors) < 2 and len(rez) > 12 and rez[12] and rez[12].strip():
+                      if rez[12].strip() not in doctor_colors:  # Prevence duplicit
+                          doctor_colors.append(rez[12].strip())
+                  
+                  # Pokud už máme 2 doktory, ukončíme
+                  if len(doctor_colors) >= 2:
+                      break
+              
+              # Ulož barvy do UserRole pro delegate
+              cas_item.setData(Qt.UserRole, doctor_colors)
+              
+              tabulka.setItem(index, 0, cas_item)
+              doktor_item = QTableWidgetItem("")
+              
 
               # Nastav pozadí pouze pokud je doktor a jeho jméno není prázdné
               if doktor_jmeno and doktor_bg_color and doktor_bg_color != "#ffffff":
@@ -1189,6 +1223,18 @@ class HlavniOkno(QMainWindow):
               if rezervace_pro_cas:
                 for rez in rezervace_pro_cas:
                   cas_item = QTableWidgetItem(cas_str)
+                  
+                  # Shromaždi barvy doktorů z této konkrétní rezervace
+                  doctor_colors = []
+                  # První doktor (index 4 je doktor_color) - vždy první pozice
+                  if rez[4] and rez[4].strip():
+                      doctor_colors.append(rez[4].strip())
+                  # Druhý doktor (index 12 je barva_druhy_doktor) - vždy druhá pozice
+                  if len(rez) > 12 and rez[12] and rez[12].strip():
+                      doctor_colors.append(rez[12].strip())
+                  
+                  # Ulož barvy do UserRole pro delegate
+                  cas_item.setData(Qt.UserRole, doctor_colors)
                   
                   tabulka.setItem(index, 0, cas_item)
                   

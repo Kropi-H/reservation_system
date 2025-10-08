@@ -1,6 +1,7 @@
 table_grey_strip = "#f0f0f0" # barva šedého pruhu
 vaccination_color = "#d0d4ec" # barva vakcinace
 pause_color = "#e8e500" # barva pauzy
+anesthesia_color = "#ffc774" # barva anestezie
 
 basic_button_color = {
     "update_password_button_color": "#fbff90", # barva přidat doktora tlačítko
