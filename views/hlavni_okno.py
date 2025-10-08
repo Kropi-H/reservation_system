@@ -1187,7 +1187,7 @@ class HlavniOkno(QMainWindow):
                   if cas_od < slot_end and cas_do >= cas:
                       rezervace_pro_cas.append(rez)
               
-              # Vytvoř cas_item s barvami doktorů z rezervací
+              # Vytvoř cas_item s barvami doktorů z rezervací i z rozvrhu
               cas_item = QTableWidgetItem(cas_str)
               
               # Shromaždi barvy doktorů z rezervací pro tento čas
@@ -1207,16 +1207,16 @@ class HlavniOkno(QMainWindow):
                   if len(doctor_colors) >= 2:
                       break
               
+              # Pokud nejsou rezervace, ale je naplánovaný doktor (rozvrh), přidej jeho barvu
+              if not doctor_colors and doktor_bg_color and doktor_bg_color != "#ffffff":
+                  doctor_colors.append(doktor_bg_color)
+              
               # Ulož barvy do UserRole pro delegate
               cas_item.setData(Qt.UserRole, doctor_colors)
               
               tabulka.setItem(index, 0, cas_item)
               doktor_item = QTableWidgetItem("")
               
-
-              # Nastav pozadí pouze pokud je doktor a jeho jméno není prázdné
-              if doktor_jmeno and doktor_bg_color and doktor_bg_color != "#ffffff":
-                  doktor_item.setBackground(QColor(doktor_bg_color))
               tabulka.setItem(index, 1, doktor_item)
 
               # Vlož data rezervace
@@ -1235,6 +1235,14 @@ class HlavniOkno(QMainWindow):
                   
                   # Ulož barvy do UserRole pro delegate
                   cas_item.setData(Qt.UserRole, doctor_colors)
+                  
+                  # Nastav správné pozadí pro čas (priorita: vakcinace > pauza > šedý pruh)
+                  if vaccination_time:
+                      cas_item.setBackground(QColor(vaccination_color))
+                  elif pause_time:
+                      cas_item.setBackground(QColor(pause_color))
+                  elif index % 2 == 0:
+                      cas_item.setBackground(QColor(table_grey_strip))
                   
                   tabulka.setItem(index, 0, cas_item)
                   
@@ -1256,12 +1264,12 @@ class HlavniOkno(QMainWindow):
                   font.setBold(True)
                   doktor_item.setFont(font)
                   
-                  # Použij barvu z rezervace pokud je dostupná, jinak defaultní barvu
-                  reservation_bg_color = rez[4] if rez[4] and rez[4].strip() else doktor_bg_color
-                  if reservation_bg_color and reservation_bg_color != "#ffffff":
-                      doktor_item.setBackground(QColor(reservation_bg_color))
-                  elif doktor_bg_color and doktor_bg_color != "#ffffff":
-                      doktor_item.setBackground(QColor(doktor_bg_color))
+                  # Nastav správné pozadí pro rezervaci (priorita: barva doktora > pauza > šedý pruh)
+                  reservation_bg_color = rez[4] if rez[4] and rez[4].strip() else None
+                  if pause_time:
+                      doktor_item.setBackground(QColor(pause_color))
+                  elif index % 2 == 0:
+                      doktor_item.setBackground(QColor(table_grey_strip))
                   
                   tabulka.setItem(index, 1, doktor_item)
                   
@@ -1290,25 +1298,15 @@ class HlavniOkno(QMainWindow):
 
               # Nastavení pozadí řádků - pouze pokud není rezervace
               if not rezervace_pro_cas:
-                  if index % 2 == 0:
-                      for col in range(2):
-                        if tabulka.item(index, col):  # Zkontroluj, že item existuje
-                            tabulka.item(index, col).setBackground(QColor(table_grey_strip))
-                            if vaccination_time and col == 0:
+                  for col in range(2):
+                      if tabulka.item(index, col):  # Zkontroluj, že item existuje
+                          # Priorita barev: vakcinace (pouze sloupec 0) > pauza > šedý pruh (sudé řádky)
+                          if vaccination_time and col == 0:
                               tabulka.item(index, 0).setBackground(QColor(vaccination_color))
-                            elif doktor_bg_color and doktor_bg_color != "#ffffff" and col == 1:
-                              tabulka.item(index, 1).setBackground(QColor(doktor_bg_color))
-                            elif pause_time:
+                          elif pause_time:
                               tabulka.item(index, col).setBackground(QColor(pause_color))
-                  else:
-                      for col in range(2):
-                        if tabulka.item(index, col):  # Zkontroluj, že item existuje
-                            if vaccination_time and col == 0:
-                              tabulka.item(index, 0).setBackground(QColor(vaccination_color))
-                            elif pause_time:
-                              tabulka.item(index, col).setBackground(QColor(pause_color))
-                            elif doktor_bg_color and doktor_bg_color != "#ffffff" and col == 1:
-                              tabulka.item(index, 1).setBackground(QColor(doktor_bg_color))
+                          elif index % 2 == 0:
+                              tabulka.item(index, col).setBackground(QColor(table_grey_strip))
                       
               index += 1
               cas += slot
