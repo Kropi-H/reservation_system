@@ -48,7 +48,7 @@ class TimeCellDelegate(QStyledItemDelegate):
                         color = QColor("#999999")  # Fallback barva
                     
                     # Vykreslíme kolečko s černým okrajem
-                    painter.setPen(QPen(QColor("#000000"), 1.5))
+                    painter.setPen(QPen(QColor("#636363"), 1.5))
                     painter.setBrush(color)
                     painter.drawEllipse(x, y, circle_radius * 2, circle_radius * 2)
     

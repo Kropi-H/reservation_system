@@ -2,7 +2,8 @@ import re
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QLabel, 
                                QDateEdit, QHBoxLayout, QTableWidget, QApplication, QMessageBox,
                                QTableWidgetItem, QMenuBar, QMenu, QMainWindow, QAbstractItemView,
-                               QSystemTrayIcon, QCheckBox, QInputDialog, QTabWidget)
+                               QSystemTrayIcon, QCheckBox, QInputDialog, QTabWidget, QDialog)
+from PySide6.QtGui import QAction
 from PySide6.QtCore import QDate, QLocale, QTimer, Qt
 from PySide6.QtGui import QColor, QPixmap, QAction, QFont, QIcon, QShortcut, QKeySequence
 from views.formular_rezervace import FormularRezervace
@@ -25,10 +26,11 @@ from views.postgresql_setup_dialog import PostgreSQLSetupDialog
 from views.smaz_rezervace_po_xy_dialog import SmazRezervaceDialog
 from views.chat_config_dialog import ChatConfigDialog
 from views.time_cell_delegate import TimeCellDelegate
+from views.patient_status_dialog import PatientStatusDialog
 from functools import partial
 from controllers.data import basic_style
 import os
-from models.rezervace import smaz_rezervace_starsi_nez
+from models.rezervace import smaz_rezervace_starsi_nez, aktualizuj_stav_rezervace
 from models.settings import get_settings
 from chat.chat_widget import ChatWidget
 import json  # Přidejte tento import
@@ -429,6 +431,10 @@ class HlavniOkno(QMainWindow):
 
             # Připojení signálu pro dvojklik
             tabulka.cellDoubleClicked.connect(partial(self.zpracuj_dvojklik, mistnost))
+            
+            # Nastavení kontextového menu pro pravé tlačítko
+            tabulka.setContextMenuPolicy(Qt.CustomContextMenu)
+            tabulka.customContextMenuRequested.connect(partial(self.zobraz_kontextove_menu, mistnost))
             
             # Připojení synchronizace scrollování
             scrollbar = tabulka.verticalScrollBar()
@@ -977,6 +983,92 @@ class HlavniOkno(QMainWindow):
             tabulka.clearSelection()  # Odznačí všechny vybrané řádky/buňky
             self.nacti_rezervace()  # Načtení rezervací pro obnovení původního stavu tabulek
     
+    def zobraz_kontextove_menu(self, mistnost, position):
+        """Zobrazí kontextové menu při kliknutí pravým tlačítkem"""
+        if self.logged_in_user_role not in ["admin", "supervisor", "user"]:
+            return
+            
+        tabulka = self.tabulky[mistnost]
+        item = tabulka.itemAt(position)
+        
+        if item is None:
+            return
+            
+        row = item.row()
+        col = item.column()
+        
+        # Zkontroluj, jestli je v buňce rezervace (sloupec 1)
+        if col != 1:
+            return
+            
+        data_item = tabulka.item(row, 1)
+        data_str = data_item.text() if data_item else ""
+        
+        # Zkontroluj, jestli je v buňce rezervace (ne prázdná buňka)
+        if not data_str.strip():
+            return
+            
+        # Najdi rezervaci v datech
+        reservation_data = self.najdi_rezervaci_pro_radek(mistnost, row)
+        if reservation_data is None:
+            return
+            
+        # Vytvoř kontextové menu
+        menu = QMenu(self)
+        
+        # Akce pro změnu stavu
+        stav_action = QAction("🏥 Změnit stav pacienta", self)
+        stav_action.triggered.connect(lambda: self.zmenit_stav_pacienta(reservation_data))
+        menu.addAction(stav_action)
+        
+        # Zobraz menu na pozici kurzoru
+        menu.exec(tabulka.mapToGlobal(position))
+    
+    def najdi_rezervaci_pro_radek(self, mistnost, row):
+        """Najde rezervaci podle řádku v tabulce"""
+        datum = self.kalendar.date().toPython()
+        rezervace_dne = ziskej_rezervace_dne(datum.strftime("%Y-%m-%d"))
+        
+        tabulka = self.tabulky[mistnost]
+        cas_item = tabulka.item(row, 0)
+        cas_str = cas_item.text() if cas_item else ""
+        
+        if not cas_str:
+            return None
+            
+        # Převeď čas z buňky na datetime pro porovnání
+        cas_slot = datetime.strptime(cas_str, "%H:%M").time()
+        
+        # Najdi rezervaci, která odpovídá času a ordinaci
+        for rez in rezervace_dne:
+            if rez[8] == mistnost:  # Správná ordinace
+                # rez[10] je cas_od, rez[11] je cas_do
+                cas_od = datetime.strptime(rez[10], "%H:%M").time() if isinstance(rez[10], str) else rez[10]
+                cas_do = datetime.strptime(rez[11], "%H:%M").time() if isinstance(rez[11], str) else rez[11]
+                
+                # Zkontroluj, jestli čas slotu spadá do rezervace
+                if cas_od <= cas_slot < cas_do or cas_od == cas_slot:
+                    return rez
+        return None
+    
+    def zmenit_stav_pacienta(self, reservation_data):
+        """Otevře dialog pro změnu stavu pacienta"""
+        dialog = PatientStatusDialog(reservation_data, self)
+        if dialog.exec() == QDialog.Accepted:
+            selected_status = dialog.get_selected_status()
+            # Změna: zpracováváme i hodnotu None
+            rezervace_id = reservation_data[1]  # ID rezervace
+            print(f"🔄 Měníme stav rezervace {rezervace_id} na: {selected_status}")
+            
+            if aktualizuj_stav_rezervace(rezervace_id, selected_status):
+                print(f"✅ Stav rezervace {rezervace_id} úspěšně změněn na '{selected_status}'")
+                # Force refresh dat - malé zpoždění pro synchronizaci databáze
+                QTimer.singleShot(100, self.nacti_rezervace)
+                status_text = "nulován" if selected_status is None else selected_status
+                QMessageBox.information(self, "Úspěch", f"Stav pacienta byl změněn na: {status_text}")
+            else:
+                QMessageBox.warning(self, "Chyba", "Nepodařilo se aktualizovat stav pacienta")
+
     def zpracuj_dvojklik(self, mistnost, row, col):
       if self.logged_in_user_role in ["admin", "supervisor", "user"]:
         tabulka = self.tabulky[mistnost]
@@ -1100,10 +1192,11 @@ class HlavniOkno(QMainWindow):
               anestezie = r[12] if r[12] == True else None
               druhy_doktor = f"{r[13]}" if r[13] is not None else None
               barva_druhy_doktor = r[14] if r[14] is not None else None
+              stav = r[15] if len(r) > 15 else None  # Stav rezervace
               
 
               if mistnost and mistnost in mapovane:
-                  mapovane[mistnost].append((cas_od, cas_do, id, doktor, doktor_color, pacient, majitel, kontakt, druh, poznamka, anestezie, druhy_doktor, barva_druhy_doktor))
+                  mapovane[mistnost].append((cas_od, cas_do, id, doktor, doktor_color, pacient, majitel, kontakt, druh, poznamka, anestezie, druhy_doktor, barva_druhy_doktor, stav))
           except (ValueError, IndexError, AttributeError) as e:
               # Pokud je problém s formátem dat rezervace, přeskoč ji
               print(f"Chyba při zpracování rezervace: {e}")
@@ -1261,12 +1354,30 @@ class HlavniOkno(QMainWindow):
                   
                   doktor_item = QTableWidgetItem(display_text)
                   font = doktor_item.font()
-                  font.setBold(True)
+                  
+                  # Nastav styl textu podle stavu rezervace
+                  stav = rez[13] if len(rez) > 13 else None  # Stav rezervace (index 13 v novém tuple)
+                  
+                  if stav == "odbaven":
+                      # Škrtlý šedý text pro odbavené pacienty
+                      font.setStrikeOut(True)
+                      font.setBold(False)  # Ne tučný
+                      doktor_item.setForeground(QColor("#888888"))  # Šedý text
+                  elif stav == "ceka":
+                      # Černý tučný text pro čekající pacienty
+                      font.setBold(True)  # Tučný pouze pro "ceka"
+                      doktor_item.setForeground(QColor("#000000"))  # Černý text
+                  else:
+                      # Světle šedý text pro rezervace bez stavu (null)
+                      font.setBold(False)  # Ne tučný
+                      doktor_item.setForeground(QColor("#888888"))  # Šedý text
+                  
                   doktor_item.setFont(font)
                   
                   # Nastav správné pozadí pro rezervaci (priorita: barva doktora > pauza > šedý pruh)
-                  reservation_bg_color = rez[4] if rez[4] and rez[4].strip() else None
-                  if pause_time:
+                  if rez[10] == True:  # Pokud je anestezie
+                      doktor_item.setBackground(QColor(anesthesia_color)) # Barva pro anestezii
+                  elif pause_time:
                       doktor_item.setBackground(QColor(pause_color))
                   elif index % 2 == 0:
                       doktor_item.setBackground(QColor(table_grey_strip))
@@ -1276,7 +1387,7 @@ class HlavniOkno(QMainWindow):
                   # Tooltip s detaily - ošetřit případ kdy doktor může být null
                   doktor_display = rez[3] if rez[3] else "Nepřiřazen"
                   tooltip_html = f"""
-                      <table style="background-color: {reservation_bg_color if reservation_bg_color and reservation_bg_color != '#ffffff' else '#f0f0f0'}; padding: 8px; border-radius: 6px; border: 3px solid #009688; font-family: Arial; font-size: 14px; color: #222; min-width: 250px; margin: 10px; border-collapse: collapse;">
+                      <table style="background-color:  '#ffffff'; padding: 8px; border-radius: 6px; border: 3px solid #009688; font-family: Arial; font-size: 14px; color: #222; min-width: 250px; margin: 10px; border-collapse: collapse;">
                           <thead>
                           <tr><th colspan="2" style="text-align: center; font-weight: bold; font-size: 16px; padding: 4px; border-radius: 3px; margin-bottom: 8px;">
                             👤 Majitel: {rez[6]}
@@ -1287,7 +1398,7 @@ class HlavniOkno(QMainWindow):
                           <tr><td>🐕 Pacient</td><td style="font-weight: bold; padding-top:1px">{rez[5]}</td></tr>
                           <tr><td>🔗 Druh:</td><td style="font-weight: bold; padding-top:1px">{rez[8]}</td></tr>
                           {'<tr><td>🩺 Doktor:</td><td style="font-weight: bold; padding-top:1px">' + doktor_display + '</td></tr>' if doktor_display != "None None" else ""}
-                          {'<tr><td colspan="2" style="text-align: center; font-weight: bold; padding:1px 0">💉 Anestezie</td></tr>' if rez[10] == True  else ""}
+                          {'<tr><td style="text-align: center; font-weight: bold; padding:1px 0">💉 Anestezie</td></tr>' if rez[10] == True  else ""}
                           {'<tr><td>🩺🩺 Dokor:</td><td style="font-weight: bold; padding-top:1px">' + rez[11] + '</td></tr>' if rez[11]  else ""}
                           <tr><td>🕰️ Čas:</td><td style="font-weight: bold; padding-top:1px">{cas_od_str} - {cas_do_str}</td></tr>
                           <tr><td>📞 Kontakt:</td><td style="font-weight: bold; padding-top:1px">{rez[7]}</td></tr>

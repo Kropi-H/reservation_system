@@ -235,7 +235,8 @@ def ziskej_rezervace_dne(datum_str):
                 WHEN Rezervace.druhy_doktor_id IS NOT NULL 
                 THEN DruhyDoktor.color 
                 ELSE NULL 
-            END AS Druhy_doktor_barva
+            END AS Druhy_doktor_barva,
+            Rezervace.stav AS Stav
         FROM Rezervace
         LEFT JOIN Doktori ON Rezervace.doktor_id = Doktori.doktor_id
         LEFT JOIN Doktori AS DruhyDoktor ON Rezervace.druhy_doktor_id = DruhyDoktor.doktor_id
@@ -394,6 +395,34 @@ def kontrola_prekryvani_rezervaci(termin, cas_od, cas_do, mistnost, rezervace_id
         except ValueError as e:
             return True, f"Chyba při parsování času: {e}"
           
+def aktualizuj_stav_rezervace(rezervace_id, novy_stav):
+    """
+    Aktualizuje stav rezervace.
+    
+    Args:
+        rezervace_id (int): ID rezervace
+        novy_stav (str): Nový stav ('ceka', 'odbaven' nebo None)
+    
+    Returns:
+        bool: True pokud byla aktualizace úspěšná
+    """
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE Rezervace SET stav = %s WHERE rezervace_id = %s",
+            (novy_stav, rezervace_id)
+        )
+        updated = cur.rowcount > 0
+        
+        # Pošli notifikaci o změně stavu
+        if updated and NOTIFICATIONS_ENABLED:
+            notify_database_change('reservation', 'UPDATE_STATUS', {
+                'id': rezervace_id,
+                'stav': novy_stav
+            })
+        
+        return updated
+
 # Pomocná funkce na převod řetězce na čas (bez data)
 def str_na_cas(cas_str):
     return datetime.strptime(cas_str, "%H:%M").time()

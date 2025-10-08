@@ -156,6 +156,16 @@ def inicializuj_databazi():
             VALUES ('days_to_keep', '0');
             ''')
 
+        # Upgrade databáze - přidání sloupce stav do tabulky Rezervace
+        try:
+            cur.execute('''
+            ALTER TABLE Rezervace 
+            ADD COLUMN IF NOT EXISTS stav VARCHAR(20) DEFAULT NULL;
+            ''')
+        except Exception as e:
+            # Sloupec už možná existuje, pokračujeme
+            pass
+
         # Vytvoření indexů pro výkon
         cur.execute('''
         CREATE INDEX IF NOT EXISTS idx_rezervace_termin_cas 
