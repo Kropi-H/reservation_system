@@ -984,7 +984,7 @@ class HlavniOkno(QMainWindow):
             self.nacti_rezervace()  # Načtení rezervací pro obnovení původního stavu tabulek
     
     def zobraz_kontextove_menu(self, mistnost, position):
-        """Zobrazí kontextové menu při kliknutí pravým tlačítkem"""
+        """Přímo otevře dialog pro změnu stavu pacienta při kliknutí pravým tlačítkem"""
         if self.logged_in_user_role not in ["admin", "supervisor", "user"]:
             return
             
@@ -1013,16 +1013,8 @@ class HlavniOkno(QMainWindow):
         if reservation_data is None:
             return
             
-        # Vytvoř kontextové menu
-        menu = QMenu(self)
-        
-        # Akce pro změnu stavu
-        stav_action = QAction("🏥 Změnit stav pacienta", self)
-        stav_action.triggered.connect(lambda: self.zmenit_stav_pacienta(reservation_data))
-        menu.addAction(stav_action)
-        
-        # Zobraz menu na pozici kurzoru
-        menu.exec(tabulka.mapToGlobal(position))
+        # Přímo otevři dialog pro změnu stavu
+        self.zmenit_stav_pacienta(reservation_data)
     
     def najdi_rezervaci_pro_radek(self, mistnost, row):
         """Najde rezervaci podle řádku v tabulce"""
@@ -1065,7 +1057,7 @@ class HlavniOkno(QMainWindow):
                 # Force refresh dat - malé zpoždění pro synchronizaci databáze
                 QTimer.singleShot(100, self.nacti_rezervace)
                 status_text = "nulován" if selected_status is None else selected_status
-                QMessageBox.information(self, "Úspěch", f"Stav pacienta byl změněn na: {status_text}")
+                # QMessageBox.information(self, "Úspěch", f"Stav pacienta byl změněn na: {status_text}")
             else:
                 QMessageBox.warning(self, "Chyba", "Nepodařilo se aktualizovat stav pacienta")
 
@@ -1123,6 +1115,7 @@ class HlavniOkno(QMainWindow):
               predvyplneny_doktor=doktor_jmeno  # <-- přidej tento parametr
           )
           self.register_dialog(self.formular)  # Zaregistruj dialog
+          self.center_dialog_on_screen(self.formular)
           self.formular.show()
         else:
             # ...původní logika pro otevření existující rezervace...
@@ -1140,6 +1133,7 @@ class HlavniOkno(QMainWindow):
                 if r[8] == mistnost and slot_start <= rez_cas < slot_start + slot:
                     self.formular = FormularRezervace(self, rezervace_data=r)
                     self.register_dialog(self.formular)  # Zaregistruj dialog
+                    self.center_dialog_on_screen(self.formular)
                     self.formular.show()
                     break    
 
@@ -1344,12 +1338,58 @@ class HlavniOkno(QMainWindow):
                   cas_do_str = rez[1].strftime("%H:%M")
                   
                   
-                  # Pokud rezervace trvá více slotů, zobraz čas od-do
-                  if rez[0] < cas + slot and rez[1] > cas + slot:
-                      # Rezervace pokračuje do dalších slotů
-                      display_text = f"{rez[6]}: {rez[8]} - {rez[5]}"
+                  # Logika pro zobrazení rezervací přes více slotů
+                  if rez[0] < rez[1]:  # Rezervace trvá více než jeden slot
+                      # Najdi všechny sloty této rezervace v aktuální ordinaci
+                      sloty_rezervace = []
+                      for r in mapovane[mistnost]:
+                          if r[2] == rez[2]:  # Stejné ID rezervace
+                              cas_r_od, cas_r_do = r[0], r[1]
+                              # Projdi všechny sloty a najdi ty, které patří k této rezervaci
+                              temp_cas = datetime.combine(datum, datetime.strptime("08:00", "%H:%M").time())
+                              temp_end = datetime.combine(datum, datetime.strptime("20:00", "%H:%M").time())
+                              while temp_cas <= temp_end:
+                                  # Nastav temp_slot podle času (stejná logika jako výše)
+                                  if temp_cas.time() >= datetime.strptime("09:00", "%H:%M").time() and temp_cas.time() <= datetime.strptime("09:45", "%H:%M").time():
+                                      temp_slot = timedelta(minutes=15)
+                                  elif temp_cas.time() >= datetime.strptime("12:00", "%H:%M").time() and temp_cas.time() < datetime.strptime("12:30", "%H:%M").time():
+                                      temp_slot = timedelta(minutes=30)
+                                  elif temp_cas.time() >= datetime.strptime("12:30", "%H:%M").time() and temp_cas.time() < datetime.strptime("12:40", "%H:%M").time():
+                                      temp_slot = timedelta(minutes=10)
+                                  elif temp_cas.time() == datetime.strptime("12:40", "%H:%M").time():
+                                      temp_slot = timedelta(minutes=20)
+                                  elif temp_cas.time() >= datetime.strptime("16:00", "%H:%M").time() and temp_cas.time() <= datetime.strptime("16:30", "%H:%M").time():
+                                      temp_slot = timedelta(minutes=15)
+                                  elif temp_cas.time() == datetime.strptime("16:45", "%H:%M").time():
+                                      temp_slot = timedelta(minutes=35)
+                                  elif temp_cas.time() >= datetime.strptime("17:20", "%H:%M").time():
+                                      temp_slot = timedelta(minutes=20)
+                                  else:
+                                      temp_slot = timedelta(minutes=20)
+                                  
+                                  temp_slot_end = temp_cas + temp_slot
+                                  if cas_r_od < temp_slot_end and cas_r_do >= temp_cas:
+                                      sloty_rezervace.append(temp_cas)
+                                  temp_cas += temp_slot
+                              break
+                      
+                      # Zjisti pozici aktuálního slotu v seznamu slotů rezervace
+                      if cas in sloty_rezervace:
+                          pozice = sloty_rezervace.index(cas)
+                          if pozice == 0:
+                              # První slot - zobraz plné informace
+                              display_text = f"{rez[6]}: {rez[8]} - {rez[5]}"
+                          elif pozice == len(sloty_rezervace) - 1:
+                              # Poslední slot - zobraz plné informace
+                              display_text = f"{rez[6]}: {rez[8]} - {rez[5]}"
+                          else:
+                              # Střední slot - zobraz pouze čárky
+                              display_text = "---"
+                      else:
+                          # Fallback - zobraz plné informace
+                          display_text = f"{rez[6]}: {rez[8]} - {rez[5]}"
                   else:
-                      # Pokračování rezervace z předchozího slotu
+                      # Rezervace v jediném slotu - zobraz plné informace
                       display_text = f"{rez[6]}: {rez[8]} - {rez[5]}"
                   
                   doktor_item = QTableWidgetItem(display_text)
@@ -1381,6 +1421,30 @@ class HlavniOkno(QMainWindow):
                       doktor_item.setBackground(QColor(pause_color))
                   elif index % 2 == 0:
                       doktor_item.setBackground(QColor(table_grey_strip))
+                  
+                  # Přidej vizuální označení pro víceřádkové rezervace
+                  if rez[0] < rez[1]:  # Rezervace trvá více než jeden slot
+                      # Zjisti pozici slotu v rezervaci (použij už vypočítané hodnoty)
+                      if cas in sloty_rezervace:
+                          pozice = sloty_rezervace.index(cas)
+                          total_sloty = len(sloty_rezervace)
+                          
+                          # Přidej vizuální označení pro víceřádkové rezervace
+                          if total_sloty > 1:
+                              # Přidej prefix k textu pro označení pozice
+                              current_text = doktor_item.text()
+                              if pozice == 0:
+                                  # První slot - přidej horní značku
+                                  doktor_item.setText(f"┌─ {current_text}")
+                              elif pozice == total_sloty - 1:
+                                  # Poslední slot - přidej dolní značku
+                                  doktor_item.setText(f"└─ {current_text}")
+                              else:
+                                  # Střední slot - přidej boční značku
+                                  if current_text == "---":
+                                      doktor_item.setText("│  ---")
+                                  else:
+                                      doktor_item.setText(f"│  {current_text}")
                   
                   tabulka.setItem(index, 1, doktor_item)
                   
@@ -1692,6 +1756,24 @@ class HlavniOkno(QMainWindow):
         """Odregistruje dialog ze sledování"""
         if dialog in self.open_dialogs:
             self.open_dialogs.remove(dialog)
+    
+    def center_dialog_on_screen(self, dialog):
+        """Vycentruje dialog uprostřed obrazovky"""
+        # Získej rozměry obrazovky
+        screen = QApplication.primaryScreen()
+        screen_geometry = screen.availableGeometry()
+        
+        # Získej rozměry dialogu
+        dialog_size = dialog.sizeHint()
+        if dialog_size.isEmpty():
+            dialog_size = dialog.size()
+        
+        # Vypočítej pozici pro centrování
+        x = (screen_geometry.width() - dialog_size.width()) // 2
+        y = (screen_geometry.height() - dialog_size.height()) // 2
+        
+        # Nastav pozici dialogu
+        dialog.move(x, y)
 
     def destroy_chat(self):
         """Kompletně zničí chat widget a resetuje stav"""
