@@ -143,7 +143,9 @@ class HlavniOkno(QMainWindow):
         # Uživatel menu bude přidáváno/odebíráno dynamicky
         self.user_menu = None
         self.database_action = None  # Inicializace pro pozdější použití
-        
+
+        self.menu_bar.setStyleSheet("margin:0,2,0,2")  # Aplikace základního stylu
+
         self.setMenuBar(self.menu_bar)  # Přidání menu bar do layoutu
         print(f"✅ Menu bar nastaven")
         
@@ -185,17 +187,35 @@ class HlavniOkno(QMainWindow):
                 line-height: 0.9;
             }
             QHeaderView::section {
-                background-color: #f4efeb;
-                color: black;
+                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                    stop: 0 #e6f3ff, stop: 1 #b3d9ff);
+                color: #0066cc;
                 font-weight: bold;
-                font-size: 10px;
-                text-decoration: underline;
-                letter-spacing: 0.2px;
+                font-size: 11px;
+                text-decoration: none;
+                letter-spacing: 0.5px;
                 text-transform: uppercase;
-                padding: 0px 1px;
+                padding: 2px 4px;
                 margin: 0px;
-                max-height: 10px;
-                min-height: 10px;
+                max-height: 14px;
+                min-height: 14px;
+                border: 1px solid #0066cc;
+                border-radius: 3px;
+                text-align: center;
+            }
+            
+            /* Specifické stylování pro první sloupec (čas) */
+            QHeaderView::section:first {
+                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                    stop: 0 #fff2e6, stop: 1 #ffd9b3);
+                color: #cc6600;
+                font-size: 10px;
+            }
+            
+            /* Efekt při hover */
+            QHeaderView::section:hover {
+                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                    stop: 0 #cce6ff, stop: 1 #99ccff);
             }
         """)   
         
@@ -429,13 +449,42 @@ class HlavniOkno(QMainWindow):
             self.checkboxy_layout.addWidget(checkbox)
             self.checkboxy[mistnost] = checkbox
             
-            # Zbytek kódu zůstává stejný
+            # Vytvoříme kontejner pro vlastní hlavičku a tabulku
+            table_container = QWidget()
+            table_layout = QVBoxLayout(table_container)
+            table_layout.setContentsMargins(0, 0, 0, 0)
+            table_layout.setSpacing(0)
+            
+            # Vytvoříme vlastní sloučenou hlavičku
+            custom_header = QLabel(f"{mistnost}")
+            custom_header.setStyleSheet("""
+                QLabel {
+                    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                        stop: 0 #e6f3ff, stop: 1 #b3d9ff);
+                    color: #0066cc;
+                    font-weight: bold;
+                    font-size: 11px;
+                    letter-spacing: 0.5px;
+                    text-transform: uppercase;
+                    padding: 2px 4px;
+                    border: 1px solid #0066cc;
+                    border-radius: 3px;
+                    text-align: center;
+                    max-height: 14px;
+                    min-height: 14px;
+                }
+            """)
+            custom_header.setAlignment(Qt.AlignCenter)
+            table_layout.addWidget(custom_header)
+            
+            # Vytvoříme tabulku bez hlavičky
             tabulka = QTableWidget()
             tabulka.setEditTriggers(QTableWidget.NoEditTriggers)  # Zakázat editaci buněk
             tabulka.setSelectionMode(QAbstractItemView.NoSelection) # Zakázat výběr buněk
             tabulka.setColumnCount(2) # Počet sloupců
             tabulka.setColumnWidth(0, 70) # Čas
             tabulka.horizontalHeader().setStretchLastSection(True)  # Řádek rezervace v maximální šířce
+            tabulka.horizontalHeader().setVisible(False)  # Skryjeme původní hlavičku
             tabulka.verticalHeader().setVisible(False)
             
             # Minimalizace margins pro maximální využití prostoru
@@ -459,7 +508,11 @@ class HlavniOkno(QMainWindow):
             scrollbar = tabulka.verticalScrollBar()
             scrollbar.valueChanged.connect(partial(self.sync_table_scrolling, mistnost))
             
-            self.ordinace_layout.addWidget(tabulka)
+            # Přidáme tabulku do kontejneru s vlastní hlavičkou
+            table_layout.addWidget(tabulka)
+            
+            # Přidáme kontejner do hlavního layoutu místo tabulky
+            self.ordinace_layout.addWidget(table_container)
             self.tabulky[mistnost] = tabulka
             
         # Přidání checkboxu pro chat (pouze pokud ještě neexistuje)
@@ -1247,7 +1300,15 @@ class HlavniOkno(QMainWindow):
           
       # Vlož data do tabulek
       for mistnost, tabulka in self.tabulky.items():
-          tabulka.setHorizontalHeaderLabels(["", f"{mistnost}"])
+          # Tabulka už má vlastní sloučenou hlavičku, nastavíme prázdné labely
+          tabulka.setHorizontalHeaderLabels(["", ""])
+          
+          # Sloučíme dvě buňky hlavičky do jedné
+          header = tabulka.horizontalHeader()
+          header.setSectionResizeMode(0, header.ResizeMode.Interactive)
+          header.setSectionResizeMode(1, header.ResizeMode.Stretch)
+          header.resizeSection(1, 1)  # Skryjeme druhou sekci hlavičky
+
           
           index = 0
           cas = datetime.combine(datum, datetime.strptime("08:00", "%H:%M").time())
