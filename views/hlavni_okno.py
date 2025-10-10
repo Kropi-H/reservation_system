@@ -308,14 +308,17 @@ class HlavniOkno(QMainWindow):
 
         layout.addLayout(horni_radek)
 
-        # Spusť timer pro hodiny
+        # Záložky pro jednotlivé ordinace
+        self.tabulky = {} # mistnost -> QTableWidget
+        
+        # Proměnná pro sledování poslední minuty aktualizace zvýraznění
+        self.last_highlight_minute = -1
+        
+        # Spusť timer pro hodiny a aktualizaci času
         timer = QTimer(self)
         timer.timeout.connect(self.update_clock)
         timer.start(1000)
         self.update_clock()
-
-        # Záložky pro jednotlivé ordinace
-        self.tabulky = {} # mistnost -> QTableWidget
         
         # Vytvoření pevného kontejneru pro ordinace a chat
         self.ordinace_container = QWidget()
@@ -958,7 +961,73 @@ class HlavniOkno(QMainWindow):
               tabulka.clearSelection()
   
     def update_clock(self):
-        self.clock_label.setText(datetime.now().strftime("%H:%M:%S"))
+        now = datetime.now()
+        self.clock_label.setText(now.strftime("%H:%M:%S"))
+        
+        # Zkontroluj, zda se změnila minuta a aktualizuj zvýraznění času
+        current_minute = now.minute
+        if current_minute != self.last_highlight_minute:
+            self.last_highlight_minute = current_minute
+            self.update_current_time_highlight()
+
+        
+    def update_current_time_highlight(self):
+        """Projde všechny tabulky a aktualizuje zvýraznění aktuálního času"""
+        datum = self.kalendar.date().toPython()
+        current_time = datetime.now().time()
+        # Pro testování můžete použít simulovaný čas:
+        # current_time = datetime.strptime("13:10", "%H:%M").time()
+        
+        for mistnost, tabulka in self.tabulky.items():
+            for row in range(tabulka.rowCount()):
+                cas_item = tabulka.item(row, 0)
+                if cas_item:
+                    cas_str = cas_item.text()
+                    if cas_str:
+                        try:
+                            # Parsujeme čas z buňky
+                            cas = datetime.combine(datum, datetime.strptime(cas_str, "%H:%M").time())
+                            
+                            # Určíme délku slotu (stejná logika jako v nacti_rezervace)
+                            if cas.time() >= datetime.strptime("09:00", "%H:%M").time() and cas.time() <= datetime.strptime("09:45", "%H:%M").time():
+                                slot = timedelta(minutes=15)
+                            elif cas.time() >= datetime.strptime("12:00", "%H:%M").time() and cas.time() < datetime.strptime("12:30", "%H:%M").time():
+                                slot = timedelta(minutes=30)
+                            elif cas.time() >= datetime.strptime("12:30", "%H:%M").time() and cas.time() < datetime.strptime("12:40", "%H:%M").time():
+                                slot = timedelta(minutes=10)
+                            elif cas.time() == datetime.strptime("12:40", "%H:%M").time():
+                                slot = timedelta(minutes=20)
+                            elif cas.time() >= datetime.strptime("16:00", "%H:%M").time() and cas.time() <= datetime.strptime("16:30", "%H:%M").time():
+                                slot = timedelta(minutes=15)
+                            elif cas.time() == datetime.strptime("16:45", "%H:%M").time():
+                                slot = timedelta(minutes=35)
+                            elif cas.time() >= datetime.strptime("17:20", "%H:%M").time():
+                                slot = timedelta(minutes=20)
+                            else:
+                                slot = timedelta(minutes=20)
+                            
+                            slot_start_time = cas.time()
+                            slot_end_time = (cas + slot).time()
+                            
+                            # Zkontrolujeme, zda aktuální čas spadá do tohoto slotu
+                            if slot_start_time <= current_time < slot_end_time:
+                                # Zvýrazníme aktuální čas
+                                from PySide6.QtGui import QFont
+                                font = QFont()
+                                font.setBold(True)
+                                font.setPointSize(10)
+                                cas_item.setFont(font)
+                            else:
+                                # Odebereme zvýraznění z ostatních časů
+                                from PySide6.QtGui import QFont
+                                font = QFont()
+                                font.setBold(False)
+                                font.setPointSize(10)
+                                cas_item.setFont(font)
+                                
+                        except ValueError:
+                            # Pokud se nepodaří parsovat čas, ignorujeme
+                            continue
         
     def povol_vyber_casu(self):
       def only_first_column_selection():
@@ -1387,6 +1456,20 @@ class HlavniOkno(QMainWindow):
               # Vytvoř cas_item s barvami doktorů z rezervací i z rozvrhu
               cas_item = QTableWidgetItem(cas_str)
               
+              # Zvýrazni aktuální čas tučným písmem ve slotech ordinací
+              current_time = datetime.now().time()
+              #current_time = datetime.strptime("13:10", "%H:%M").time()
+              slot_start_time = cas.time()
+              slot_end_time = (cas + slot).time()
+              
+              # Pokud aktuální čas spadá do tohoto časového slotu, zvýrazni ho
+              if slot_start_time <= current_time < slot_end_time:
+                  from PySide6.QtGui import QFont
+                  font = QFont()
+                  font.setBold(True)
+                  font.setPointSize(10)  # Trochu větší písmo pro aktuální čas
+                  cas_item.setFont(font)
+              
               # Shromaždi barvy doktorů z rezervací pro tento čas
               doctor_colors = []
               for rez in rezervace_pro_cas:
@@ -1420,6 +1503,20 @@ class HlavniOkno(QMainWindow):
               if rezervace_pro_cas:
                 for rez in rezervace_pro_cas:
                   cas_item = QTableWidgetItem(cas_str)
+                  
+                  # Zvýrazni aktuální čas tučným písmem i v rezervovaných slotech
+                  current_time = datetime.now().time()
+                  #current_time = datetime.strptime("13:20", "%H:%M").time()
+                  slot_start_time = cas.time()
+                  slot_end_time = (cas + slot).time()
+                  
+                  # Pokud aktuální čas spadá do tohoto časového slotu, zvýrazni ho
+                  if slot_start_time <= current_time < slot_end_time:
+                      from PySide6.QtGui import QFont
+                      font = QFont()
+                      font.setBold(True)
+                      font.setPointSize(10)  # Sjednocená velikost písma
+                      cas_item.setFont(font)
                   
                   # Shromaždi barvy doktorů z této konkrétní rezervace
                   doctor_colors = []
