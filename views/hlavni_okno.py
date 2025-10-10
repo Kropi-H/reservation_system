@@ -150,12 +150,14 @@ class HlavniOkno(QMainWindow):
         # --- STATUS BAR ---
         self.status_bar = self.statusBar()
         self.status_bar.showMessage("Nepřihlášen")
+        self.status_bar.setContentsMargins(2, 0, 2, 0)  # Minimální margins
         
-        # Vytvoření widgetu pro checkboxy v status baru
+        # Vytvoření widgetu pro checkboxy v status baru - KOMPAKTNÍ
         self.checkboxy_widget = QWidget()
+        self.checkboxy_widget.setMaximumHeight(25)  # Omezit výšku status baru
         self.checkboxy_layout = QHBoxLayout(self.checkboxy_widget)
-        self.checkboxy_layout.setContentsMargins(5, 2, 5, 2)
-        self.checkboxy_layout.setSpacing(10)
+        self.checkboxy_layout.setContentsMargins(2, 0, 2, 0)  # Minimální margins
+        self.checkboxy_layout.setSpacing(5)  # Menší spacing
         
         # Přidání checkboxů do status baru napravo
         self.status_bar.addPermanentWidget(self.checkboxy_widget)
@@ -167,27 +169,33 @@ class HlavniOkno(QMainWindow):
         central_widget = QWidget()
         layout = QVBoxLayout(central_widget)
         
-        # Styl pro všechny tabulky v tomto okně
+        # Styl pro všechny tabulky v tomto okně - MINIMALIZOVÁNO S PODBARVOVÁNÍM A ČITELNÝM PÍSMEM
         self.setStyleSheet("""
             QTableWidget {
                 background-color: #fafdff;
-                font-size: 14px;
+                font-size: 12px;
                 color: #222;
                 gridline-color: #b2d7ef;
                 selection-background-color: #cceeff;
                 selection-color: #000;
             }
             QTableWidget::item {
-                padding: 6px;
+                padding: 0px 1px;
+                margin: 0px;
+                line-height: 0.9;
             }
             QHeaderView::section {
                 background-color: #f4efeb;
                 color: black;
                 font-weight: bold;
-                font-size: 14px;
+                font-size: 10px;
                 text-decoration: underline;
-                letter-spacing: 0.75px;
+                letter-spacing: 0.2px;
                 text-transform: uppercase;
+                padding: 0px 1px;
+                margin: 0px;
+                max-height: 10px;
+                min-height: 10px;
             }
         """)   
         
@@ -196,26 +204,29 @@ class HlavniOkno(QMainWindow):
 
     
 
-        # --- Střední část: tlačítka a kalendář ---
+        # --- Střední část: tlačítka a kalendář --- ULTRA KOMPAKTNÍ VERZE
         stredni_widget = QWidget()
+        stredni_widget.setMaximumHeight(35)  # Ultra malá výška středního widgetu
         stredni_layout = QHBoxLayout()
         stredni_layout.setContentsMargins(0, 0, 0, 0)
-        stredni_layout.setSpacing(10)
+        stredni_layout.setSpacing(5)  # Zmenšit spacing
 
         self.btn_predchozi = QPushButton("<")
-        self.btn_predchozi.setFixedWidth(35)  # Menší tlačítka
-        self.btn_predchozi.setStyleSheet("font-size: 18px;")
+        self.btn_predchozi.setFixedSize(40, 40)  # Ultra malá tlačítka
+        self.btn_predchozi.setStyleSheet("font-size: 16px; padding: 0px;")
         self.btn_predchozi.clicked.connect(self.predchozi_den)
 
         self.kalendar = QDateEdit()
         self.kalendar.setDate(QDate.currentDate())
         self.kalendar.setCalendarPopup(True)
+        self.kalendar.setMaximumHeight(40)  # Ultra malá výška kalendáře
         self.kalendar.setStyleSheet("""
             QDateEdit {
-                font-size: 20px;
-                min-width: 180px;
+                font-size: 16px;
+                min-width: 120px;
+                font-weight: bold;
                 qproperty-alignment: AlignCenter;
-                padding: 4px 8px;
+                padding: 1px 2px;
             }
         """)
         self.kalendar.dateChanged.connect(self.nacti_rezervace)
@@ -223,8 +234,8 @@ class HlavniOkno(QMainWindow):
         self.aktualizuj_format_kalendare(self.kalendar.date())
 
         self.btn_nasledujici = QPushButton(">")
-        self.btn_nasledujici.setFixedWidth(35)  # Menší tlačítka
-        self.btn_nasledujici.setStyleSheet("font-size: 18px;")
+        self.btn_nasledujici.setFixedSize(40, 40)  # Ultra malá tlačítka
+        self.btn_nasledujici.setStyleSheet("font-size: 16px; padding: 0px;")
         self.btn_nasledujici.clicked.connect(self.nasledujici_den)
 
         stredni_layout.addWidget(self.btn_predchozi)
@@ -237,27 +248,29 @@ class HlavniOkno(QMainWindow):
         horni_radek.addWidget(stredni_widget, alignment=Qt.AlignHCenter)
         #horni_radek.addStretch()
         
-        # Legenda informace vpravo - kompaktnější pro menší obrazovky
+        # Legenda informace vpravo - EXTRÉMNĚ KOMPAKTNÍ
         def legenda_stylesheet(color):
             return f"""
                 background-color: {color};
                 color: #222;
-                border-radius: 2px;
-                min-width: 60px;
+                border-radius: 1px;
                 qproperty-alignment: AlignCenter;
-                padding: 2px 3px;
-                margin-right: 4px;
+                padding: 1px 2px;
+                margin-right: 2px;
                 font-weight: bold;
                 font-size: 12px;
             """
         self.legenda_info = QHBoxLayout()
         legenda_vakcinace = QLabel("Vakcinace")
+        legenda_vakcinace.setMaximumHeight(30)
         legenda_vakcinace.setStyleSheet(legenda_stylesheet(vaccination_color))
         
         legenda_pauza = QLabel("Pauza")
+        legenda_pauza.setMaximumHeight(30)
         legenda_pauza.setStyleSheet(legenda_stylesheet(pause_color))
         
         legenda_anestezie = QLabel("Anestezie")
+        legenda_anestezie.setMaximumHeight(30)
         legenda_anestezie.setStyleSheet(legenda_stylesheet(anesthesia_color))
         
         self.legenda_info.addWidget(legenda_vakcinace)
@@ -267,10 +280,10 @@ class HlavniOkno(QMainWindow):
         self.legenda_info.addStretch()
         
         
-        # Hodiny vpravo - s responzivní velikostí
+        # Hodiny vpravo - KOMPAKTNÍ verze
         self.clock_label = QLabel()
-        # Začneme s menší velikostí pro lepší responzivitu
-        self.clock_label.setStyleSheet("font-size: 20px; font-weight: bold; min-width: 70px;")
+        self.clock_label.setMaximumHeight(30)
+        self.clock_label.setStyleSheet("font-size: 22px; font-weight: bold; min-width: 40px; padding: 0px;")
         horni_radek.addWidget(self.clock_label, alignment=Qt.AlignRight)
 
         layout.addLayout(horni_radek)
@@ -286,16 +299,16 @@ class HlavniOkno(QMainWindow):
         
         # Vytvoření pevného kontejneru pro ordinace a chat
         self.ordinace_container = QWidget()
-        # Nastavíme minimální výšku kontejneru pro zachování layoutu
-        self.ordinace_container.setMinimumHeight(600)
+        # Nastavíme nejmenší možnou minimální výšku kontejneru pro maximální prostor pro tabulky
+        self.ordinace_container.setMinimumHeight(370)
         
         self.ordinace_layout = QHBoxLayout(self.ordinace_container)
-        self.ordinace_layout.setContentsMargins(5, 5, 5, 5)
-        self.ordinace_layout.setSpacing(10)  # Přidání spacing mezi sloupci
+        self.ordinace_layout.setContentsMargins(0, 2, 0, 2)  # Minimální margins
+        self.ordinace_layout.setSpacing(5)  # Menší spacing mezi sloupci
         
         # Přidáme neviditelný spacer widget pro zachování layoutu
         self.layout_spacer = QWidget()
-        self.layout_spacer.setMinimumHeight(500)
+        self.layout_spacer.setMinimumHeight(150)  # Menší spacer
         self.layout_spacer.setVisible(False)  # Defaultně skrytý
         self.ordinace_layout.addWidget(self.layout_spacer)
         
@@ -314,7 +327,7 @@ class HlavniOkno(QMainWindow):
         self.setCentralWidget(central_widget)
         
         # Nastavení minimální velikosti pro lepší responzivitu
-        self.setMinimumSize(950, 600)  # Menší minimální velikost pro MacBook
+        self.setMinimumSize(950, 420)  # Nejmenší možná minimální velikost pro maximální prostor tabulkám
         
         # Nastavení listenerů pro database změny
         self.setup_database_listeners()
@@ -397,15 +410,15 @@ class HlavniOkno(QMainWindow):
             checkbox.setStyleSheet("""
                 QCheckBox {
                     font-weight: bold;
-                    font-size: 12px;
-                    padding: 2px 4px;
+                    font-size: 10px;
+                    padding: 1px 2px;
                     background-color: #f0f0f0;
-                    border-radius: 3px;
-                    margin: 1px;
+                    border-radius: 2px;
+                    margin: 0px;
                 }
                 QCheckBox::indicator {
-                    width: 16px;
-                    height: 16px;
+                    width: 12px;
+                    height: 12px;
                 }
             """)
             
@@ -424,7 +437,13 @@ class HlavniOkno(QMainWindow):
             tabulka.setColumnWidth(0, 70) # Čas
             tabulka.horizontalHeader().setStretchLastSection(True)  # Řádek rezervace v maximální šířce
             tabulka.verticalHeader().setVisible(False)
+            
+            # Minimalizace margins pro maximální využití prostoru
+            tabulka.setContentsMargins(0, 0, 0, 0)
 
+            # Nastavení extrémně malé výšky řádků pro zobrazení všech 38 řádků
+            tabulka.verticalHeader().setDefaultSectionSize(2)  # ULTRA malá výška řádků
+            
             # Nastavení delegátu pro sloupec s časem (sloupec 0) pro zobrazení kolečka s barvami doktorů
             time_delegate = TimeCellDelegate(tabulka)
             tabulka.setItemDelegateForColumn(0, time_delegate)
@@ -450,16 +469,16 @@ class HlavniOkno(QMainWindow):
             chat_checkbox.setStyleSheet("""
                 QCheckBox {
                     font-weight: bold;
-                    font-size: 12px;
-                    padding: 2px 4px;
+                    font-size: 10px;
+                    padding: 1px 2px;
                     background-color: #e8f5e8;
-                    border-radius: 3px;
-                    margin: 1px;
+                    border-radius: 2px;
+                    margin: 0px;
                     color: #2e7d32;
                 }
                 QCheckBox::indicator {
-                    width: 16px;
-                    height: 16px;
+                    width: 12px;
+                    height: 12px;
                 }
             """)
             chat_checkbox.toggled.connect(self.toggle_chat_visibility)
@@ -482,6 +501,35 @@ class HlavniOkno(QMainWindow):
             chat_widget_ref.hide()
         
         self.nacti_rezervace()
+        
+        # Aplikuj optimální výšku řádků po inicializaci s malým zpožděním
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(100, self.apply_optimal_row_height)
+
+    def apply_optimal_row_height(self):
+        """Aplikuje optimální výšku řádků podle aktuální velikosti okna"""
+        # Pro zobrazení všech 38 řádků (8:00-20:00) potřebujeme ULTRA malé řádky
+        # Matematika: 38 řádků × výška + hlavičky + margins ≤ dostupného prostoru
+        if self.height() < 600:
+            row_height = 2  # ULTRA malé pro velmi malé monitory
+        elif self.height() < 700:
+            row_height = 3  # EXTRÉMNĚ malé
+        elif self.height() < 800:
+            row_height = 4  # Velmi malé
+        else:
+            row_height = 5  # Malé i pro velké monitory
+            
+        print(f"🖥️ Aplikuji výšku řádků: {row_height}px (výška okna: {self.height()}px)")
+        
+        # Aplikuj na všechny tabulky
+        for tabulka in self.tabulky.values():
+            tabulka.verticalHeader().setDefaultSectionSize(row_height)
+            # Minimalizuj všechny možné spacing
+            tabulka.setContentsMargins(0, 0, 0, 0)
+            # Minimalizace grid lines
+            tabulka.setShowGrid(True)  # Zachovat mřížku ale minimální
+            # Force update tabulky
+            tabulka.updateGeometry()
 
     def toggle_chat_visibility(self, checked):
         """Skryje nebo zobrazí chat podle stavu checkboxu."""
@@ -638,7 +686,8 @@ class HlavniOkno(QMainWindow):
             if os.path.exists(logo_path):
                 pixmap = QPixmap(logo_path)
                 if not pixmap.isNull():
-                    self.logo_label.setPixmap(pixmap.scaledToHeight(48))
+                    self.logo_label.setPixmap(pixmap.scaledToHeight(30))  # Logo
+                    self.logo_label.setMaximumHeight(30)
                     logo_found = True
                     print(f"✅ Logo načteno z: {logo_path}")
                     break
@@ -1486,6 +1535,8 @@ class HlavniOkno(QMainWindow):
               index += 1
               cas += slot
       
+      # Aplikuj optimální výšku řádků po načtení dat
+      self.apply_optimal_row_height()
       
       #print("Rezervace načtené z databáze:", rezervace)
     
@@ -1665,6 +1716,21 @@ class HlavniOkno(QMainWindow):
                 self.raise_()
                 self.activateWindow()
 
+    def resizeEvent(self, event):
+        """Obsluha změny velikosti okna - aplikuj responzivní výšku řádků"""
+        super().resizeEvent(event)
+        
+        # Delay pro lepší výkon - aplikuj změny až po dokončení resizingu
+        if hasattr(self, 'resize_timer'):
+            self.resize_timer.stop()
+        
+        from PySide6.QtCore import QTimer
+        self.resize_timer = QTimer()
+        self.resize_timer.timeout.connect(self.apply_optimal_row_height)
+        self.resize_timer.setSingleShot(True)
+        self.resize_timer.start(100)  # 100ms delay
+        
+        print(f"🖥️ Okno změněno na: {self.width()}x{self.height()}px")
 
     def closeEvent(self, event):
         """Obsluha zavření aplikace"""
