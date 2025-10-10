@@ -575,8 +575,6 @@ class HlavniOkno(QMainWindow):
         else:
             row_height = 5  # Malé i pro velké monitory
             
-        print(f"🖥️ Aplikuji výšku řádků: {row_height}px (výška okna: {self.height()}px)")
-        
         # Aplikuj na všechny tabulky
         for tabulka in self.tabulky.values():
             tabulka.verticalHeader().setDefaultSectionSize(row_height)
@@ -794,7 +792,6 @@ class HlavniOkno(QMainWindow):
               
               
     def show_login_dialog(self):
-        print("🔑 Otevírám přihlašovací dialog...")
         dialog = LoginDialog(self)
         self.register_dialog(dialog)
         if dialog.exec():
@@ -822,7 +819,6 @@ class HlavniOkno(QMainWindow):
                 self.login_action.triggered.connect(self.logout_user)
             
             self.update_user_menu()  # <-- Přidat/aktualizovat podmenu
-            print(f"✅ Uživatel {username} s rolí {role} přihlášen")
 
     def logout_user(self):
         self.logged_in_user = None
@@ -874,12 +870,9 @@ class HlavniOkno(QMainWindow):
         
     def update_user_menu(self):
         """Aktualizuje menu pro uživatele podle jeho role."""
-        print(f"🔄 Aktualizuji menu pro roli: {self.logged_in_user_role}")
-        
         if self.logged_in_user_role == "user":
             # Pokud je uživatel běžný uživatel, nebudeme přidávat žádné menu
             self.user_menu = None
-            print("👤 Běžný uživatel - žádné dodatečné menu")
             return
           
         # Odeber staré user_menu, pokud existuje
@@ -953,7 +946,6 @@ class HlavniOkno(QMainWindow):
         self.register_dialog(dialog)
         if dialog.exec():
           self.is_planning_active = True  # Nastavit flag - pozastavit auto-refresh
-          print("📋 Plánování ordinačních časů spuštěno - auto-refresh pozastaven")
           self.povol_vyber_casu()
           self.menu_bar.addMenu(self.plan_menu)
           self.menu_bar.removeAction(self.user_menu.menuAction())  # Odstranění Plánování z menu
@@ -1074,19 +1066,16 @@ class HlavniOkno(QMainWindow):
                 if item.column() == 0:
                   vybrane_casy.append(item.text())
                   mistnost = m  # Uložení ordinace, pokud je vybrán čas
-                  # vybrane_casy.append((m, item.text()))
-                  doktor_item = tabulka.item(item.row(), 1)
-                  # Získání barvy doktora z buňky    
-                  if doktor_item:
-                    barva = doktor_item.background().color().name()
-                    if barva in all_doctors_colors:
-                      if not barva in barvy_puvodnich:
-                        barvy_puvodnich.append(barva)
+                  
+                  # Získání barev doktorů z UserRole (uložené pro TimeCellDelegate)
+                  doctor_colors = item.data(Qt.UserRole)
+                  if doctor_colors and isinstance(doctor_colors, list):
+                      for barva in doctor_colors:
+                          if barva in all_doctors_colors and barva not in barvy_puvodnich:
+                              barvy_puvodnich.append(barva)
         
         # Uložení do databáze
         datum = self.kalendar.date().toPython()
-        # print(f"Barvy doktorů:{barvy_puvodnich}, Datum: {datum}, Čas od: {vybrane_casy[0]}, Čas do: {vybrane_casy[-1]}, Ordinace: {mistnost}")
-        # print(vybrane_casy)
         
         # Check if there are selected times before proceeding
         if not vybrane_casy:
@@ -1107,7 +1096,6 @@ class HlavniOkno(QMainWindow):
     def zrus_planovani(self):
         # Zrušení plánování a odstranění tlačítka
         self.is_planning_active = False  # Obnovit auto-refresh
-        print("✅ Plánování ordinačních časů ukončeno - auto-refresh obnoven")
         self.status_bar.showMessage("Ukončeno plánování ordinací.")
         self.menu_bar.removeAction(self.plan_menu.menuAction())  # Odstranění Plánování z menu
         self.update_user_menu() # Přidat user menu zpět
@@ -1221,10 +1209,8 @@ class HlavniOkno(QMainWindow):
             selected_status = dialog.get_selected_status()
             # Změna: zpracováváme i hodnotu None
             rezervace_id = reservation_data[1]  # ID rezervace
-            print(f"🔄 Měníme stav rezervace {rezervace_id} na: {selected_status}")
             
             if aktualizuj_stav_rezervace(rezervace_id, selected_status):
-                print(f"✅ Stav rezervace {rezervace_id} úspěšně změněn na '{selected_status}'")
                 # Force refresh dat - malé zpoždění pro synchronizaci databáze
                 QTimer.singleShot(100, self.nacti_rezervace)
                 status_text = "nulován" if selected_status is None else selected_status
