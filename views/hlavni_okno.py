@@ -28,6 +28,7 @@ from views.chat_config_dialog import ChatConfigDialog
 from views.time_cell_delegate import TimeCellDelegate
 from views.patient_status_dialog import PatientStatusDialog
 from views.doctor_calendar_dialog import DoctorCalendarDialog
+from views.search_patient_dialog import SearchPatientDialog
 from functools import partial
 from controllers.data import basic_style
 import os
@@ -294,9 +295,32 @@ class HlavniOkno(QMainWindow):
         legenda_anestezie.setMaximumHeight(30)
         legenda_anestezie.setStyleSheet(legenda_stylesheet(anesthesia_color))
         
+        self.legenda_vyhledat_pacienta = QPushButton("🔍 Vyhledat pacienta")
+        self.legenda_vyhledat_pacienta.setMaximumHeight(30)
+        self.legenda_vyhledat_pacienta.setStyleSheet("""
+            QPushButton {
+                background-color: #ffffff;
+                border: 1px solid #cccccc;
+                border-radius: 4px;
+                padding: 2px 8px;
+                font-size: 10px;
+                font-weight: bold;
+                color: #333333;
+            }
+            QPushButton:hover {
+                background-color: #f0f0f0;
+                border-color: #999999;
+            }
+            QPushButton:pressed {
+                background-color: #e0e0e0;
+            }
+        """)
+        self.legenda_vyhledat_pacienta.clicked.connect(self.show_search_patient_dialog)
+
         self.legenda_info.addWidget(legenda_vakcinace)
         self.legenda_info.addWidget(legenda_pauza)
         self.legenda_info.addWidget(legenda_anestezie)
+        self.legenda_info.addWidget(self.legenda_vyhledat_pacienta)
         horni_radek.addLayout(self.legenda_info)
         self.legenda_info.addStretch()
         
@@ -816,6 +840,126 @@ class HlavniOkno(QMainWindow):
         dialog = DoctorCalendarDialog(doctor_name, doctor_color, self)
         self.register_dialog(dialog)  # Registruj dialog pro sledování
         dialog.exec()
+    
+    def show_search_patient_dialog(self):
+        """Zobrazí dialog pro vyhledávání pacientů"""
+        dialog = SearchPatientDialog(self)
+        self.register_dialog(dialog)
+        # Připojíme signály pro přesun na vybrané datum a zvýraznění rezervace
+        dialog.date_selected.connect(self.navigate_to_date)
+        dialog.reservation_selected.connect(self.highlight_reservation)
+        dialog.exec()
+    
+    def navigate_to_date(self, date_string):
+        """Přesune kalendář na vybrané datum a aktualizuje rezervace"""
+        try:
+            from datetime import datetime
+            from PySide6.QtCore import QDate
+            
+            # Převedeme string datum na QDate
+            date_obj = datetime.strptime(date_string, "%Y-%m-%d").date()
+            qdate = QDate(date_obj.year, date_obj.month, date_obj.day)
+            
+            # Nastavíme datum v kalendáři
+            self.kalendar.setDate(qdate)
+            
+            # Aktualizujeme formát kalendáře a načteme rezervace
+            self.aktualizuj_format_kalendare(qdate)
+            self.nacti_rezervace()
+            
+              # Přesun proběhne bez upozornění
+            
+        except Exception as e:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Chyba", f"Nepodařilo se přesunout na datum:\n{str(e)}")
+    
+    def highlight_reservation(self, datum, cas_od, cas_do, ordinace):
+        """Zvýrazní vybranou rezervaci na hlavním okně"""
+        try:
+            from PySide6.QtCore import QTimer
+            
+            # Počkáme krátce na načtení rezervací
+            QTimer.singleShot(500, lambda: self._perform_highlight(cas_od, cas_do, ordinace))
+            
+        except Exception as e:
+            print(f"Chyba při zvýrazňování rezervace: {e}")
+    
+    def _perform_highlight(self, cas_od, cas_do, ordinace):
+        """Provede skutečné zvýraznění rezervace"""
+        try:
+            from datetime import datetime
+            from PySide6.QtGui import QColor
+            
+            # Najdi správnou tabulku podle ordinace
+            if ordinace not in self.tabulky:
+                return
+                
+            tabulka = self.tabulky[ordinace]
+            
+            # Převeď čas na datetime pro porovnání
+            cas_od_time = datetime.strptime(cas_od, "%H:%M").time()
+            cas_do_time = datetime.strptime(cas_do, "%H:%M").time()
+            
+            # Slovník pro uložení původních barev
+            if not hasattr(self, 'original_colors'):
+                self.original_colors = {}
+            
+            # Projди všechny řádky tabulky a najdi odpovídající rezervaci
+            for row in range(tabulka.rowCount()):
+                cas_item = tabulka.item(row, 0)  # Sloupec s časem
+                if cas_item:
+                    try:
+                        radek_cas = datetime.strptime(cas_item.text(), "%H:%M").time()
+                        
+                        # Zkontroluj, zda čas řádku spadá do rezervace
+                        should_highlight = False
+                        if cas_od_time == cas_do_time:
+                            # Stejný čas - zvýrazni přesně tento čas
+                            should_highlight = (radek_cas == cas_od_time)
+                        else:
+                            # Různé časy - zvýrazni rozsah
+                            should_highlight = (cas_od_time <= radek_cas < cas_do_time)
+                        
+                        if should_highlight:
+                            # Zvýrazni celý řádek světle červenou barvou
+                            for col in range(tabulka.columnCount()):
+                                item = tabulka.item(row, col)
+                                if item:
+                                    # Ulož původní barvu před změnou
+                                    key = f"{ordinace}_{row}_{col}"
+                                    self.original_colors[key] = item.background()
+                                    
+                                    # Světle červená barva pozadí
+                                    item.setBackground(QColor(255, 200, 200))  # Light red
+                                    
+                                    # Nastavíme timer pro odstranění zvýraznění po 3 sekundách
+                                    from PySide6.QtCore import QTimer
+                                    QTimer.singleShot(3000, lambda r=row, c=col, k=key: self._remove_highlight(ordinace, r, c, k))
+                    except ValueError:
+                        continue  # Přeskoč řádky s neplatným časem
+                        
+        except Exception as e:
+            print(f"Chyba při zvýrazňování: {e}")
+    
+    def _remove_highlight(self, ordinace, row, col, key):
+        """Odstraní zvýraznění po určitém čase"""
+        try:
+            if ordinace in self.tabulky:
+                tabulka = self.tabulky[ordinace]
+                if row < tabulka.rowCount() and col < tabulka.columnCount():
+                    item = tabulka.item(row, col)
+                    if item:
+                        # Obnov původní barvu z uloženého slovníku
+                        if hasattr(self, 'original_colors') and key in self.original_colors:
+                            original_color = self.original_colors[key]
+                            item.setBackground(original_color)
+                            # Vymaž z cache
+                            del self.original_colors[key]
+                        else:
+                            # Fallback - transparentní barva
+                            item.setBackground(QColor())
+        except Exception:
+            pass  # Tichý fallback
               
               
     def show_login_dialog(self):
