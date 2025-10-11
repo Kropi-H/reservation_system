@@ -27,6 +27,7 @@ from views.smaz_rezervace_po_xy_dialog import SmazRezervaceDialog
 from views.chat_config_dialog import ChatConfigDialog
 from views.time_cell_delegate import TimeCellDelegate
 from views.patient_status_dialog import PatientStatusDialog
+from views.doctor_calendar_dialog import DoctorCalendarDialog
 from functools import partial
 from controllers.data import basic_style
 import os
@@ -232,7 +233,7 @@ class HlavniOkno(QMainWindow):
         stredni_layout.setSpacing(5)  # Zmenšit spacing
 
         self.btn_predchozi = QPushButton("<")
-        self.btn_predchozi.setFixedSize(40, 40)  # Ultra malá tlačítka
+        self.btn_predchozi.setFixedSize(35, 35)  # Ultra malá tlačítka
         self.btn_predchozi.setStyleSheet("font-size: 16px; padding: 0px;")
         self.btn_predchozi.clicked.connect(self.predchozi_den)
 
@@ -243,7 +244,7 @@ class HlavniOkno(QMainWindow):
         self.kalendar.setStyleSheet("""
             QDateEdit {
                 font-size: 16px;
-                min-width: 120px;
+                min-width: 160px;
                 font-weight: bold;
                 qproperty-alignment: AlignCenter;
                 padding: 1px 2px;
@@ -254,7 +255,7 @@ class HlavniOkno(QMainWindow):
         self.aktualizuj_format_kalendare(self.kalendar.date())
 
         self.btn_nasledujici = QPushButton(">")
-        self.btn_nasledujici.setFixedSize(40, 40)  # Ultra malá tlačítka
+        self.btn_nasledujici.setFixedSize(35, 35)  # Ultra malá tlačítka
         self.btn_nasledujici.setStyleSheet("font-size: 16px; padding: 0px;")
         self.btn_nasledujici.clicked.connect(self.nasledujici_den)
 
@@ -778,17 +779,43 @@ class HlavniOkno(QMainWindow):
               
           if is_active == 1:  # Pouze aktivní doktor
               jmeno_display = f"{jmeno}\n{prijmeni}"
+              jmeno_full = f"{jmeno} {prijmeni}"
               barva = barva.strip() if barva else "#CCCCCC"  # Výchozí barva pro NULL
-              label = QLabel(jmeno_display)
-              label.setStyleSheet(f"""
-                  background-color: {barva};
-                  color: #222;
-                  border-radius: 2px;
-                  padding: 2px 4px;
-                  margin-right: 6px;
-                  font-weight: bold;
+              
+              # Vytvoření tlačítka místo labelu
+              button = QPushButton(jmeno_display)
+              button.setStyleSheet(f"""
+                  QPushButton {{
+                      background-color: {barva};
+                      color: #222;
+                      border: 1px solid #999;
+                      border-radius: 4px;
+                      padding: 4px 6px;
+                      margin-right: 6px;
+                      font-weight: bold;
+                      font-size: 11px;
+                      text-align: center;
+                  }}
+                  QPushButton:hover {{
+                      background-color: {barva};
+                      border: 2px solid #333;
+                  }}
+                  QPushButton:pressed {{
+                      background-color: {barva};
+                      border: 2px solid #000;
+                  }}
               """)
-              self.doktori_layout.addWidget(label)
+              
+              # Připojení funkce pro otevření kalendáře
+              button.clicked.connect(partial(self.show_doctor_calendar, jmeno_full, barva))
+              
+              self.doktori_layout.addWidget(button)
+    
+    def show_doctor_calendar(self, doctor_name, doctor_color):
+        """Zobrazí kalendář služeb pro vybraného doktora"""
+        dialog = DoctorCalendarDialog(doctor_name, doctor_color, self)
+        self.register_dialog(dialog)  # Registruj dialog pro sledování
+        dialog.exec()
               
               
     def show_login_dialog(self):
