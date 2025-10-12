@@ -124,3 +124,6 @@ venv.bak/
 .dmypy.json
 dmypy.json
 KONVERZACE_POSTGRESQL_IMPLEMENTACE.txt
+
+# Folder for database backups
+backups/

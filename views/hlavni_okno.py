@@ -24,6 +24,7 @@ from views.ordinace_dialog import OrdinaceDialog
 from views.database_setup_dialog import DatabaseSetupDialog
 from views.postgresql_setup_dialog import PostgreSQLSetupDialog
 from views.smaz_rezervace_po_xy_dialog import SmazRezervaceDialog
+from views.backup_dialog import BackupDialog
 from views.chat_config_dialog import ChatConfigDialog
 from views.time_cell_delegate import TimeCellDelegate
 from views.patient_status_dialog import PatientStatusDialog
@@ -36,11 +37,28 @@ import os
 import platform
 from models.rezervace import smaz_rezervace_starsi_nez, aktualizuj_stav_rezervace
 from models.settings import get_settings
+from models.backup import backup_manager
 from chat.chat_widget import ChatWidget
 import json  # Přidejte tento import
+import logging
+
+# Nastavení logování
+logger = logging.getLogger(__name__)
 
 # Smazání rezervací starších než nastavený počet dní
 smaz_rezervace_starsi_nez(get_settings("days_to_keep"))
+
+# Automatická záloha při spuštění (pokud je potřeba)
+try:
+    if backup_manager.should_create_auto_backup():
+        logger.info("Spouštím automatickou zálohu...")
+        success, message, backup_path = backup_manager.create_auto_backup()
+        if success:
+            logger.info(f"Automatická záloha úspěšná: {message}")
+        else:
+            logger.warning(f"Automatická záloha se nezdařila: {message}")
+except Exception as e:
+    logger.error(f"Chyba při automatické záloze: {str(e)}")
 
 
 def get_ordinace_list():
@@ -1108,6 +1126,9 @@ class HlavniOkno(QMainWindow):
         self.database_days_deletion_setting = QAction("Nastavení smazání dat", self)
         self.database_days_deletion_setting.triggered.connect(self.nastaveni_smazani_dat)
 
+        self.backup_action = QAction("Zálohy databáze", self)
+        self.backup_action.triggered.connect(self.show_backup_dialog)
+
         self.reset_chat_action = QAction("Resetovat chat", self)
         self.reset_chat_action.triggered.connect(self.reset_chat)
 
@@ -1116,6 +1137,7 @@ class HlavniOkno(QMainWindow):
             self.menu_bar.addMenu(self.user_menu)
             if self.logged_in_user_role == "admin":
                 self.user_menu.addAction(self.database_section)  # Pouze pro admina
+                self.user_menu.addAction(self.backup_action)
             self.user_menu.addAction(self.plan_surgery_section)
             self.user_menu.addAction(self.users_section)
             self.user_menu.addAction(self.doctors_section)
@@ -1937,14 +1959,21 @@ class HlavniOkno(QMainWindow):
           days_to_keep = dialog.get_days()
           if days_to_keep is not None:
               delete_after = dialog.set_days_to_keep()
+              delete_after = dialog.set_days_to_keep()
               self.nacti_rezervace()
               if delete_after is not None:
                   # Zobraz úspěšnou zprávu
                   QMessageBox.information(
                       self,
                       "Úspěch",
-                      f"Nastavení smazání dat bylo úspěšně aktualizováno.\nBylo smazáno {delete_after['pocet_smazanych']} rezervací starších než {delete_after['datum_hranice']}."
+                      f"Nastavení smazání dat bylo úspěšně aktualizováno.\nBylo smazáno {delete_after['pocet_smazanych_rezervaci']} rezervací a {delete_after['pocet_smazanych_ordinacnich_casu']} ordinačních časů starších než {delete_after['datum_hranice']}."
                   )
+
+    def show_backup_dialog(self):
+        """Zobrazí dialog pro správu záloh databáze."""
+        dialog = BackupDialog(self)
+        self.register_dialog(dialog)
+        dialog.exec()
             
     def setup_icons(self):
         """Nastavení ikon pro aplikaci a okno."""

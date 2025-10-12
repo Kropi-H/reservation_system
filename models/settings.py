@@ -11,7 +11,17 @@ def get_settings(setting_name):
                        ''', (setting_name,))
         settings = cursor.fetchone()
         cursor.close()
-        return int(settings['setting_value']) if settings else 0
+        
+        if not settings:
+            return None
+            
+        value = settings['setting_value']
+        
+        # Zkus převést na int pokud to vypadá jako číslo
+        if value and value.isdigit():
+            return int(value)
+        
+        return value
 
 def save_settings(settings):
     """Uloží nastavení do databáze."""
