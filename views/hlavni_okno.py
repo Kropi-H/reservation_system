@@ -29,9 +29,11 @@ from views.time_cell_delegate import TimeCellDelegate
 from views.patient_status_dialog import PatientStatusDialog
 from views.doctor_calendar_dialog import DoctorCalendarDialog
 from views.search_patient_dialog import SearchPatientDialog
+from views.tisk_rezervaci import TiskRezervaci
 from functools import partial
 from controllers.data import basic_style
 import os
+import platform
 from models.rezervace import smaz_rezervace_starsi_nez, aktualizuj_stav_rezervace
 from models.settings import get_settings
 from chat.chat_widget import ChatWidget
@@ -321,9 +323,34 @@ class HlavniOkno(QMainWindow):
         self.legenda_info.addWidget(legenda_pauza)
         self.legenda_info.addWidget(legenda_anestezie)
         self.legenda_info.addWidget(self.legenda_vyhledat_pacienta)
+        
+        # Tlačítko pro tisk dne
+        self.tisk_dnes = QPushButton("🖨️ Tisk dne")
+        self.tisk_dnes.setMaximumHeight(30)
+        self.tisk_dnes.setStyleSheet("""
+            QPushButton {
+                background-color: #ffffff;
+                border: 1px solid #cccccc;
+                border-radius: 4px;
+                padding: 2px 8px;
+                font-size: 10px;
+                font-weight: bold;
+                color: #333333;
+                background-color: #e6f7ff;
+            }
+            QPushButton:hover {
+                background-color: #f0f0f0;
+                border-color: #999999;
+            }
+            QPushButton:pressed {
+                background-color: #e0e0e0;
+            }
+        """)
+        self.tisk_dnes.clicked.connect(self.tisk_aktualni_den)
+        self.legenda_info.addWidget(self.tisk_dnes)
+        
         horni_radek.addLayout(self.legenda_info)
         self.legenda_info.addStretch()
-        
         
         # Hodiny vpravo - KOMPAKTNÍ verze
         self.clock_label = QLabel()
@@ -2259,6 +2286,38 @@ class HlavniOkno(QMainWindow):
         except Exception as e:
             print(f"⚠️ Database listener nedostupný: {e}")
             self.db_listener = None
+            
+            # Nastav timer pro restart listeneru pokud selhal
+            if hasattr(self, 'db_listener_restart_timer'):
+                try:
+                    self.db_listener_restart_timer.stop()
+                except:
+                    pass
+            
+            from PySide6.QtCore import QTimer
+            self.db_listener_restart_timer = QTimer()
+            self.db_listener_restart_timer.timeout.connect(self.retry_database_listener)
+            self.db_listener_restart_timer.start(30000)  # Zkus restart každých 30 sekund
+            print("🔄 Timer pro restart database listeneru nastaven (30s)")
+            
+    def retry_database_listener(self):
+        """Pokusí se znovu spustit database listener pokud není aktivní."""
+        if not hasattr(self, 'db_listener') or self.db_listener is None:
+            print("🔄 Pokouším se restartovat database listener...")
+            self.setup_database_listeners()
+        elif hasattr(self.db_listener, 'listening') and not self.db_listener.listening:
+            print("🔄 Database listener není aktivní, restartujem...")
+            try:
+                self.db_listener.stop_listening()
+            except:
+                pass
+            self.db_listener = None
+            self.setup_database_listeners()
+        else:
+            # Listener běží, zastav restart timer
+            if hasattr(self, 'db_listener_restart_timer'):
+                self.db_listener_restart_timer.stop()
+                print("✅ Database listener běží, restart timer zastaven")
 
     def on_reservation_changed(self, data):
         """Reakce na změnu rezervace v databázi."""
@@ -2333,6 +2392,16 @@ class HlavniOkno(QMainWindow):
 
     def closeEvent(self, event):
         """Obsluha zavření aplikace"""
+        print("🛑 Zavírám aplikaci...")
+        
+        # Zastavit database listener restart timer
+        if hasattr(self, 'db_listener_restart_timer'):
+            try:
+                self.db_listener_restart_timer.stop()
+                print("✅ Database listener restart timer zastaven")
+            except Exception as e:
+                print(f"⚠️ Chyba při zastavování restart timeru: {e}")
+        
         # Zastavit database listener
         if hasattr(self, 'db_listener') and self.db_listener:
             try:
@@ -2341,10 +2410,24 @@ class HlavniOkno(QMainWindow):
             except Exception as e:
                 print(f"⚠️ Chyba při zastavování database listeneru: {e}")
         
-        # Zastavit timery
+        # Zastavit refresh timery
         if hasattr(self, 'refresh_timer') and self.refresh_timer:
-            self.refresh_timer.stop()
+            try:
+                self.refresh_timer.stop()
+                print("✅ Refresh timer zastaven")
+            except Exception as e:
+                print(f"⚠️ Chyba při zastavování refresh timeru: {e}")
         
+        # Zavřít všechny otevřené dialogy
+        if hasattr(self, 'open_dialogs'):
+            for dialog in self.open_dialogs:
+                try:
+                    if dialog and dialog.isVisible():
+                        dialog.close()
+                except:
+                    pass
+        
+        print("✅ Aplikace úspěšně zavřena")
         event.accept()
 
     def sync_table_scrolling(self, source_mistnost, value):
@@ -2363,3 +2446,26 @@ class HlavniOkno(QMainWindow):
                     scrollbar.setValue(value)
         finally:
             self._syncing_scroll = False
+    
+    def tisk_aktualni_den(self):
+        """Vytiskne rezervace pro aktuálně vybraný den."""
+        try:
+            # Získáme aktuální datum
+            datum = self.kalendar.date()
+            datum_str_display = datum.toString("dd.MM.yyyy")  # Pro zobrazení
+            datum_str_db = datum.toString("yyyy-MM-dd")       # Pro databázi
+            
+            # Získáme data pro tisk (používáme formát pro databázi)
+            rezervace = ziskej_rezervace_dne(datum_str_db)
+            rozvrh_doktoru = ziskej_rozvrh_doktoru_dne(datum_str_db)
+            ordinace = get_ordinace_list()
+            
+            # Vytvoříme instanci tiskové třídy
+            tisk = TiskRezervaci(self)
+            
+            # Spustíme tisk (předáváme zobrazovací formát pro tisk)
+            tisk.tisk_aktualni_den(datum_str_display, rezervace, rozvrh_doktoru, ordinace)
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Chyba", f"Chyba při tisku: {str(e)}")
+            print(f"Chyba při tisku: {e}")
