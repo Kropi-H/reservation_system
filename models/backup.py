@@ -2,6 +2,8 @@ import os
 import subprocess
 import shutil
 import socket
+import hashlib
+import getpass
 from datetime import datetime, timedelta
 from pathlib import Path
 from config import get_database_config, get_database_type
@@ -20,8 +22,6 @@ class BackupManager:
         self.db_type = get_database_type()
         
         # Identifikátor instance (hostname + hash pro stabilitu)
-        import hashlib
-        import getpass
         # Vytvoří stabilní ID na základě hostname + username + working directory
         stable_data = f"{socket.gethostname()}_{getpass.getuser()}_{os.getcwd()}"
         instance_hash = hashlib.md5(stable_data.encode()).hexdigest()[:8]

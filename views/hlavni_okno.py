@@ -3,7 +3,6 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QLabel,
                                QDateEdit, QHBoxLayout, QTableWidget, QApplication, QMessageBox,
                                QTableWidgetItem, QMenuBar, QMenu, QMainWindow, QAbstractItemView,
                                QSystemTrayIcon, QCheckBox, QInputDialog, QTabWidget, QDialog)
-from PySide6.QtGui import QAction
 from PySide6.QtCore import QDate, QLocale, QTimer, Qt
 from PySide6.QtGui import QColor, QPixmap, QAction, QFont, QIcon, QShortcut, QKeySequence
 from views.formular_rezervace import FormularRezervace
@@ -13,7 +12,6 @@ from models.ordinace import get_all_ordinace
 from models.doktori import uloz_nebo_uprav_ordinacni_cas, ziskej_rozvrh_doktoru_dne, get_all_doctors_colors, get_doktor_isactive_by_color, uprav_ordinacni_cas
 from views.login_dialog import LoginDialog
 from controllers.data import table_grey_strip, vaccination_color, pause_color, anesthesia_color
-# from controllers.rezervace_controller import uloz_rezervaci
 from models.databaze import get_doktori, set_database_path, inicializuj_databazi
 from config import test_database_connection
 from views.vyber_doktora_dialog import VyberDoktoraDialog
@@ -39,14 +37,25 @@ from models.rezervace import smaz_rezervace_starsi_nez, aktualizuj_stav_rezervac
 from models.settings import get_settings
 from models.backup import backup_manager
 from chat.chat_widget import ChatWidget
-import json  # Přidejte tento import
+import json
 import logging
 
 # Nastavení logování
 logger = logging.getLogger(__name__)
 
-# Smazání rezervací starších než nastavený počet dní
-smaz_rezervace_starsi_nez(get_settings("days_to_keep"))
+# Smazání rezervací starších než nastavený počet dní - pouze na instancích s povoleným zálohováním
+if backup_manager.auto_backup_enabled:
+    logger.info(f"Instance {backup_manager.instance_id} má povoleno zálohování - spouštím mazání starých dat")
+    days_to_keep = get_settings("days_to_keep")
+    if days_to_keep and int(days_to_keep) > 0:
+        result = smaz_rezervace_starsi_nez(days_to_keep)
+        if result and isinstance(result, dict):
+            logger.info(f"Automatické mazání: smazáno {result.get('pocet_smazanych_rezervaci', 0)} rezervací "
+                       f"a {result.get('pocet_smazanych_ordinacnich_casu', 0)} ordinačních časů")
+    else:
+        logger.info("Mazání starých dat je zakázáno (days_to_keep = 0 nebo není nastaveno)")
+else:
+    logger.info(f"Instance {backup_manager.instance_id} nemá povoleno zálohování - přeskakuji mazání starých dat")
 
 # Automatická záloha při spuštění (pokud je potřeba)
 try:
