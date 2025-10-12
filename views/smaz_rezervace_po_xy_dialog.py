@@ -7,7 +7,7 @@ from controllers.data import basic_style
 class SmazRezervaceDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Zrušení rezervací")
+        self.setWindowTitle("Zrušení rezervací a ordinačních časů")
         self.setFixedSize(350, 250)
 
         self.days_to_keep = int(get_settings("days_to_keep"))
@@ -20,7 +20,7 @@ class SmazRezervaceDialog(QDialog):
         layout.setContentsMargins(15, 15, 15, 15)
 
         # Hlavní label
-        self.label = QLabel(f"Zadejte počet dní pro smazání rezervací:\nPokud je 0, rezervace se mazat nebudou.\nAktuální nastavení: {self.days_to_keep} dní.")
+        self.label = QLabel(f"Zadejte počet dní pro smazání rezervací a ordinačních časů:\nPokud je 0, data se mazat nebudou.\nAktuální nastavení: {self.days_to_keep} dní.")
         self.label.setAlignment(Qt.AlignCenter)
         self.label.setWordWrap(True)
         layout.addWidget(self.label)
@@ -65,7 +65,7 @@ class SmazRezervaceDialog(QDialog):
         return self.days_input.value()
     
     def set_days_to_keep(self):
-        """Nastaví počet dní pro uchování rezervací."""
+        """Nastaví počet dní pro uchování rezervací a ordinačních časů."""
         try:
             days = self.days_input.value()
             if days <= 0:
@@ -74,6 +74,15 @@ class SmazRezervaceDialog(QDialog):
             self.days_slider.setValue(days)
             save_settings({"days_to_keep": str(days)})
             result = smaz_rezervace_starsi_nez(days)
+            
+            # Zobraz informaci o výsledku mazání
+            if result and isinstance(result, dict):
+                zprava = (f"Úspěšně smazáno:\n"
+                         f"• {result.get('pocet_smazanych_rezervaci', 0)} rezervací\n"
+                         f"• {result.get('pocet_smazanych_ordinacnich_casu', 0)} ordinačních časů\n"
+                         f"Starších než {result.get('datum_hranice', 'neznámé datum')}")
+                QMessageBox.information(self, "Výsledek mazání", zprava)
+            
             return result
         except ValueError as e:
              QMessageBox.information(

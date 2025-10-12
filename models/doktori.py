@@ -469,3 +469,40 @@ def remove_doctor(doktor_id):
             notify_database_change('doctor', 'DELETE', {
                 'id': doktor_id
             })
+
+
+def smaz_ordinacni_casy_starsi_nez(pocet_dni):
+    """
+    Smaže ordinační časy doktorů starší než zadaný počet dní od dneška.
+    Pokud je pocet_dni = 0, nic se neudělá.
+    
+    Args:
+        pocet_dni (int): Počet dní od dneška. Ordinační časy starší budou smazány.
+    
+    Returns:
+        dict: Slovník s počtem smazaných záznamů a datem hranice
+    """
+    from datetime import datetime, timedelta
+    
+    pocet_dni = int(pocet_dni)
+    if pocet_dni <= 0:
+        return {"pocet_smazanych": 0, "datum_hranice": None}
+    
+    # Vypočítáme datum hranice
+    datum_hranice = datetime.now() - timedelta(days=pocet_dni)
+    datum_hranice_str = datum_hranice.strftime('%Y-%m-%d')
+    
+    with get_connection() as conn:
+        cur = conn.cursor()
+        
+        # Smažeme staré ordinační časy
+        cur.execute('''
+        DELETE FROM Doktori_Ordinacni_Cas 
+        WHERE datum < %s
+        ''', (datum_hranice_str,))
+        
+        pocet_smazanych = cur.rowcount
+        
+        conn.commit()
+        
+        return {"pocet_smazanych": pocet_smazanych, "datum_hranice": datum_hranice_str}

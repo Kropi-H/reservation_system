@@ -296,18 +296,20 @@ def remove_all_older_rezervations_for_ordinaci(ordinace_id):
     
 def smaz_rezervace_starsi_nez(pocet_dni):
     """
-    Smaže rezervace starší než zadaný počet dní od dneška.
+    Smaže rezervace a ordinační časy doktorů starší než zadaný počet dní od dneška.
     Pokud je pocet_dni = 0, nic se neudělá.
     
     Args:
-        pocet_dni (int): Počet dní od dneška. Rezervace starší budou smazány.
+        pocet_dni (int): Počet dní od dneška. Rezervace a ordinační časy starší budou smazány.
     
     Returns:
-        int: Počet smazaných rezervací
+        dict: Slovník s počty smazaných rezervací a ordinačních časů
     """
+    from models.doktori import smaz_ordinacni_casy_starsi_nez
+    
     pocet_dni = int(pocet_dni)
     if pocet_dni <= 0:
-        return 0
+        return {"pocet_smazanych_rezervaci": 0, "pocet_smazanych_ordinacnich_casu": 0, "datum_hranice": None}
     
     # Vypočítáme datum hranice
     datum_hranice = datetime.now() - timedelta(days=pocet_dni)
@@ -331,7 +333,7 @@ def smaz_rezervace_starsi_nez(pocet_dni):
         WHERE DATE(termin) < %s
         ''', (datum_hranice_str,))
         
-        pocet_smazanych = cur.rowcount
+        pocet_smazanych_rezervaci = cur.rowcount
         
         # Zkontrolujeme, kteří pacienti už nemají žádné rezervace
         for pacient_id in pacienti_ke_smazani:
@@ -344,8 +346,15 @@ def smaz_rezervace_starsi_nez(pocet_dni):
                 cur.execute('DELETE FROM Pacienti WHERE pacient_id = %s', (pacient_id,))
         
         conn.commit()
-        
-        return {"pocet_smazanych": pocet_smazanych, "datum_hranice": datum_hranice_str}
+    
+    # Smažeme také staré ordinační časy doktorů
+    result_ordinacni_casy = smaz_ordinacni_casy_starsi_nez(pocet_dni)
+    
+    return {
+        "pocet_smazanych_rezervaci": pocet_smazanych_rezervaci,
+        "pocet_smazanych_ordinacnich_casu": result_ordinacni_casy["pocet_smazanych"],
+        "datum_hranice": datum_hranice_str
+    }
       
 def kontrola_prekryvani_rezervaci(termin, cas_od, cas_do, mistnost, rezervace_id=None):
     with get_connection() as conn:
